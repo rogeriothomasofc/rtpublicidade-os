@@ -272,8 +272,15 @@ export function FocusMode() {
   const [secondsLeft, setSecondsLeft] = useState(DEFAULT_SETTINGS.focusMin * 60);
   const [pomodoroCount, setPomodoroCount] = useState(0);
   const [soundMuted, setSoundMuted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'timer' | 'sound' | 'welcome'>('timer');
+  const [activeTab, setActiveTab] = useState<'timer' | 'music' | 'sound' | 'welcome'>('timer');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [musicEnabled, setMusicEnabled] = useState(false);
+  const [musicLoop, setMusicLoop] = useState(true);
+  const [musicVolume, setMusicVolume] = useState(0.8);
+  const [musicFile, setMusicFile] = useState<string | null>(null);
+  const [musicName, setMusicName] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputMusicRef = useRef<HTMLInputElement>(null);
 
   // Total de segundos para a fase atual
   const totalSeconds = useCallback(() => {
@@ -427,7 +434,7 @@ export function FocusMode() {
 
             {/* Tabs */}
             <div className="flex gap-1 px-4 pt-3">
-              {(['timer', 'sound', 'welcome'] as const).map(tab => (
+              {(['timer', 'music', 'sound', 'welcome'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -438,7 +445,7 @@ export function FocusMode() {
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  {tab === 'timer' ? 'Pomodoro' : tab === 'sound' ? 'Sons' : 'Rotina'}
+                  {tab === 'timer' ? 'Timer' : tab === 'music' ? 'Música' : tab === 'sound' ? 'Sons' : 'Rotina'}
                 </button>
               ))}
             </div>
