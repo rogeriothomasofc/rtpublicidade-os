@@ -1,0 +1,78 @@
+import { MainLayout } from '@/components/layout/MainLayout';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Plug, User, Building2, Zap, Target, ScrollText, Megaphone } from 'lucide-react';
+import { IntegrationsTab } from '@/components/settings/IntegrationsTab';
+import { ProfileTab } from '@/components/settings/ProfileTab';
+import { AgencyTab } from '@/components/settings/AgencyTab';
+import { AutomationsTab } from '@/components/settings/AutomationsTab';
+import { MonthlyGoalsTab } from '@/components/settings/MonthlyGoalsTab';
+import { ChangelogTab } from '@/components/settings/ChangelogTab';
+import { AnnouncementsTab } from '@/components/settings/AnnouncementsTab';
+
+export default function SettingsPage() {
+  return (
+    <MainLayout>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
+          <p className="text-muted-foreground">Gerencie integrações, perfil e dados da agência.</p>
+        </div>
+
+        <Tabs defaultValue="integrations" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="integrations" className="gap-2">
+              <Plug className="w-4 h-4" />
+              Integrações
+            </TabsTrigger>
+            <TabsTrigger value="profile" className="gap-2">
+              <User className="w-4 h-4" />
+              Meu Perfil
+            </TabsTrigger>
+            <TabsTrigger value="agency" className="gap-2">
+              <Building2 className="w-4 h-4" />
+              Agência
+            </TabsTrigger>
+            <TabsTrigger value="automations" className="gap-2">
+              <Zap className="w-4 h-4" />
+              Automações
+            </TabsTrigger>
+            <TabsTrigger value="goals" className="gap-2">
+              <Target className="w-4 h-4" />
+              Metas
+            </TabsTrigger>
+            <TabsTrigger value="announcements" className="gap-2">
+              <Megaphone className="w-4 h-4" />
+              Avisos
+            </TabsTrigger>
+            <TabsTrigger value="changelog" className="gap-2">
+              <ScrollText className="w-4 h-4" />
+              Atualizações
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="integrations">
+            <IntegrationsTab />
+          </TabsContent>
+          <TabsContent value="profile">
+            <ProfileTab />
+          </TabsContent>
+          <TabsContent value="agency">
+            <AgencyTab />
+          </TabsContent>
+          <TabsContent value="automations">
+            <AutomationsTab />
+          </TabsContent>
+          <TabsContent value="goals">
+            <MonthlyGoalsTab />
+          </TabsContent>
+          <TabsContent value="announcements">
+            <AnnouncementsTab />
+          </TabsContent>
+          <TabsContent value="changelog">
+            <ChangelogTab />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </MainLayout>
+  );
+}

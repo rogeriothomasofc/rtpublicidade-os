@@ -1,0 +1,1 @@
+ALTER TABLE public.planning_campaigns ADD COLUMN ai_summary text DEFAULT null;
