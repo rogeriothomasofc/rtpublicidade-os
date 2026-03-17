@@ -28,6 +28,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, List, CalendarDays, LayoutDashboard } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMemo } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 
 export default function TasksPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -126,13 +127,19 @@ export default function TasksPage() {
     await updateTaskStatus.mutateAsync({ id: task.id, status: 'Concluído' });
   };
 
-  // Filter tasks using extracted utility
+  // Debounce only the text search — other filter changes (status, client…) stay immediate
+  const debouncedSearch = useDebounce(filters.search, 300);
+  const effectiveFilters = useMemo(
+    () => ({ ...filters, search: debouncedSearch }),
+    [filters, debouncedSearch],
+  );
+
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
-    return filterTasks(tasks, filters);
-  }, [tasks, filters]);
+    return filterTasks(tasks, effectiveFilters);
+  }, [tasks, effectiveFilters]);
 
-  const hasFilters = isFilterActive(filters);
+  const hasFilters = isFilterActive(effectiveFilters);
 
   if (isLoading) {
     return (

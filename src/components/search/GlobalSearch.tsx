@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useNavigate } from 'react-router-dom';
 import { Users, CheckSquare, TrendingUp, FileText, FileCheck } from 'lucide-react';
 import {
@@ -38,6 +39,7 @@ const STATUS_COLORS: Record<string, string> = {
 export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+  const debouncedQuery = useDebounce(query, 300);
 
   const { data: clients } = useClients();
   const { data: tasks } = useTasks();
@@ -45,7 +47,8 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
   const { data: contracts } = useContracts();
   const { data: proposals } = useProposals();
 
-  const q = query.toLowerCase().trim();
+  // Use debounced value for filtering; raw `query` drives the input display and hint guards
+  const q = debouncedQuery.toLowerCase().trim();
 
   const filteredClients = q.length >= 2
     ? (clients || []).filter(c =>
@@ -104,10 +107,10 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
         onValueChange={setQuery}
       />
       <CommandList>
-        {q.length >= 2 && !hasResults && (
+        {query.length >= 2 && q.length >= 2 && !hasResults && (
           <CommandEmpty>Nenhum resultado para "{query}"</CommandEmpty>
         )}
-        {q.length < 2 && (
+        {query.length < 2 && (
           <div className="py-8 text-center text-sm text-muted-foreground">
             Digite pelo menos 2 caracteres para buscar
           </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useClients, useCreateClient, useUpdateClient, useDeleteClient, createOnboardingParentTask, ONBOARDING_SUBTASKS } from '@/hooks/useClients';
@@ -36,6 +37,7 @@ export default function ClientsPage() {
   const createSubtasks = useCreateManySubtasks();
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -60,8 +62,8 @@ export default function ClientsPage() {
   });
 
   const filteredClients = clients?.filter(client => {
-    const matchesSearch = client.name.toLowerCase().includes(search.toLowerCase()) ||
-      client.company.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = client.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      client.company.toLowerCase().includes(debouncedSearch.toLowerCase());
     const matchesStatus = statusFilter === 'all' || client.status === statusFilter;
     return matchesSearch && matchesStatus;
   }) || [];
@@ -410,13 +412,13 @@ export default function ClientsPage() {
                     <TableCell colSpan={5} className="p-0">
                       <EmptyState
                         icon={Users2}
-                        title={search || statusFilter !== 'all' ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}
-                        description={search || statusFilter !== 'all'
+                        title={debouncedSearch || statusFilter !== 'all' ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}
+                        description={debouncedSearch || statusFilter !== 'all'
                           ? 'Tente ajustar os filtros ou a busca.'
                           : 'Adicione seu primeiro cliente para começar a gerenciar a carteira.'}
                         actionLabel="+ Adicionar Cliente"
                         onAction={() => setIsDialogOpen(true)}
-                        filtered={!!(search || statusFilter !== 'all')}
+                        filtered={!!(debouncedSearch || statusFilter !== 'all')}
                       />
                     </TableCell>
                   </TableRow>

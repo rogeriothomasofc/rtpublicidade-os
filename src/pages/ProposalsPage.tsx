@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import { MainLayout } from '@/components/layout/MainLayout';
 import {
   useProposals,
@@ -68,6 +69,7 @@ export default function ProposalsPage() {
   const createContract = useCreateContract();
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [statusFilter, setStatusFilter] = useState('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProposal, setEditingProposal] = useState<Proposal | null>(null);
@@ -76,10 +78,10 @@ export default function ProposalsPage() {
 
   const filtered = proposals?.filter(p => {
     const matchSearch =
-      p.client?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      p.company?.toLowerCase().includes(search.toLowerCase()) ||
-      p.responsible?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      p.plan_type?.toLowerCase().includes(search.toLowerCase());
+      p.client?.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      p.company?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      p.responsible?.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      p.plan_type?.toLowerCase().includes(debouncedSearch.toLowerCase());
     const matchStatus = statusFilter === 'all' || p.status === statusFilter;
     return matchSearch && matchStatus;
   }) || [];
@@ -285,13 +287,13 @@ export default function ProposalsPage() {
                     <TableCell colSpan={10} className="p-0">
                       <EmptyState
                         icon={FileCheck2}
-                        title={search || statusFilter !== 'all' ? 'Nenhuma proposta encontrada' : 'Nenhuma proposta cadastrada'}
-                        description={search || statusFilter !== 'all'
+                        title={debouncedSearch || statusFilter !== 'all' ? 'Nenhuma proposta encontrada' : 'Nenhuma proposta cadastrada'}
+                        description={debouncedSearch || statusFilter !== 'all'
                           ? 'Tente ajustar os filtros ou a busca.'
                           : 'Crie sua primeira proposta comercial e envie para prospects.'}
                         actionLabel="+ Nova Proposta"
                         onAction={() => setIsFormOpen(true)}
-                        filtered={!!(search || statusFilter !== 'all')}
+                        filtered={!!(debouncedSearch || statusFilter !== 'all')}
                       />
                     </TableCell>
                   </TableRow>

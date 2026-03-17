@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useFinance, useCreateFinance, useUpdateFinance, useDeleteFinance } from '@/hooks/useFinance';
 import { useClients } from '@/hooks/useClients';
@@ -54,6 +55,7 @@ export default function FinancePage() {
   const deleteFinance = useDeleteFinance();
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [showPaid, setShowPaid] = useState(false);
@@ -100,10 +102,10 @@ export default function FinancePage() {
 
   // Filtered finance for table
   const filteredFinance = allFinance.filter(f => {
-    const matchesSearch = f.client?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      f.description?.toLowerCase().includes(search.toLowerCase()) ||
-      f.category?.toLowerCase().includes(search.toLowerCase()) ||
-      f.cost_center?.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = f.client?.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      f.description?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      f.category?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      f.cost_center?.toLowerCase().includes(debouncedSearch.toLowerCase());
 
     let matchesStatus = true;
     if (statusFilter !== 'all') {
@@ -404,13 +406,13 @@ export default function FinancePage() {
                         <TableCell colSpan={8} className="p-0">
                           <EmptyState
                             icon={Receipt}
-                            title={search || statusFilter !== 'all' || typeFilter !== 'all' ? 'Nenhum lançamento encontrado' : 'Nenhum lançamento cadastrado'}
-                            description={search || statusFilter !== 'all' || typeFilter !== 'all'
+                            title={debouncedSearch || statusFilter !== 'all' || typeFilter !== 'all' ? 'Nenhum lançamento encontrado' : 'Nenhum lançamento cadastrado'}
+                            description={debouncedSearch || statusFilter !== 'all' || typeFilter !== 'all'
                               ? 'Tente ajustar os filtros ou a busca.'
                               : 'Registre receitas e despesas para controlar o financeiro da agência.'}
                             actionLabel="+ Novo Lançamento"
                             onAction={() => setIsDialogOpen(true)}
-                            filtered={!!(search || statusFilter !== 'all' || typeFilter !== 'all')}
+                            filtered={!!(debouncedSearch || statusFilter !== 'all' || typeFilter !== 'all')}
                           />
                         </TableCell>
                       </TableRow>
