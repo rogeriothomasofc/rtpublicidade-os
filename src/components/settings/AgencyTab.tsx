@@ -30,18 +30,27 @@ export function AgencyTab() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Check if user is admin
+  // Check if user is admin — uses profiles table which has permissive SELECT
   const { data: isAdmin, isLoading: loadingRole } = useQuery({
     queryKey: ['user-is-admin', user?.id],
     queryFn: async () => {
       if (!user) return false;
-      const { data } = await supabase
+      // Try user_roles first
+      const { data: roleData } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
         .eq('role', 'admin')
         .maybeSingle();
-      return !!data;
+      if (roleData) return true;
+      // Fallback: check profiles table
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+      return !!profileData;
     },
     enabled: !!user,
   });

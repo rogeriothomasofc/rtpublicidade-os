@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PWAProvider, PWAInstallPrompt, PWAUpdatePrompt, OfflineBanner } from "@/components/pwa";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import AuthPage from "./pages/AuthPage";
+import { FocusMode } from "@/components/focus/FocusMode";
 import NotFound from "./pages/NotFound";
 import OfflinePage from "./pages/OfflinePage";
 
@@ -65,6 +66,7 @@ const App = () => (
           </Routes>
         </Suspense>
       </BrowserRouter>
+      <FocusMode />
     </TooltipProvider>
   </QueryClientProvider>
 );
