@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Play, Pause, RotateCcw, Volume2, VolumeX, Zap, Coffee, Wind, Waves, Moon, Music } from 'lucide-react';
+import { X, Play, Pause, RotateCcw, Volume2, VolumeX, Zap, Coffee, Wind, Waves, Moon, Music, Repeat, Trash2, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -55,7 +54,12 @@ const PHASE_LABELS: Record<Phase, string> = {
 class AudioEngine {
   private ctx: AudioContext | null = null;
   private gainNode: GainNode | null = null;
-  private nodes: AudioNode[] = [];
+  // Only long-running loop nodes that need explicit stop() on cleanup.
+  // Short-lived oscillators are NOT tracked here — they self-cleanup via onended.
+  private loopNodes: AudioNode[] = [];
+  // Cancel token: shared by reference with active sound callbacks.
+  // Flipping cancel=true stops all recursive setTimeout chains immediately.
+  private activeToken: { cancel: boolean } = { cancel: false };
   private currentSound: SoundType = 'none';
 
   private getCtx(): AudioContext {
@@ -68,8 +72,11 @@ class AudioEngine {
   }
 
   private stopAll() {
-    this.nodes.forEach(n => { try { (n as any).stop?.(); n.disconnect(); } catch {} });
-    this.nodes = [];
+    // Cancel all pending recursive callbacks by flipping the shared token
+    this.activeToken.cancel = true;
+    // Stop and release all looping nodes
+    this.loopNodes.forEach(n => { try { (n as any).stop?.(); n.disconnect(); } catch {} });
+    this.loopNodes = [];
   }
 
   setVolume(v: number) {
@@ -82,6 +89,10 @@ class AudioEngine {
     this.currentSound = sound;
     if (sound === 'none') return;
 
+    // New token for this sound session; passed by reference into callbacks
+    const token = { cancel: false };
+    this.activeToken = token;
+
     const ctx = this.getCtx();
     if (ctx.state === 'suspended') ctx.resume();
     this.gainNode!.gain.value = volume;
@@ -89,12 +100,33 @@ class AudioEngine {
     if (sound === 'white' || sound === 'night') {
       this.makeNoise(sound);
     } else if (sound === 'rain') {
-      this.makeRain();
+      this.makeRain(token);
     } else if (sound === 'cafe') {
-      this.makeCafe();
+      this.makeCafe(token);
     } else if (sound === 'forest') {
-      this.makeForest();
+      this.makeForest(token);
     }
+  }
+
+  // Creates a looping buffer source and registers it for cleanup on stop()
+  private makeLoopSource(buffer: AudioBuffer): AudioBufferSourceNode {
+    const source = this.getCtx().createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    this.loopNodes.push(source);
+    return source;
+  }
+
+  // Connects, starts and schedules stop for a short-lived oscillator.
+  // Uses onended to disconnect nodes — no manual tracking needed.
+  private fireOsc(osc: OscillatorNode, gain: GainNode, startAt: number, duration: number) {
+    osc.connect(gain);
+    gain.connect(this.gainNode!);
+    osc.start(startAt);
+    osc.stop(startAt + duration);
+    osc.onended = () => {
+      try { osc.disconnect(); gain.disconnect(); } catch { /* already disconnected */ }
+    };
   }
 
   private makeNoise(type: 'white' | 'night') {
@@ -114,60 +146,49 @@ class AudioEngine {
       }
     }
 
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-
+    const source = this.makeLoopSource(buffer);
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
     filter.frequency.value = type === 'night' ? 400 : 2000;
+    this.loopNodes.push(filter);
 
     source.connect(filter);
     filter.connect(this.gainNode!);
     source.start();
-    this.nodes.push(source, filter);
   }
 
-  private makeRain() {
+  private makeRain(token: { cancel: boolean }) {
     const ctx = this.getCtx();
     const bufferSize = ctx.sampleRate * 4;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
 
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-
+    const source = this.makeLoopSource(buffer);
     const hi = ctx.createBiquadFilter();
     hi.type = 'bandpass';
     hi.frequency.value = 1200;
     hi.Q.value = 0.5;
+    this.loopNodes.push(hi);
 
     source.connect(hi);
     hi.connect(this.gainNode!);
     source.start();
-    this.nodes.push(source, hi);
 
-    // add occasional drops
     const drip = () => {
-      if (this.currentSound !== 'rain') return;
+      if (token.cancel) return;
       const osc = ctx.createOscillator();
       const g = ctx.createGain();
       osc.frequency.value = 800 + Math.random() * 400;
       g.gain.setValueAtTime(0.03, ctx.currentTime);
       g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
-      osc.connect(g);
-      g.connect(this.gainNode!);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.15);
-      this.nodes.push(osc, g);
+      this.fireOsc(osc, g, ctx.currentTime, 0.15);
       setTimeout(drip, 200 + Math.random() * 600);
     };
     drip();
   }
 
-  private makeCafe() {
+  private makeCafe(token: { cancel: boolean }) {
     const ctx = this.getCtx();
     // Baixo murmúrio de vozes
     const bufferSize = ctx.sampleRate * 4;
@@ -175,40 +196,33 @@ class AudioEngine {
     const d = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) d[i] = Math.random() * 2 - 1;
 
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-    src.loop = true;
-
+    const src = this.makeLoopSource(buffer);
     const bp = ctx.createBiquadFilter();
     bp.type = 'bandpass';
     bp.frequency.value = 350;
     bp.Q.value = 0.8;
+    this.loopNodes.push(bp);
 
     src.connect(bp);
     bp.connect(this.gainNode!);
     src.start();
-    this.nodes.push(src, bp);
 
     // xícaras ocasionais
     const clink = () => {
-      if (this.currentSound !== 'cafe') return;
+      if (token.cancel) return;
       const osc = ctx.createOscillator();
       const g = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.value = 1800 + Math.random() * 600;
       g.gain.setValueAtTime(0.02, ctx.currentTime);
       g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
-      osc.connect(g);
-      g.connect(this.gainNode!);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.4);
-      this.nodes.push(osc, g);
+      this.fireOsc(osc, g, ctx.currentTime, 0.4);
       setTimeout(clink, 3000 + Math.random() * 8000);
     };
     clink();
   }
 
-  private makeForest() {
+  private makeForest(token: { cancel: boolean }) {
     const ctx = this.getCtx();
     // Vento suave
     const bufferSize = ctx.sampleRate * 4;
@@ -216,37 +230,31 @@ class AudioEngine {
     const d = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) d[i] = Math.random() * 2 - 1;
 
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-    src.loop = true;
-
+    const src = this.makeLoopSource(buffer);
     const lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
     lp.frequency.value = 600;
+    this.loopNodes.push(lp);
 
     src.connect(lp);
     lp.connect(this.gainNode!);
     src.start();
-    this.nodes.push(src, lp);
 
     // pássaros ocasionais
     const bird = () => {
-      if (this.currentSound !== 'forest') return;
+      if (token.cancel) return;
       const freqs = [1200, 1400, 1600, 1800];
       freqs.forEach((f, i) => {
         const osc = ctx.createOscillator();
         const g = ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(f, ctx.currentTime + i * 0.08);
-        osc.frequency.linearRampToValueAtTime(f * 1.2, ctx.currentTime + i * 0.08 + 0.05);
-        g.gain.setValueAtTime(0, ctx.currentTime + i * 0.08);
-        g.gain.linearRampToValueAtTime(0.025, ctx.currentTime + i * 0.08 + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.08 + 0.1);
-        osc.connect(g);
-        g.connect(this.gainNode!);
-        osc.start(ctx.currentTime + i * 0.08);
-        osc.stop(ctx.currentTime + i * 0.08 + 0.12);
-        this.nodes.push(osc, g);
+        const t = ctx.currentTime + i * 0.08;
+        osc.frequency.setValueAtTime(f, t);
+        osc.frequency.linearRampToValueAtTime(f * 1.2, t + 0.05);
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.025, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+        this.fireOsc(osc, g, t, 0.12);
       });
       setTimeout(bird, 4000 + Math.random() * 10000);
     };
@@ -338,8 +346,76 @@ export function FocusMode() {
     if (!open) {
       audioEngine.stop();
       setRunning(false);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        setMusicEnabled(false);
+      }
     }
   }, [open]);
+
+  // Sync music file into the audio element
+  useEffect(() => {
+    if (!audioRef.current || !musicFile) return;
+    audioRef.current.src = musicFile;
+    audioRef.current.volume = musicVolume;
+    audioRef.current.loop = musicLoop;
+  }, [musicFile]);
+
+  // Sync volume changes to the audio element
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = musicVolume;
+  }, [musicVolume]);
+
+  // Sync loop changes to the audio element
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.loop = musicLoop;
+  }, [musicLoop]);
+
+  // Revoke object URL on unmount to avoid memory leak
+  useEffect(() => {
+    return () => {
+      if (musicFile) URL.revokeObjectURL(musicFile);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+    };
+  }, []);
+
+  const handleMusicFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Revoke previous object URL before creating a new one
+    if (musicFile) URL.revokeObjectURL(musicFile);
+    const url = URL.createObjectURL(file);
+    setMusicFile(url);
+    setMusicName(file.name.replace(/\.[^/.]+$/, ''));
+    setMusicEnabled(false);
+    // Reset input so the same file can be re-selected
+    e.target.value = '';
+  }, [musicFile]);
+
+  const toggleMusic = useCallback(() => {
+    if (!audioRef.current || !musicFile) return;
+    if (musicEnabled) {
+      audioRef.current.pause();
+      setMusicEnabled(false);
+    } else {
+      audioRef.current.play().catch(() => toast.error('Não foi possível reproduzir o arquivo.'));
+      setMusicEnabled(true);
+    }
+  }, [musicEnabled, musicFile]);
+
+  const removeMusic = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+    }
+    if (musicFile) URL.revokeObjectURL(musicFile);
+    setMusicFile(null);
+    setMusicName(null);
+    setMusicEnabled(false);
+  }, [musicFile]);
 
   const handlePhaseEnd = () => {
     if (phase === 'focus') {
@@ -379,6 +455,9 @@ export function FocusMode() {
 
   return (
     <>
+      {/* Elemento de áudio persistente — sobrevive a trocas de aba */}
+      <audio ref={audioRef} />
+
       {/* Botão flutuante */}
       <button
         onClick={() => setOpen(true)}
@@ -545,6 +624,113 @@ export function FocusMode() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* ── TAB MÚSICA ── */}
+              {activeTab === 'music' && (
+                <div className="space-y-4">
+                  {/* Input de arquivo oculto */}
+                  <input
+                    ref={fileInputMusicRef}
+                    type="file"
+                    accept="audio/mp3,audio/mpeg,.mp3"
+                    className="hidden"
+                    onChange={handleMusicFileChange}
+                  />
+
+                  {/* Upload zone */}
+                  {!musicFile ? (
+                    <button
+                      onClick={() => fileInputMusicRef.current?.click()}
+                      className={cn(
+                        'w-full py-8 border-2 border-dashed border-border rounded-xl',
+                        'flex flex-col items-center gap-3 transition-colors',
+                        'hover:border-primary/50 hover:bg-primary/5'
+                      )}
+                    >
+                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                        <Upload className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium">Enviar arquivo MP3</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Clique para selecionar</p>
+                      </div>
+                    </button>
+                  ) : (
+                    <>
+                      {/* Track info */}
+                      <div className="bg-muted/30 rounded-xl p-3 flex items-center gap-3">
+                        <div className={cn(
+                          'w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center shrink-0',
+                          musicEnabled && 'animate-pulse'
+                        )}>
+                          <Music className="w-4 h-4 text-primary" />
+                        </div>
+                        <p className="text-xs font-medium truncate flex-1">{musicName}</p>
+                        <button
+                          onClick={removeMusic}
+                          className="text-muted-foreground hover:text-destructive transition-colors ml-1 shrink-0"
+                          title="Remover música"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Play/Pause */}
+                      <div className="flex items-center justify-center gap-3">
+                        <button
+                          onClick={() => fileInputMusicRef.current?.click()}
+                          className="w-9 h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                          title="Trocar arquivo"
+                        >
+                          <Upload className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={toggleMusic}
+                          className={cn(
+                            'w-14 h-14 rounded-full flex items-center justify-center transition-all',
+                            'bg-primary text-primary-foreground hover:scale-105 active:scale-95'
+                          )}
+                        >
+                          {musicEnabled ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-0.5" />}
+                        </button>
+                        <button
+                          onClick={() => setMusicLoop(l => !l)}
+                          className={cn(
+                            'w-9 h-9 rounded-full border flex items-center justify-center transition-colors',
+                            musicLoop
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-border text-muted-foreground hover:text-foreground'
+                          )}
+                          title={musicLoop ? 'Loop ativado' : 'Loop desativado'}
+                        >
+                          <Repeat className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Volume */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Volume da música</span>
+                          <span className="text-xs font-medium">{Math.round(musicVolume * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          value={musicVolume}
+                          onChange={e => setMusicVolume(Number(e.target.value))}
+                          className="w-full accent-primary"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  <p className="text-[10px] text-muted-foreground text-center">
+                    A música toca independentemente dos sons ambientes
+                  </p>
                 </div>
               )}
 
