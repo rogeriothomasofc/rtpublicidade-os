@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -37,11 +38,13 @@ export default function TeamPage() {
 
   const [grantAccess, setGrantAccess] = useState(false);
   const [tempPassword, setTempPassword] = useState('');
+  const [accessLevel, setAccessLevel] = useState<'Gestor' | 'Analista' | 'Criativo'>('Analista');
 
   const resetForm = () => {
     setFormData({ name: '', email: '', role: '', avatar_url: '' });
     setGrantAccess(false);
     setTempPassword('');
+    setAccessLevel('Analista');
   };
 
   const handleOpenCreate = () => {
@@ -88,6 +91,7 @@ export default function TeamPage() {
             password: tempPassword,
             name: formData.name,
             role: formData.role || null,
+            access_level: accessLevel,
             team_member_id: newMember.id,
           },
         });
@@ -235,17 +239,35 @@ export default function TeamPage() {
                     </Label>
                   </div>
                   {grantAccess && (
-                    <div className="space-y-2 pl-6">
-                      <Label>Senha temporária *</Label>
-                      <Input
-                        type="text"
-                        value={tempPassword}
-                        onChange={(e) => setTempPassword(e.target.value)}
-                        placeholder="Mínimo 6 caracteres"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        O membro usará essa senha no "Primeiro Acesso" para definir sua senha definitiva.
-                      </p>
+                    <div className="space-y-3 pl-6">
+                      <div className="space-y-2">
+                        <Label>Nível de acesso *</Label>
+                        <Select
+                          value={accessLevel}
+                          onValueChange={(v) => setAccessLevel(v as typeof accessLevel)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Gestor">Gestor — acesso total</SelectItem>
+                            <SelectItem value="Analista">Analista — acesso operacional</SelectItem>
+                            <SelectItem value="Criativo">Criativo — só tarefas e planejamentos</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Senha temporária *</Label>
+                        <Input
+                          type="text"
+                          value={tempPassword}
+                          onChange={(e) => setTempPassword(e.target.value)}
+                          placeholder="Mínimo 6 caracteres"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          O membro usará essa senha no "Primeiro Acesso" para definir sua senha definitiva.
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>

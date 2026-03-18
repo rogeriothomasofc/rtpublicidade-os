@@ -45,7 +45,7 @@ serve(async (req) => {
       throw new Error("Apenas administradores podem cadastrar membros com acesso ao sistema");
     }
 
-    const { email, password, name, role, team_member_id } = await req.json();
+    const { email, password, name, role, access_level, team_member_id } = await req.json();
 
     if (!email || !password || !name) {
       throw new Error("Email, nome e senha temporária são obrigatórios");
@@ -76,19 +76,22 @@ serve(async (req) => {
 
     console.log("User created:", newUser.user.id);
 
-    // Assign member role
+    // Map access level label to app_role enum: Gestor → admin, others → member
+    const appRole = access_level === "Gestor" ? "admin" : "member";
+
+    // Assign role
     const { error: roleError } = await adminClient
       .from("user_roles")
-      .insert({ user_id: newUser.user.id, role: "member" });
+      .insert({ user_id: newUser.user.id, role: appRole });
 
     if (roleError) {
       console.error("Error assigning role:", roleError);
     }
 
-    // Update profile with role/name
+    // Update profile: store job title in role, access level label for reference
     const { error: profileError } = await adminClient
       .from("profiles")
-      .update({ name, role: role || null })
+      .update({ name, role: access_level || role || null })
       .eq("user_id", newUser.user.id);
 
     if (profileError) {
