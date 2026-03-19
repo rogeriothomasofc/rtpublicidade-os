@@ -1,4 +1,4 @@
-import { useMemo, ReactNode } from 'react';
+import { useMemo, useState, ReactNode } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -74,21 +74,33 @@ function TaskCard({ task, onStatusChange, onTaskClick }: {
   onStatusChange: (taskId: string, status: TaskStatus) => void;
   onTaskClick: (task: TaskWithAssignees) => void;
 }) {
+  const [isDragging, setIsDragging] = useState(false);
   const today = startOfDay(new Date());
   const isOverdue = task.due_date && task.status !== 'Concluído' && isBefore(parseISO(task.due_date), today);
   const nextStatus = STATUS_NEXT[task.status];
 
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('taskId', task.id);
+    e.dataTransfer.effectAllowed = 'move';
+    setIsDragging(true);
+  };
+
+  const handleDragEnd = () => setIsDragging(false);
+
   return (
     <Card
-      className={cn(
-        'cursor-pointer hover:shadow-md transition-all group border-border/60',
-        task.status === 'Concluído' && 'opacity-60',
-        isOverdue && 'border-destructive/30'
-      )}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       onClick={() => onTaskClick(task)}
+      className={cn(
+        'cursor-grab active:cursor-grabbing hover:shadow-md transition-all group border-border/60 select-none',
+        task.status === 'Concluído' && 'opacity-60',
+        isOverdue && 'border-destructive/30',
+        isDragging && 'opacity-40 scale-95 shadow-lg ring-2 ring-primary/30'
+      )}
     >
       <CardContent className="p-3 space-y-2">
-        {/* Title */}
         <p className={cn(
           'text-sm font-medium leading-snug',
           task.status === 'Concluído' && 'line-through text-muted-foreground'
@@ -96,14 +108,12 @@ function TaskCard({ task, onStatusChange, onTaskClick }: {
           {task.title}
         </p>
 
-        {/* Client */}
         {task.client && (
           <p className="text-xs text-muted-foreground truncate">
             {task.client.name}
           </p>
         )}
 
-        {/* Priority + Due date */}
         <div className="flex items-center gap-2 flex-wrap">
           <Badge
             variant="outline"
@@ -127,7 +137,6 @@ function TaskCard({ task, onStatusChange, onTaskClick }: {
           )}
         </div>
 
-        {/* Footer: assignees + advance button */}
         <div className="flex items-center justify-between pt-1">
           <div className="flex -space-x-1">
             {(task.assignees || []).slice(0, 3).map(a => (
@@ -159,6 +168,82 @@ function TaskCard({ task, onStatusChange, onTaskClick }: {
   );
 }
 
+function KanbanColumn({ col, tasks, onStatusChange, onTaskClick }: {
+  col: Column;
+  tasks: TaskWithAssignees[];
+  onStatusChange: (taskId: string, status: TaskStatus) => void;
+  onTaskClick: (task: TaskWithAssignees) => void;
+}) {
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const taskId = e.dataTransfer.getData('taskId');
+    if (taskId) {
+      onStatusChange(taskId, col.status);
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        'flex flex-col gap-3 rounded-xl p-2 transition-all duration-150',
+        isDragOver && 'bg-primary/5 ring-2 ring-primary/30 ring-inset'
+      )}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Column header */}
+      <div className={cn('pb-2', col.headerClass)}>
+        <div className="flex items-center justify-between">
+          <div className={cn('flex items-center gap-2 font-medium text-sm', col.color)}>
+            {col.icon}
+            {col.label}
+          </div>
+          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+            {tasks.length}
+          </span>
+        </div>
+      </div>
+
+      {/* Cards */}
+      <div className="flex flex-col gap-2 min-h-[60px]">
+        {tasks.length === 0 ? (
+          isDragOver ? (
+            <div className="h-16 rounded-lg border-2 border-dashed border-primary/40 flex items-center justify-center">
+              <span className="text-xs text-primary/50">Soltar aqui</span>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-6">Nenhuma tarefa</p>
+          )
+        ) : (
+          tasks.map(task => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              onStatusChange={onStatusChange}
+              onTaskClick={onTaskClick}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function TasksKanban({ tasks, onStatusChange, onTaskClick }: TasksKanbanProps) {
   const byStatus = useMemo(() => {
     const map: Record<TaskStatus, TaskWithAssignees[]> = {
@@ -175,41 +260,15 @@ export function TasksKanban({ tasks, onStatusChange, onTaskClick }: TasksKanbanP
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
-      {COLUMNS.map(col => {
-        const colTasks = byStatus[col.status];
-        return (
-          <div key={col.status} className="flex flex-col gap-3">
-            {/* Column header */}
-            <div className={cn('pb-2', col.headerClass)}>
-              <div className="flex items-center justify-between">
-                <div className={cn('flex items-center gap-2 font-medium text-sm', col.color)}>
-                  {col.icon}
-                  {col.label}
-                </div>
-                <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-                  {colTasks.length}
-                </span>
-              </div>
-            </div>
-
-            {/* Cards */}
-            <div className="flex flex-col gap-2 min-h-[60px]">
-              {colTasks.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-6">Nenhuma tarefa</p>
-              ) : (
-                colTasks.map(task => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onStatusChange={onStatusChange}
-                    onTaskClick={onTaskClick}
-                  />
-                ))
-              )}
-            </div>
-          </div>
-        );
-      })}
+      {COLUMNS.map(col => (
+        <KanbanColumn
+          key={col.status}
+          col={col}
+          tasks={byStatus[col.status]}
+          onStatusChange={onStatusChange}
+          onTaskClick={onTaskClick}
+        />
+      ))}
     </div>
   );
 }
