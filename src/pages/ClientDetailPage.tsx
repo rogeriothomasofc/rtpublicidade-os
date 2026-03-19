@@ -27,6 +27,7 @@ import { TaskFormDialog } from '@/components/clients/TaskFormDialog';
 import { ClientFinanceDialog } from '@/components/clients/ClientFinanceDialog';
 import { InviteClientDialog } from '@/components/clients/InviteClientDialog';
 import { PortalAccessCard } from '@/components/clients/PortalAccessCard';
+import { MetaAdsCard } from '@/components/clients/MetaAdsCard';
 
 const statusColors: Record<ClientStatus, string> = {
   Lead: 'bg-muted text-muted-foreground',
@@ -399,6 +400,11 @@ export default function ClientDetailPage() {
               </Button>
             )}
           </div>
+        )}
+
+        {/* Meta Ads Performance */}
+        {(client as any).meta_ads_account && (
+          <MetaAdsCard accountId={(client as any).meta_ads_account} />
         )}
 
         {/* Portal Access Stats */}

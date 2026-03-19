@@ -59,8 +59,16 @@ export function IntegrationsTab() {
   const [asaasForm, setAsaasForm] = useState({ apiKey: '', environment: 'sandbox' as 'sandbox' | 'production' });
   const [savingAsaas, setSavingAsaas] = useState(false);
   const [testingAsaas, setTestingAsaas] = useState(false);
+
+  // Meta Ads
+  const [metaDialog, setMetaDialog] = useState(false);
+  const [metaForm, setMetaForm] = useState({ accessToken: '' });
+  const [savingMeta, setSavingMeta] = useState(false);
+  const [testingMeta, setTestingMeta] = useState(false);
+
   const webhookIntegration = integrations?.find((i) => i.provider === 'webhook');
   const asaasIntegration = integrations?.find((i) => i.provider === 'asaas');
+  const metaIntegration = integrations?.find((i) => i.provider === 'meta_ads');
 
   const handleDisconnect = (id: string) => {
     disconnect.mutate(id);
@@ -211,6 +219,68 @@ export function IntegrationsTab() {
     }
   };
 
+  // Meta Ads handlers
+  const handleOpenMetaDialog = () => {
+    const config = metaIntegration?.config as Record<string, unknown> | null;
+    setMetaForm({ accessToken: (config?.access_token as string) || '' });
+    setMetaDialog(true);
+  };
+
+  const handleTestMeta = async () => {
+    if (!metaForm.accessToken.trim()) {
+      toast({ title: 'Informe o Access Token', variant: 'destructive' });
+      return;
+    }
+    setTestingMeta(true);
+    try {
+      const res = await fetch(`https://graph.facebook.com/v19.0/me?access_token=${metaForm.accessToken.trim()}`);
+      const data = await res.json();
+      if (data.error) {
+        toast({ title: 'Token inválido', description: data.error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Token válido!', description: `Conectado como: ${data.name || data.id}` });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      toast({ title: 'Erro ao testar token', description: message, variant: 'destructive' });
+    } finally {
+      setTestingMeta(false);
+    }
+  };
+
+  const handleSaveMeta = () => {
+    if (!metaForm.accessToken.trim()) {
+      toast({ title: 'Informe o Access Token', variant: 'destructive' });
+      return;
+    }
+    setSavingMeta(true);
+    upsert.mutate(
+      {
+        provider: 'meta_ads',
+        name: 'Meta Ads',
+        status: 'connected',
+        config: {
+          access_token: metaForm.accessToken.trim(),
+          connected_at: new Date().toISOString(),
+        } as any,
+      },
+      {
+        onSuccess: () => {
+          setMetaDialog(false);
+          setSavingMeta(false);
+          toast({ title: 'Meta Ads configurado!', description: 'Token salvo com sucesso.' });
+        },
+        onError: () => setSavingMeta(false),
+      }
+    );
+  };
+
+  const handleDisconnectMeta = () => {
+    if (metaIntegration) {
+      disconnect.mutate(metaIntegration.id);
+    }
+  };
+
   const formatSyncDate = (date: string | null) => {
     if (!date) return null;
     try {
@@ -230,6 +300,7 @@ export function IntegrationsTab() {
 
   const isWebhookConnected = webhookIntegration?.status === 'connected';
   const isAsaasConnected = asaasIntegration?.status === 'connected';
+  const isMetaConnected = metaIntegration?.status === 'connected';
 
   return (
     <>
@@ -287,6 +358,57 @@ export function IntegrationsTab() {
                           </>
                         ) : (
                           <Button size="sm" className="gap-1.5" onClick={handleOpenAsaasDialog}>
+                            Conectar
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            {/* Meta Ads */}
+            <Card>
+              <CardContent className="p-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" fill="#1877F2"/>
+                      <path d="M13.188 15.938h-1.5v-5.25h-.938v-1.313h.938V8.813c0-1.25.563-2 1.938-2h1.25v1.312h-.75c-.563 0-.625.188-.625.563v.688h1.438l-.188 1.312h-1.25v5.25h-.313z" fill="white"/>
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="font-semibold">Meta Ads</span>
+                          <Badge variant={isMetaConnected ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                            {isMetaConnected ? 'Conectado' : 'Disponível'}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Painel de performance das contas de anúncios dos clientes
+                        </p>
+                        {isMetaConnected && (
+                          <p className="text-xs text-muted-foreground">
+                            System User Access Token configurado
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isMetaConnected ? (
+                          <>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenMetaDialog}>
+                              <Settings className="w-4 h-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDisconnectMeta}>
+                              <CheckIcon className="w-3.5 h-3.5" />
+                              Conectado
+                            </Button>
+                          </>
+                        ) : (
+                          <Button size="sm" className="gap-1.5" onClick={handleOpenMetaDialog}>
                             Conectar
                             <ExternalLink className="w-3.5 h-3.5" />
                           </Button>
@@ -497,6 +619,49 @@ export function IntegrationsTab() {
             </Button>
             <Button onClick={handleSaveAsaas} disabled={savingAsaas || upsert.isPending}>
               {savingAsaas ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Meta Ads Dialog */}
+      <Dialog open={metaDialog} onOpenChange={setMetaDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Configurar Meta Ads</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground space-y-1">
+              <p className="font-medium text-foreground">Como obter o Access Token:</p>
+              <ol className="list-decimal list-inside space-y-1 text-xs">
+                <li>Acesse o <strong>Business Manager</strong> da sua agência</li>
+                <li>Vá em Configurações → Usuários do sistema</li>
+                <li>Crie ou selecione um <strong>Usuário do sistema admin</strong></li>
+                <li>Clique em "Gerar novo token" e selecione as permissões de ads_read</li>
+                <li>Copie o token gerado e cole abaixo</li>
+              </ol>
+            </div>
+            <div className="space-y-2">
+              <Label>System User Access Token</Label>
+              <Input
+                type="password"
+                value={metaForm.accessToken}
+                onChange={(e) => setMetaForm((f) => ({ ...f, accessToken: e.target.value }))}
+                placeholder="EAAxxxxxxxxxxxxxxx..."
+              />
+              <p className="text-xs text-muted-foreground">
+                O token é armazenado de forma segura e utilizado para buscar métricas das contas vinculadas aos clientes.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={handleTestMeta} disabled={testingMeta}>
+              {testingMeta ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Wifi className="w-4 h-4 mr-1" />}
+              Testar token
+            </Button>
+            <Button onClick={handleSaveMeta} disabled={savingMeta || upsert.isPending}>
+              {savingMeta ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
               Salvar
             </Button>
           </DialogFooter>
