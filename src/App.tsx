@@ -8,9 +8,11 @@ import { PWAProvider, PWAInstallPrompt, OfflineBanner } from "@/components/pwa";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { usePermissions } from "@/hooks/usePermissions";
 import { AppErrorBoundary, PageErrorBoundary } from "@/components/layout/ErrorBoundary";
+import { useLicense } from "@/hooks/useLicense";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 import OfflinePage from "./pages/OfflinePage";
+import LicenseSuspendedPage from "./pages/LicenseSuspendedPage";
 
 // Lazy-loaded pages for code splitting
 const ClientPortalPage = lazy(() => import("./pages/ClientPortalPage"));
@@ -43,6 +45,17 @@ function G({ slug, children }: { slug: string; children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function LicenseGate({ children }: { children: React.ReactNode }) {
+  const status = useLicense();
+  if (status === 'checking') return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+    </div>
+  );
+  if (status === 'suspended' || status === 'invalid') return <LicenseSuspendedPage />;
+  return <>{children}</>;
+}
+
 const App = () => (
   // AppErrorBoundary: last-resort safety net for catastrophic failures
   // (broken providers, renderer crashes, etc.) — shows a reload prompt.
@@ -52,6 +65,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <PWAProvider>
+          <LicenseGate>
           <OfflineBanner />
           <PWAInstallPrompt />
           <BrowserRouter>
@@ -77,6 +91,7 @@ const App = () => (
             </Routes>
           </Suspense>
           </BrowserRouter>
+          </LicenseGate>
         </PWAProvider>
       </TooltipProvider>
     </QueryClientProvider>
