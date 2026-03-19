@@ -54,7 +54,7 @@ export function SmtpSettingsCard() {
 
   const handleTest = async () => {
     if (!form.host || !form.from_email) {
-      toast.error('Salve as configurações primeiro');
+      toast.error('Preencha o servidor e o email remetente antes de testar');
       return;
     }
     setTesting(true);
@@ -65,6 +65,15 @@ export function SmtpSettingsCard() {
           to_name: 'Teste',
           subject: 'Teste de configuração SMTP',
           html_body: '<h2>Teste SMTP</h2><p>Se você recebeu este email, a configuração está funcionando corretamente! ✅</p>',
+          smtp_config: {
+            host: form.host,
+            port: form.port,
+            username: form.username,
+            password: form.password,
+            from_email: form.from_email,
+            from_name: form.from_name,
+            encryption: form.encryption,
+          },
         },
       });
       if (error) throw error;

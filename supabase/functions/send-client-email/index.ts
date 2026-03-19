@@ -17,22 +17,30 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { to_email, to_name, subject, html_body } = await req.json();
+    const { to_email, to_name, subject, html_body, smtp_config } = await req.json();
 
     if (!to_email || !subject || !html_body) {
       throw new Error("to_email, subject, and html_body are required");
     }
 
-    // Get SMTP settings
-    const { data: smtp, error: smtpError } = await adminClient
-      .from("smtp_settings")
-      .select("*")
-      .eq("is_active", true)
-      .limit(1)
-      .maybeSingle();
+    let smtp: any;
 
-    if (smtpError || !smtp) {
-      throw new Error("SMTP não configurado. Configure em Configurações > Integrações.");
+    if (smtp_config) {
+      // Inline config passed directly (used by test button — no need to save first)
+      smtp = smtp_config;
+    } else {
+      // Read saved config from DB
+      const { data, error: smtpError } = await adminClient
+        .from("smtp_settings")
+        .select("*")
+        .eq("is_active", true)
+        .limit(1)
+        .maybeSingle();
+
+      if (smtpError || !data) {
+        throw new Error("SMTP não configurado. Configure em Configurações > Integrações.");
+      }
+      smtp = data;
     }
 
     const transport = nodemailer.createTransport({
@@ -60,8 +68,8 @@ serve(async (req) => {
   } catch (error: any) {
     console.error("Email send error:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
