@@ -3,6 +3,17 @@
 .env.*
 !.env.example
 
+# Ferramentas do dono do sistema — NÃO vai para o repositório público
+owner/
+
+# Arquivos internos gerados pelo install.sh
+.update-token
+.agent-port
+.license-key
+.setup-domain
+.supabase-token
+supabase-docker/
+
 # Logs
 logs
 *.log
