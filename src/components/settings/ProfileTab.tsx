@@ -32,14 +32,14 @@ export function ProfileTab() {
       setLoading(true);
       const [{ data: profile }, { data: member }] = await Promise.all([
         supabase.from('profiles').select('name, avatar_url, role').eq('user_id', user.id).single(),
-        supabase.from('team_members').select('name, role').eq('email', user.email).maybeSingle(),
+        supabase.from('team_members').select('name, role, avatar_url').eq('email', user.email).maybeSingle(),
       ]);
 
       setForm({
         name: profile?.name || member?.name || '',
         email: user.email || '',
         role: profile?.role || member?.role || '',
-        avatar_url: profile?.avatar_url || '',
+        avatar_url: profile?.avatar_url || member?.avatar_url || '',
       });
       setLoading(false);
     };

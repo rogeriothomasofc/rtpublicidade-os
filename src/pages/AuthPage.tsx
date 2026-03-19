@@ -92,7 +92,9 @@ export default function AuthPage() {
         throw updateError;
       }
 
-      toast({ title: 'Senha definida com sucesso!', description: 'Bem-vindo ao Agency OS.' });
+      const { data: agencyData } = await supabase.from('agency_settings').select('name').limit(1).single();
+      const agencyName = agencyData?.name || 'Agency OS';
+      toast({ title: 'Senha definida com sucesso!', description: `Bem-vindo à ${agencyName}.` });
       navigate('/');
     } catch (err: any) {
       if (err instanceof z.ZodError) {
