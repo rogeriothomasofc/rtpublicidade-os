@@ -82,20 +82,19 @@ export function useUpdateTeamMember() {
 
 export function useDeleteTeamMember() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (id: string) => {
-      // Soft delete - just deactivate
-      const { error } = await supabase
-        .from('team_members')
-        .update({ is_active: false })
-        .eq('id', id);
-      
+      const { data, error } = await supabase.functions.invoke('delete-member-user', {
+        body: { member_id: id },
+      });
       if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Erro ao remover membro');
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['team_members'] });
-      toast.success('Membro removido!');
+      toast.success(data?.message || 'Membro removido!');
     },
     onError: (error) => {
       toast.error('Erro ao remover membro: ' + error.message);
