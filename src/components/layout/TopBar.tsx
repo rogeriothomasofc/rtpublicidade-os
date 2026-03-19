@@ -48,8 +48,8 @@ export function TopBar() {
         supabase.from('team_members').select('name, avatar_url').eq('email', user.email!).maybeSingle(),
       ]);
       return {
-        name: p?.name || m?.name || '',
-        avatar_url: p?.avatar_url || m?.avatar_url || '',
+        name: p?.name || m?.name || (user?.user_metadata?.full_name as string) || '',
+        avatar_url: p?.avatar_url || m?.avatar_url || (user?.user_metadata?.avatar_url as string) || '',
         role: p?.role || '',
       };
     },
@@ -57,8 +57,8 @@ export function TopBar() {
   });
 
   const initials = profile?.name
-    ? profile.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
-    : 'U';
+    ? profile.name.split(' ').filter(Boolean).map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+    : user?.email?.charAt(0).toUpperCase() || 'U';
 
   return (
     <>

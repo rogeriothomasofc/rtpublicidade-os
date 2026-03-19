@@ -181,29 +181,30 @@ export default function TasksPage() {
             </p>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-2">
             <Tabs value={viewMode} onValueChange={handleViewChange}>
               <TabsList>
-                <TabsTrigger value="dashboard" className="gap-2">
+                <TabsTrigger value="dashboard" className="gap-1.5 px-2 sm:px-3 sm:gap-2">
                   <LayoutDashboard className="h-4 w-4" />
-                  Painel
+                  <span className="hidden sm:inline">Painel</span>
                 </TabsTrigger>
-                <TabsTrigger value="kanban" className="gap-2">
+                <TabsTrigger value="kanban" className="gap-1.5 px-2 sm:px-3 sm:gap-2">
                   <Kanban className="h-4 w-4" />
-                  Kanban
+                  <span className="hidden sm:inline">Kanban</span>
                 </TabsTrigger>
-                <TabsTrigger value="list" className="gap-2">
+                <TabsTrigger value="list" className="gap-1.5 px-2 sm:px-3 sm:gap-2">
                   <List className="h-4 w-4" />
-                  Lista
+                  <span className="hidden sm:inline">Lista</span>
                 </TabsTrigger>
               </TabsList>
             </Tabs>
 
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="gap-2">
+                <Button className="gap-2 shrink-0">
                   <Plus className="w-4 h-4" />
-                  Nova Tarefa
+                  <span className="hidden sm:inline">Nova Tarefa</span>
+                  <span className="sm:hidden">Nova</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[550px] max-h-[90vh] p-0">

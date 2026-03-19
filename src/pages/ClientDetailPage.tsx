@@ -196,21 +196,21 @@ export default function ClientDetailPage() {
     <MainLayout>
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/clients')}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-bold">{client.name}</h1>
               <Badge className={statusColors[client.status]}>
                 {statusLabels[client.status]}
               </Badge>
             </div>
-            <p className="text-muted-foreground">{client.company}</p>
+            <p className="text-muted-foreground truncate">{client.company}</p>
           </div>
           {/* Action Buttons */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button size="icon" variant="outline" onClick={() => navigate(`/portal?client_id=${client.id}`)} title="Ver Portal do Cliente">
               <Eye className="w-4 h-4" />
             </Button>
@@ -414,7 +414,7 @@ export default function ClientDetailPage() {
           </CardHeader>
           <CardContent className="p-0">
             {clientPlannings.length > 0 ? (
-              <Table>
+              <div className="overflow-x-auto"><Table className="min-w-[500px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
@@ -439,7 +439,7 @@ export default function ClientDetailPage() {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+              </Table></div>
             ) : (
               <div className="p-6 text-center text-muted-foreground">
                 Nenhum planejamento vinculado
@@ -465,7 +465,7 @@ export default function ClientDetailPage() {
           </CardHeader>
           <CardContent className="p-0">
             {clientContracts.length > 0 ? (
-              <Table>
+              <div className="overflow-x-auto"><Table className="min-w-[500px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Descrição</TableHead>
@@ -490,7 +490,7 @@ export default function ClientDetailPage() {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+              </Table></div>
             ) : (
               <div className="p-6 text-center text-muted-foreground">
                 Nenhum contrato vinculado
@@ -509,7 +509,7 @@ export default function ClientDetailPage() {
           </CardHeader>
           <CardContent className="p-0">
             {clientProjects.length > 0 ? (
-              <Table>
+              <div className="overflow-x-auto"><Table className="min-w-[500px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
@@ -534,7 +534,7 @@ export default function ClientDetailPage() {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+              </Table></div>
             ) : (
               <div className="p-6 text-center text-muted-foreground">
                 Nenhum projeto vinculado
@@ -560,7 +560,7 @@ export default function ClientDetailPage() {
           </CardHeader>
           <CardContent className="p-0">
             {clientTasks.length > 0 ? (
-              <Table>
+              <div className="overflow-x-auto"><Table className="min-w-[500px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Título</TableHead>
@@ -591,7 +591,7 @@ export default function ClientDetailPage() {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+              </Table></div>
             ) : (
               <div className="p-6 text-center text-muted-foreground">
                 Nenhuma tarefa vinculada
@@ -617,7 +617,7 @@ export default function ClientDetailPage() {
           </CardHeader>
           <CardContent className="p-0">
             {clientFinance.length > 0 ? (
-              <Table>
+              <div className="overflow-x-auto"><Table className="min-w-[500px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Descrição</TableHead>
@@ -648,7 +648,7 @@ export default function ClientDetailPage() {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+              </Table></div>
             ) : (
               <div className="p-6 text-center text-muted-foreground">
                 Nenhum registro financeiro vinculado

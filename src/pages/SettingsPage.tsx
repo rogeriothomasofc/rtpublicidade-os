@@ -17,7 +17,8 @@ export default function SettingsPage() {
         </div>
 
         <Tabs defaultValue="integrations" className="space-y-6">
-          <TabsList>
+          <div className="overflow-x-auto pb-1">
+          <TabsList className="w-max min-w-full sm:w-auto">
             <TabsTrigger value="integrations" className="gap-2">
               <Plug className="w-4 h-4" />
               Integrações
@@ -39,6 +40,7 @@ export default function SettingsPage() {
               Avisos
             </TabsTrigger>
           </TabsList>
+          </div>
 
           <TabsContent value="integrations">
             <IntegrationsTab />

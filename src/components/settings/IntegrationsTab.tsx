@@ -257,38 +257,42 @@ export function IntegrationsTab() {
                     <KeyRound className="w-6 h-6 text-emerald-500" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold">Asaas</span>
-                      <Badge variant={isAsaasConnected ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
-                        {isAsaasConnected ? 'Conectado' : 'Disponível'}
-                      </Badge>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="font-semibold">Asaas</span>
+                          <Badge variant={isAsaasConnected ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                            {isAsaasConnected ? 'Conectado' : 'Disponível'}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Cobranças automáticas via Pix para seus clientes
+                        </p>
+                        {isAsaasConnected && (
+                          <p className="text-xs text-muted-foreground">
+                            Ambiente: {((asaasIntegration?.config as any)?.environment === 'production') ? 'Produção' : 'Sandbox'}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isAsaasConnected ? (
+                          <>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenAsaasDialog}>
+                              <Settings className="w-4 h-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDisconnectAsaas}>
+                              <CheckIcon className="w-3.5 h-3.5" />
+                              Conectado
+                            </Button>
+                          </>
+                        ) : (
+                          <Button size="sm" className="gap-1.5" onClick={handleOpenAsaasDialog}>
+                            Conectar
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Cobranças automáticas via Pix para seus clientes
-                    </p>
-                    {isAsaasConnected && (
-                      <p className="text-xs text-muted-foreground">
-                        Ambiente: {((asaasIntegration?.config as any)?.environment === 'production') ? 'Produção' : 'Sandbox'}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {isAsaasConnected ? (
-                      <>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenAsaasDialog}>
-                          <Settings className="w-4 h-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDisconnectAsaas}>
-                          <CheckIcon className="w-3.5 h-3.5" />
-                          Conectado
-                        </Button>
-                      </>
-                    ) : (
-                      <Button size="sm" className="gap-1.5" onClick={handleOpenAsaasDialog}>
-                        Conectar
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
                   </div>
                 </div>
               </CardContent>
