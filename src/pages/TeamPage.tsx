@@ -30,13 +30,20 @@ async function loadMemberPermissions(teamMemberId: string): Promise<string[]> {
   return (data ?? []).map((r: any) => r.page_slug);
 }
 
-async function saveMemberPermissions(teamMemberId: string, slugs: string[]) {
-  await (supabase as any).from('member_permissions').delete().eq('team_member_id', teamMemberId);
+async function saveMemberPermissions(teamMemberId: string, slugs: string[]): Promise<string | null> {
+  const { error: delError } = await (supabase as any)
+    .from('member_permissions')
+    .delete()
+    .eq('team_member_id', teamMemberId);
+  if (delError) return delError.message;
+
   if (slugs.length > 0) {
-    await (supabase as any)
+    const { error: insError } = await (supabase as any)
       .from('member_permissions')
       .insert(slugs.map((slug) => ({ team_member_id: teamMemberId, page_slug: slug })));
+    if (insError) return insError.message;
   }
+  return null;
 }
 
 function PermissionsChecklist({
@@ -181,12 +188,15 @@ export default function TeamPage() {
         if (data?.error) throw new Error(data.error);
 
         // Save permissions
-        await saveMemberPermissions(newMember.id, selectedPermissions);
-
-        toast({
-          title: 'Membro cadastrado com acesso!',
-          description: `Senha temporária: ${tempPassword} — o membro deve alterar no primeiro acesso.`,
-        });
+        const permErr = await saveMemberPermissions(newMember.id, selectedPermissions);
+        if (permErr) {
+          toast({ title: 'Erro ao salvar permissões', description: permErr, variant: 'destructive' });
+        } else {
+          toast({
+            title: 'Membro cadastrado com acesso!',
+            description: `Senha temporária: ${tempPassword} — o membro deve alterar no primeiro acesso.`,
+          });
+        }
       } catch (err: any) {
         toast({ title: 'Erro ao criar acesso', description: err.message, variant: 'destructive' });
       } finally {
@@ -201,7 +211,8 @@ export default function TeamPage() {
         is_active: true,
       });
       // Save permissions even without system access (for future use)
-      await saveMemberPermissions(newMember.id, selectedPermissions);
+      const permErr = await saveMemberPermissions(newMember.id, selectedPermissions);
+      if (permErr) toast({ title: 'Erro ao salvar permissões', description: permErr, variant: 'destructive' });
     }
 
     resetForm();
@@ -218,7 +229,11 @@ export default function TeamPage() {
       avatar_url: formData.avatar_url || null,
     });
     // Save updated permissions
-    await saveMemberPermissions(editingMember.id, selectedPermissions);
+    const permErr = await saveMemberPermissions(editingMember.id, selectedPermissions);
+    if (permErr) {
+      toast({ title: 'Erro ao salvar permissões', description: permErr, variant: 'destructive' });
+      return;
+    }
     resetForm();
     setEditingMember(null);
   };
