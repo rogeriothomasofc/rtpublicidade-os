@@ -43,12 +43,15 @@ export function TopBar() {
     queryKey: ['profile-topbar', user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const { data } = await supabase
-        .from('profiles')
-        .select('name, avatar_url, role')
-        .eq('user_id', user.id)
-        .single();
-      return data;
+      const [{ data: p }, { data: m }] = await Promise.all([
+        supabase.from('profiles').select('name, avatar_url, role').eq('user_id', user.id).single(),
+        supabase.from('team_members').select('name, avatar_url').eq('email', user.email!).maybeSingle(),
+      ]);
+      return {
+        name: p?.name || m?.name || '',
+        avatar_url: p?.avatar_url || m?.avatar_url || '',
+        role: p?.role || '',
+      };
     },
     enabled: !!user,
   });
