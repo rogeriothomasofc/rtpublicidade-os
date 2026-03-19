@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Task } from '@/types/database';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,15 +26,27 @@ const typeColors = {
 };
 
 export function KanbanCard({ task }: KanbanCardProps) {
+  const [isDragging, setIsDragging] = useState(false);
+
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('taskId', task.id);
+    e.dataTransfer.effectAllowed = 'move';
+    setIsDragging(true);
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
   };
 
   return (
     <Card
       draggable
       onDragStart={handleDragStart}
-      className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow border-border/50"
+      onDragEnd={handleDragEnd}
+      className={cn(
+        'cursor-grab active:cursor-grabbing hover:shadow-md transition-all border-border/50 select-none',
+        isDragging && 'opacity-40 scale-95 shadow-lg ring-2 ring-primary/30'
+      )}
     >
       <CardContent className="p-3">
         <div className="flex items-start justify-between gap-2 mb-2">
