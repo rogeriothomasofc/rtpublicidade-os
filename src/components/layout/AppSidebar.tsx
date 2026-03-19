@@ -5,8 +5,6 @@ import { LayoutDashboard, Users, FolderKanban, CheckSquare, DollarSign, Trending
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useAgencySettings } from '@/hooks/useAgencySettings';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const navItems = [
@@ -21,12 +19,12 @@ const navItems = [
 { name: 'Tarefas', href: '/tasks', icon: CheckSquare },
 { name: 'Planejamentos', href: '/planning', icon: Lightbulb }];
 
+const APP_NAME = 'Agency OS';
 
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const { data: settings } = useAgencySettings();
   const isMobile = useIsMobile();
 
   // Close mobile sidebar on route change
@@ -48,10 +46,6 @@ export function AppSidebar() {
       document.documentElement.style.setProperty('--sidebar-current-width', '0px');
     }
   }, [collapsed, isMobile]);
-
-  const agencyName = settings?.name || 'Sinap OS';
-  const agencyLogo = settings?.logo_url || '';
-  const initials = agencyName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 
   const renderNavItem = (item: {name: string;href: string;icon: React.ElementType;}) => {
     const isActive = location.pathname === item.href;
@@ -80,6 +74,12 @@ export function AppSidebar() {
     return <div key={item.name}>{linkContent}</div>;
   };
 
+  const logo = (
+    <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+      <Zap className="w-5 h-5 text-primary-foreground" />
+    </div>
+  );
+
   // Mobile: overlay sidebar
   if (isMobile) {
     return (
@@ -101,17 +101,8 @@ export function AppSidebar() {
           {/* Header */}
           <div className="flex items-center justify-between h-14 border-b border-sidebar-border px-3">
             <div className="flex items-center gap-2 min-w-0">
-              {agencyLogo ? (
-                <Avatar className="w-8 h-8 rounded-lg shrink-0">
-                  <AvatarImage src={agencyLogo} alt={agencyName} className="object-cover" />
-                  <AvatarFallback className="rounded-lg bg-primary text-primary-foreground text-xs font-bold">{initials}</AvatarFallback>
-                </Avatar>
-              ) : (
-                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-                  <Zap className="w-5 h-5 text-primary-foreground" />
-                </div>
-              )}
-              <span className="font-semibold text-lg text-sidebar-foreground truncate">{agencyName}</span>
+              {logo}
+              <span className="font-semibold text-lg text-sidebar-foreground truncate">{APP_NAME}</span>
             </div>
             <Button variant="ghost" size="icon" className="h-8 w-8 text-sidebar-muted" onClick={() => setMobileOpen(false)}>
               <X className="w-5 h-5" />
@@ -136,24 +127,15 @@ export function AppSidebar() {
     <aside className={cn('fixed top-0 left-0 h-screen flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 z-30', collapsed ? 'w-16' : 'w-64')}>
       {/* Header */}
       <div className={cn("relative flex items-center h-16 border-b border-sidebar-border shrink-0", collapsed ? "justify-center px-2" : "px-3")}>
-        {/* Logo — clicável para expandir quando recolhido */}
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
             <div
               className={cn("flex items-center gap-2 min-w-0", collapsed && "cursor-pointer")}
               onClick={() => collapsed && setCollapsed(false)}
             >
-              {agencyLogo ?
-              <Avatar className="w-8 h-8 rounded-lg shrink-0">
-                  <AvatarImage src={agencyLogo} alt={agencyName} className="object-cover" />
-                  <AvatarFallback className="rounded-lg bg-primary text-primary-foreground text-xs font-bold">{initials}</AvatarFallback>
-                </Avatar> :
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-                  <Zap className="w-5 h-5 text-primary-foreground" />
-                </div>
-              }
+              {logo}
               {!collapsed &&
-              <span className="font-semibold text-lg text-sidebar-foreground truncate">{agencyName}</span>
+              <span className="font-semibold text-lg text-sidebar-foreground truncate">{APP_NAME}</span>
               }
             </div>
           </TooltipTrigger>
@@ -162,7 +144,6 @@ export function AppSidebar() {
           )}
         </Tooltip>
 
-        {/* Botão recolher — só aparece quando expandido */}
         {!collapsed && (
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
