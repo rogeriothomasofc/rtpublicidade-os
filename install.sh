@@ -19,7 +19,7 @@ NC='\033[0m'
 REPO_URL="https://github.com/rogeriothomasofc/rtpublicidade-os.git"
 APP_DIR="/opt/agencyos"
 NGINX_CONF="/etc/nginx/sites-available/agencyos"
-LICENSE_SERVER="https://licencas.rtpublicidade.com.br"
+LICENSE_SERVER="https://nbzxofrllagqwwrwfskv.supabase.co"
 
 step()       { echo -e "\n${BLUE}${BOLD}▶ $1${NC}"; }
 ok()         { echo -e "${GREEN}✔ $1${NC}"; }
