@@ -654,7 +654,7 @@ NGINXEOF
 
 ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/agencyos
 rm -f /etc/nginx/sites-enabled/default
-nginx -t -q && systemctl reload nginx
+nginx -t -q && (systemctl is-active --quiet nginx && systemctl reload nginx || systemctl start nginx)
 ok "Nginx configurado"
 
 # ── SSL ──────────────────────────────────────────────────────
