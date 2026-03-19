@@ -12,11 +12,80 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Pencil, Trash2, Users, Loader2, KeyRound, UsersRound } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Loader2, KeyRound, UsersRound, ShieldCheck } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { AvatarUpload } from '@/components/team/AvatarUpload';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { usePermissions, ALL_PAGES } from '@/hooks/usePermissions';
+
+// Pages selectable in the permissions UI (dashboard is always on, skip it)
+const PERMISSION_PAGES = ALL_PAGES.filter((p) => p.slug !== 'dashboard');
+
+async function loadMemberPermissions(teamMemberId: string): Promise<string[]> {
+  const { data } = await (supabase as any)
+    .from('member_permissions')
+    .select('page_slug')
+    .eq('team_member_id', teamMemberId);
+  return (data ?? []).map((r: any) => r.page_slug);
+}
+
+async function saveMemberPermissions(teamMemberId: string, slugs: string[]) {
+  await (supabase as any).from('member_permissions').delete().eq('team_member_id', teamMemberId);
+  if (slugs.length > 0) {
+    await (supabase as any)
+      .from('member_permissions')
+      .insert(slugs.map((slug) => ({ team_member_id: teamMemberId, page_slug: slug })));
+  }
+}
+
+function PermissionsChecklist({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (slugs: string[]) => void;
+}) {
+  const toggle = (slug: string) => {
+    onChange(selected.includes(slug) ? selected.filter((s) => s !== slug) : [...selected, slug]);
+  };
+  const allSelected = PERMISSION_PAGES.every((p) => selected.includes(p.slug));
+  const toggleAll = () =>
+    onChange(allSelected ? [] : PERMISSION_PAGES.map((p) => p.slug));
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-primary" />
+          Páginas que o membro pode acessar
+        </Label>
+        <button
+          type="button"
+          onClick={toggleAll}
+          className="text-xs text-primary hover:underline"
+        >
+          {allSelected ? 'Desmarcar tudo' : 'Marcar tudo'}
+        </button>
+      </div>
+      <p className="text-xs text-muted-foreground">Dashboard sempre está disponível.</p>
+      <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-border p-3">
+        {PERMISSION_PAGES.map((page) => (
+          <div key={page.slug} className="flex items-center gap-2">
+            <Checkbox
+              id={`perm-${page.slug}`}
+              checked={selected.includes(page.slug)}
+              onCheckedChange={() => toggle(page.slug)}
+            />
+            <Label htmlFor={`perm-${page.slug}`} className="cursor-pointer text-sm font-normal">
+              {page.label}
+            </Label>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function TeamPage() {
   const { data: members, isLoading } = useTeamMembers();
@@ -24,6 +93,7 @@ export default function TeamPage() {
   const updateMember = useUpdateTeamMember();
   const deleteMember = useDeleteTeamMember();
   const { toast } = useToast();
+  const { isAdmin } = usePermissions();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
@@ -39,12 +109,16 @@ export default function TeamPage() {
   const [grantAccess, setGrantAccess] = useState(false);
   const [tempPassword, setTempPassword] = useState('');
   const [accessLevel, setAccessLevel] = useState<'Gestor' | 'Analista' | 'Designer'>('Analista');
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>(
+    PERMISSION_PAGES.map((p) => p.slug)
+  );
 
   const resetForm = () => {
     setFormData({ name: '', email: '', role: '', avatar_url: '' });
     setGrantAccess(false);
     setTempPassword('');
     setAccessLevel('Analista');
+    setSelectedPermissions(PERMISSION_PAGES.map((p) => p.slug));
   };
 
   const handleOpenCreate = () => {
@@ -52,7 +126,7 @@ export default function TeamPage() {
     setIsCreateDialogOpen(true);
   };
 
-  const handleOpenEdit = (member: TeamMember) => {
+  const handleOpenEdit = async (member: TeamMember) => {
     setFormData({
       name: member.name,
       email: member.email || '',
@@ -60,8 +134,14 @@ export default function TeamPage() {
       avatar_url: member.avatar_url || '',
     });
     const validLevels = ['Gestor', 'Analista', 'Designer'] as const;
-    const level = validLevels.find(l => l === member.role) ?? 'Analista';
+    const level = validLevels.find((l) => l === member.role) ?? 'Analista';
     setAccessLevel(level);
+
+    // Load existing permissions
+    const slugs = await loadMemberPermissions(member.id);
+    // If no permissions set yet, default to all selected
+    setSelectedPermissions(slugs.length > 0 ? slugs : PERMISSION_PAGES.map((p) => p.slug));
+
     setEditingMember(member);
   };
 
@@ -78,7 +158,6 @@ export default function TeamPage() {
 
       setCreatingAccess(true);
       try {
-        // First create team member
         const newMember = await createMember.mutateAsync({
           name: formData.name,
           email: formData.email,
@@ -87,7 +166,6 @@ export default function TeamPage() {
           is_active: true,
         });
 
-        // Then create auth user via edge function
         const { data, error } = await supabase.functions.invoke('create-member-user', {
           body: {
             email: formData.email,
@@ -102,6 +180,9 @@ export default function TeamPage() {
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
 
+        // Save permissions
+        await saveMemberPermissions(newMember.id, selectedPermissions);
+
         toast({
           title: 'Membro cadastrado com acesso!',
           description: `Senha temporária: ${tempPassword} — o membro deve alterar no primeiro acesso.`,
@@ -112,13 +193,15 @@ export default function TeamPage() {
         setCreatingAccess(false);
       }
     } else {
-      await createMember.mutateAsync({
+      const newMember = await createMember.mutateAsync({
         name: formData.name,
         email: formData.email || null,
         role: accessLevel,
         avatar_url: formData.avatar_url || null,
         is_active: true,
       });
+      // Save permissions even without system access (for future use)
+      await saveMemberPermissions(newMember.id, selectedPermissions);
     }
 
     resetForm();
@@ -134,6 +217,8 @@ export default function TeamPage() {
       role: accessLevel,
       avatar_url: formData.avatar_url || null,
     });
+    // Save updated permissions
+    await saveMemberPermissions(editingMember.id, selectedPermissions);
     resetForm();
     setEditingMember(null);
   };
@@ -143,12 +228,7 @@ export default function TeamPage() {
   };
 
   const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+    return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
   const isSubmitting = createMember.isPending || creatingAccess;
@@ -184,106 +264,104 @@ export default function TeamPage() {
             </p>
           </div>
 
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2" onClick={handleOpenCreate}>
-                <Plus className="w-4 h-4" />
-                Novo Membro
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Adicionar Membro</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label>Nome *</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Nome completo"
-                  />
-                </div>
-                <div>
-                  <Label>Email {grantAccess && '*'}</Label>
-                  <Input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="email@exemplo.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Nível de acesso</Label>
-                  <Select
-                    value={accessLevel}
-                    onValueChange={(v) => setAccessLevel(v as typeof accessLevel)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Gestor">Gestor — acesso total</SelectItem>
-                      <SelectItem value="Analista">Analista — acesso operacional</SelectItem>
-                      <SelectItem value="Designer">Designer — só tarefas e planejamentos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <AvatarUpload
-                  currentUrl={formData.avatar_url || null}
-                  name={formData.name}
-                  onUpload={(url) => setFormData({ ...formData, avatar_url: url })}
-                  onRemove={() => setFormData({ ...formData, avatar_url: '' })}
-                />
-
-                {/* Grant system access */}
-                <div className="border border-border rounded-lg p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="grant-access"
-                      checked={grantAccess}
-                      onCheckedChange={(checked) => setGrantAccess(checked === true)}
-                    />
-                    <Label htmlFor="grant-access" className="flex items-center gap-2 cursor-pointer">
-                      <KeyRound className="w-4 h-4 text-primary" />
-                      Criar acesso ao sistema
-                    </Label>
-                  </div>
-                  {grantAccess && (
-                    <div className="space-y-3 pl-6">
-                      <div className="space-y-2">
-                        <Label>Senha temporária *</Label>
-                        <Input
-                          type="text"
-                          value={tempPassword}
-                          onChange={(e) => setTempPassword(e.target.value)}
-                          placeholder="Mínimo 6 caracteres"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          O membro usará essa senha no "Primeiro Acesso" para definir sua senha definitiva.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  onClick={handleCreateSubmit}
-                  disabled={isSubmitting || !formData.name.trim()}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                      Criando...
-                    </>
-                  ) : (
-                    'Adicionar'
-                  )}
+          {isAdmin && (
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2" onClick={handleOpenCreate}>
+                  <Plus className="w-4 h-4" />
+                  Novo Membro
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent className="max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Adicionar Membro</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label>Nome *</Label>
+                    <Input
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Nome completo"
+                    />
+                  </div>
+                  <div>
+                    <Label>Email {grantAccess && '*'}</Label>
+                    <Input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="email@exemplo.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nível de acesso</Label>
+                    <Select value={accessLevel} onValueChange={(v) => setAccessLevel(v as typeof accessLevel)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Gestor">Gestor</SelectItem>
+                        <SelectItem value="Analista">Analista</SelectItem>
+                        <SelectItem value="Designer">Designer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <AvatarUpload
+                    currentUrl={formData.avatar_url || null}
+                    name={formData.name}
+                    onUpload={(url) => setFormData({ ...formData, avatar_url: url })}
+                    onRemove={() => setFormData({ ...formData, avatar_url: '' })}
+                  />
+
+                  <PermissionsChecklist selected={selectedPermissions} onChange={setSelectedPermissions} />
+
+                  {/* Grant system access */}
+                  <div className="border border-border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="grant-access"
+                        checked={grantAccess}
+                        onCheckedChange={(checked) => setGrantAccess(checked === true)}
+                      />
+                      <Label htmlFor="grant-access" className="flex items-center gap-2 cursor-pointer">
+                        <KeyRound className="w-4 h-4 text-primary" />
+                        Criar acesso ao sistema
+                      </Label>
+                    </div>
+                    {grantAccess && (
+                      <div className="space-y-3 pl-6">
+                        <div className="space-y-2">
+                          <Label>Senha temporária *</Label>
+                          <Input
+                            type="text"
+                            value={tempPassword}
+                            onChange={(e) => setTempPassword(e.target.value)}
+                            placeholder="Mínimo 6 caracteres"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            O membro usará essa senha no "Primeiro Acesso" para definir sua senha definitiva.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleCreateSubmit} disabled={isSubmitting || !formData.name.trim()}>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                        Criando...
+                      </>
+                    ) : (
+                      'Adicionar'
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
 
         <Card>
@@ -299,75 +377,69 @@ export default function TeamPage() {
           <CardContent className="p-0">
             {members && members.length > 0 ? (
               <div className="overflow-x-auto">
-              <Table className="min-w-[480px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Membro</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Cargo</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {members.map((member) => (
-                    <TableRow key={member.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9">
-                            <AvatarImage src={member.avatar_url || undefined} alt={member.name} />
-                            <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                              {getInitials(member.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="font-medium">{member.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {member.email || '—'}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {member.role || '—'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenEdit(member)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Remover membro?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  O membro "{member.name}" será desativado e não aparecerá mais na lista de responsáveis.
-                                  As atribuições existentes serão mantidas.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(member.id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Remover
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
+                <Table className="min-w-[480px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Membro</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Cargo</TableHead>
+                      {isAdmin && <TableHead className="text-right">Ações</TableHead>}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {members.map((member) => (
+                      <TableRow key={member.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-9 w-9">
+                              <AvatarImage src={member.avatar_url || undefined} alt={member.name} />
+                              <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                                {getInitials(member.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="font-medium">{member.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{member.email || '—'}</TableCell>
+                        <TableCell className="text-muted-foreground">{member.role || '—'}</TableCell>
+                        {isAdmin && (
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(member)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Remover membro?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      O membro "{member.name}" será desativado e não aparecerá mais na lista de responsáveis.
+                                      As atribuições existentes serão mantidas.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(member.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Remover
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             ) : (
               <EmptyState
@@ -375,69 +447,66 @@ export default function TeamPage() {
                 title="Nenhum membro na equipe"
                 description="Adicione membros para atribuir responsáveis às tarefas e projetos."
                 actionLabel="+ Adicionar Membro"
-                onAction={() => setIsCreateDialogOpen(true)}
+                onAction={() => isAdmin && setIsCreateDialogOpen(true)}
               />
             )}
           </CardContent>
         </Card>
 
-        {/* Edit Dialog */}
-        <Dialog open={!!editingMember} onOpenChange={(open) => !open && setEditingMember(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Editar Membro</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>Nome *</Label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Nome completo"
+        {/* Edit Dialog — admin only */}
+        {isAdmin && (
+          <Dialog open={!!editingMember} onOpenChange={(open) => !open && setEditingMember(null)}>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Editar Membro</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>Nome *</Label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Nome completo"
+                  />
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="email@exemplo.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Nível de acesso</Label>
+                  <Select value={accessLevel} onValueChange={(v) => setAccessLevel(v as typeof accessLevel)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Gestor">Gestor</SelectItem>
+                      <SelectItem value="Analista">Analista</SelectItem>
+                      <SelectItem value="Designer">Designer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <AvatarUpload
+                  currentUrl={formData.avatar_url || null}
+                  name={formData.name}
+                  onUpload={(url) => setFormData({ ...formData, avatar_url: url })}
+                  onRemove={() => setFormData({ ...formData, avatar_url: '' })}
                 />
+                <PermissionsChecklist selected={selectedPermissions} onChange={setSelectedPermissions} />
               </div>
-              <div>
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="email@exemplo.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Nível de acesso</Label>
-                <Select
-                  value={accessLevel}
-                  onValueChange={(v) => setAccessLevel(v as typeof accessLevel)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Gestor">Gestor — acesso total</SelectItem>
-                    <SelectItem value="Analista">Analista — acesso operacional</SelectItem>
-                    <SelectItem value="Designer">Designer — só tarefas e planejamentos</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <AvatarUpload
-                currentUrl={formData.avatar_url || null}
-                name={formData.name}
-                onUpload={(url) => setFormData({ ...formData, avatar_url: url })}
-                onRemove={() => setFormData({ ...formData, avatar_url: '' })}
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                onClick={handleEditSubmit}
-                disabled={updateMember.isPending || !formData.name.trim()}
-              >
-                {updateMember.isPending ? 'Salvando...' : 'Salvar'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button onClick={handleEditSubmit} disabled={updateMember.isPending || !formData.name.trim()}>
+                  {updateMember.isPending ? 'Salvando...' : 'Salvar'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </MainLayout>
   );

@@ -3,9 +3,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { PWAProvider, PWAInstallPrompt, OfflineBanner } from "@/components/pwa";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
+import { usePermissions } from "@/hooks/usePermissions";
 import { AppErrorBoundary, PageErrorBoundary } from "@/components/layout/ErrorBoundary";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
@@ -29,11 +30,18 @@ const PlanningDetailPage = lazy(() => import("./pages/PlanningDetailPage"));
 
 const queryClient = new QueryClient();
 
-// Thin wrapper so routes stay readable — adds a page-level error boundary
-// that keeps the sidebar alive and lets the user retry or go home.
+// Page-level error boundary wrapper
 const P = ({ children }: { children: React.ReactNode }) => (
   <PageErrorBoundary>{children}</PageErrorBoundary>
 );
+
+// Permission guard: redirects to / if user doesn't have access to the page
+function G({ slug, children }: { slug: string; children: React.ReactNode }) {
+  const { hasPermission, loading } = usePermissions();
+  if (loading) return null;
+  if (!hasPermission(slug)) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
 
 const App = () => (
   // AppErrorBoundary: last-resort safety net for catastrophic failures
@@ -53,19 +61,18 @@ const App = () => (
               <Route path="/portal" element={<ProtectedRoute allowClient><P><ClientPortalPage /></P></ProtectedRoute>} />
               <Route path="/offline" element={<OfflinePage />} />
               <Route path="/" element={<ProtectedRoute><P><Dashboard /></P></ProtectedRoute>} />
-              <Route path="/clients" element={<ProtectedRoute><P><ClientsPage /></P></ProtectedRoute>} />
-              <Route path="/clients/:id" element={<ProtectedRoute><P><ClientDetailPage /></P></ProtectedRoute>} />
-              <Route path="/projects" element={<ProtectedRoute><P><ProjectsPage /></P></ProtectedRoute>} />
-              <Route path="/tasks" element={<ProtectedRoute><P><TasksPage /></P></ProtectedRoute>} />
-
-              <Route path="/finance" element={<ProtectedRoute><P><FinancePage /></P></ProtectedRoute>} />
-              <Route path="/pipeline" element={<ProtectedRoute><P><PipelinePage /></P></ProtectedRoute>} />
-              <Route path="/proposals" element={<ProtectedRoute><P><ProposalsPage /></P></ProtectedRoute>} />
-              <Route path="/team" element={<ProtectedRoute><P><TeamPage /></P></ProtectedRoute>} />
-              <Route path="/contracts" element={<ProtectedRoute><P><ContractsPage /></P></ProtectedRoute>} />
-              <Route path="/planning" element={<ProtectedRoute><P><PlanningPage /></P></ProtectedRoute>} />
-              <Route path="/planning/:id" element={<ProtectedRoute><P><PlanningDetailPage /></P></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute><P><SettingsPage /></P></ProtectedRoute>} />
+              <Route path="/clients" element={<ProtectedRoute><G slug="clients"><P><ClientsPage /></P></G></ProtectedRoute>} />
+              <Route path="/clients/:id" element={<ProtectedRoute><G slug="clients"><P><ClientDetailPage /></P></G></ProtectedRoute>} />
+              <Route path="/projects" element={<ProtectedRoute><G slug="projects"><P><ProjectsPage /></P></G></ProtectedRoute>} />
+              <Route path="/tasks" element={<ProtectedRoute><G slug="tasks"><P><TasksPage /></P></G></ProtectedRoute>} />
+              <Route path="/finance" element={<ProtectedRoute><G slug="finance"><P><FinancePage /></P></G></ProtectedRoute>} />
+              <Route path="/pipeline" element={<ProtectedRoute><G slug="pipeline"><P><PipelinePage /></P></G></ProtectedRoute>} />
+              <Route path="/proposals" element={<ProtectedRoute><G slug="proposals"><P><ProposalsPage /></P></G></ProtectedRoute>} />
+              <Route path="/team" element={<ProtectedRoute><G slug="team"><P><TeamPage /></P></G></ProtectedRoute>} />
+              <Route path="/contracts" element={<ProtectedRoute><G slug="contracts"><P><ContractsPage /></P></G></ProtectedRoute>} />
+              <Route path="/planning" element={<ProtectedRoute><G slug="planning"><P><PlanningPage /></P></G></ProtectedRoute>} />
+              <Route path="/planning/:id" element={<ProtectedRoute><G slug="planning"><P><PlanningDetailPage /></P></G></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><G slug="settings"><P><SettingsPage /></P></G></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

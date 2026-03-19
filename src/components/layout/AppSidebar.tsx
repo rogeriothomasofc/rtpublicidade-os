@@ -6,18 +6,20 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const navItems = [
-{ name: 'Dashboard', href: '/', icon: LayoutDashboard },
-{ name: 'Clientes', href: '/clients', icon: Users },
-{ name: 'Contratos', href: '/contracts', icon: FileText },
-{ name: 'Financeiro', href: '/finance', icon: DollarSign },
-{ name: 'Equipe', href: '/team', icon: UsersRound },
-{ name: 'Pipeline', href: '/pipeline', icon: TrendingUp },
-{ name: 'Propostas', href: '/proposals', icon: FileCheck },
-{ name: 'Projetos', href: '/projects', icon: FolderKanban },
-{ name: 'Tarefas', href: '/tasks', icon: CheckSquare },
-{ name: 'Planejamentos', href: '/planning', icon: Lightbulb }];
+  { name: 'Dashboard',     href: '/',          icon: LayoutDashboard, slug: 'dashboard' },
+  { name: 'Clientes',      href: '/clients',   icon: Users,           slug: 'clients' },
+  { name: 'Contratos',     href: '/contracts', icon: FileText,        slug: 'contracts' },
+  { name: 'Financeiro',    href: '/finance',   icon: DollarSign,      slug: 'finance' },
+  { name: 'Equipe',        href: '/team',      icon: UsersRound,      slug: 'team' },
+  { name: 'Pipeline',      href: '/pipeline',  icon: TrendingUp,      slug: 'pipeline' },
+  { name: 'Propostas',     href: '/proposals', icon: FileCheck,       slug: 'proposals' },
+  { name: 'Projetos',      href: '/projects',  icon: FolderKanban,    slug: 'projects' },
+  { name: 'Tarefas',       href: '/tasks',     icon: CheckSquare,     slug: 'tasks' },
+  { name: 'Planejamentos', href: '/planning',  icon: Lightbulb,       slug: 'planning' },
+];
 
 const APP_NAME = 'Agency OS';
 
@@ -26,6 +28,10 @@ export function AppSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const isMobile = useIsMobile();
+  const { hasPermission } = usePermissions();
+
+  const visibleNavItems = navItems.filter((item) => hasPermission(item.slug));
+  const showSettings = hasPermission('settings');
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -47,29 +53,32 @@ export function AppSidebar() {
     }
   }, [collapsed, isMobile]);
 
-  const renderNavItem = (item: {name: string;href: string;icon: React.ElementType;}) => {
+  const renderNavItem = (item: { name: string; href: string; icon: React.ElementType }) => {
     const isActive = location.pathname === item.href;
     const Icon = item.icon;
     const showLabel = isMobile || !collapsed;
-    const linkContent =
-    <Link
-      to={item.href}
-      className={cn(
-        "flex items-center gap-3 py-2.5 px-3 mx-2 rounded-lg transition-all text-sm",
-        isActive ?
-        'bg-primary/15 text-primary glow-primary' :
-        'text-sidebar-muted hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
-      )}>
-        <Icon className={cn("w-4.5 h-4.5 flex-shrink-0", isActive && "text-primary")} />
+    const linkContent = (
+      <Link
+        to={item.href}
+        className={cn(
+          'flex items-center gap-3 py-2.5 px-3 mx-2 rounded-lg transition-all text-sm',
+          isActive
+            ? 'bg-primary/15 text-primary glow-primary'
+            : 'text-sidebar-muted hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+        )}
+      >
+        <Icon className={cn('w-4.5 h-4.5 flex-shrink-0', isActive && 'text-primary')} />
         {showLabel && <span className="font-medium">{item.name}</span>}
-      </Link>;
+      </Link>
+    );
 
     if (!isMobile && collapsed) {
       return (
         <Tooltip key={item.name} delayDuration={0}>
           <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
           <TooltipContent side="right" className="font-medium">{item.name}</TooltipContent>
-        </Tooltip>);
+        </Tooltip>
+      );
     }
     return <div key={item.name}>{linkContent}</div>;
   };
@@ -110,11 +119,11 @@ export function AppSidebar() {
           </div>
 
           <nav className="flex-1 overflow-y-auto py-2 space-y-0.5">
-            {navItems.map(renderNavItem)}
+            {visibleNavItems.map(renderNavItem)}
           </nav>
 
           <div className="shrink-0 border-t border-sidebar-border py-2">
-            {renderNavItem({ name: 'Configurações', href: '/settings', icon: Settings })}
+            {showSettings && renderNavItem({ name: 'Configurações', href: '/settings', icon: Settings })}
             <p className="text-[10px] text-sidebar-muted text-center mt-1 pb-1">v{APP_VERSION}</p>
           </div>
         </aside>
@@ -126,17 +135,17 @@ export function AppSidebar() {
   return (
     <aside className={cn('fixed top-0 left-0 h-screen flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 z-30', collapsed ? 'w-16' : 'w-64')}>
       {/* Header */}
-      <div className={cn("relative flex items-center h-16 border-b border-sidebar-border shrink-0", collapsed ? "justify-center px-2" : "px-3")}>
+      <div className={cn('relative flex items-center h-16 border-b border-sidebar-border shrink-0', collapsed ? 'justify-center px-2' : 'px-3')}>
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
             <div
-              className={cn("flex items-center gap-2 min-w-0", collapsed && "cursor-pointer")}
+              className={cn('flex items-center gap-2 min-w-0', collapsed && 'cursor-pointer')}
               onClick={() => collapsed && setCollapsed(false)}
             >
               {logo}
-              {!collapsed &&
-              <span className="font-semibold text-lg text-sidebar-foreground truncate">{APP_NAME}</span>
-              }
+              {!collapsed && (
+                <span className="font-semibold text-lg text-sidebar-foreground truncate">{APP_NAME}</span>
+              )}
             </div>
           </TooltipTrigger>
           {collapsed && (
@@ -151,7 +160,8 @@ export function AppSidebar() {
                 variant="ghost"
                 size="icon"
                 className="absolute z-40 h-7 w-7 rounded-full border border-sidebar-border bg-sidebar text-sidebar-muted hover:text-primary hover:bg-sidebar-accent/50 top-1/2 -translate-y-1/2 right-2"
-                onClick={() => setCollapsed(true)}>
+                onClick={() => setCollapsed(true)}
+              >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </Button>
             </TooltipTrigger>
@@ -161,14 +171,15 @@ export function AppSidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-2 space-y-0.5">
-        {navItems.map(renderNavItem)}
+        {visibleNavItems.map(renderNavItem)}
       </nav>
 
       <div className="shrink-0 border-t border-sidebar-border py-2">
-        {renderNavItem({ name: 'Configurações', href: '/settings', icon: Settings })}
+        {showSettings && renderNavItem({ name: 'Configurações', href: '/settings', icon: Settings })}
         {!collapsed && <p className="text-[10px] text-sidebar-muted text-center mt-1 pb-1">v{APP_VERSION}</p>}
       </div>
-    </aside>);
+    </aside>
+  );
 }
 
 // Export a way to open the mobile sidebar from TopBar
