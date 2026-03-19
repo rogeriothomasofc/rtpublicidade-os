@@ -10,7 +10,6 @@ export function useSalesPipeline() {
       const { data, error } = await supabase
         .from('sales_pipeline')
         .select('*')
-        .eq('source', 'manual')
         .order('created_at', { ascending: false });
       
       if (error) throw error;

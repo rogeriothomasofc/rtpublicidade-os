@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { SalesPipeline, PipelineStage } from '@/types/database';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Mail, Phone, DollarSign, Calendar, Percent, StickyNote, MessageCircle, Pencil, Save, X } from 'lucide-react';
+import { Building2, Mail, Phone, DollarSign, Calendar, Percent, StickyNote, Pencil, Save, X } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -19,7 +19,6 @@ interface LeadProfileDialogProps {
   lead: SalesPipeline | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onOpenChat?: (lead: SalesPipeline) => void;
 }
 
 const stageColors: Record<string, string> = {
@@ -33,7 +32,7 @@ const stageColors: Record<string, string> = {
   Perdido: 'bg-red-500/10 text-red-700 dark:text-red-400',
 };
 
-export function LeadProfileDialog({ lead, open, onOpenChange, onOpenChat }: LeadProfileDialogProps) {
+export function LeadProfileDialog({ lead, open, onOpenChange }: LeadProfileDialogProps) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
     lead_name: '',
@@ -69,7 +68,6 @@ export function LeadProfileDialog({ lead, open, onOpenChange, onOpenChat }: Lead
 
   if (!lead) return null;
 
-  const hasPhone = !!lead.phone && lead.phone.replace(/\D/g, '').length >= 10;
 
   const handleSave = () => {
     updateLead.mutate(
@@ -330,28 +328,11 @@ export function LeadProfileDialog({ lead, open, onOpenChange, onOpenChat }: Lead
           </div>
 
           {/* Actions */}
-          {editing ? (
+          {editing && (
             <Button onClick={handleSave} disabled={updateLead.isPending || !form.lead_name.trim()} className="w-full gap-2">
               {updateLead.isPending ? <span className="animate-spin">⏳</span> : <Save className="w-4 h-4" />}
               Salvar alterações
             </Button>
-          ) : (
-            hasPhone && onOpenChat && (
-              <>
-                <Separator />
-                <Button
-                  variant="outline"
-                  className="w-full gap-2 text-green-600 border-green-200 hover:bg-green-50 dark:border-green-800 dark:hover:bg-green-900/20"
-                  onClick={() => {
-                    onOpenChange(false);
-                    onOpenChat(lead);
-                  }}
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  Abrir Chat WhatsApp
-                </Button>
-              </>
-            )
           )}
         </div>
       </DialogContent>

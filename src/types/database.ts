@@ -32,6 +32,7 @@ export interface Client {
   inscricao_estadual?: string;
   drive_link?: string;
   meta_ads_account?: string;
+  whatsapp_group_id?: string;
   created_at: string;
   updated_at: string;
 }

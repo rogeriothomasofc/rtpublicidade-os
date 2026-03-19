@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { TaskTable } from '@/components/tasks/TaskTable';
 import { TaskFilters, TaskFiltersState } from '@/components/tasks/TaskFilters';
 import { TaskEditDialog } from '@/components/tasks/TaskEditDialog';
-import { AgendaTab } from '@/components/tasks/AgendaTab';
+import { TaskDetailModal } from '@/components/tasks/TaskDetailModal';
 import { TasksDashboard } from '@/components/tasks/TasksDashboard';
+import { TasksKanban } from '@/components/tasks/TasksKanban';
 import { AssigneeSelectorForm } from '@/components/tasks/AssigneeSelectorForm';
 import { RecurrenceSelect } from '@/components/tasks/RecurrenceSelect';
 import { NewTaskSubtasks } from '@/components/tasks/NewTaskSubtasks';
@@ -25,14 +25,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, List, CalendarDays, LayoutDashboard } from 'lucide-react';
+import { Plus, List, LayoutDashboard, Kanban } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMemo } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 
 export default function TasksPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const viewMode = searchParams.get('view') || 'dashboard';
+  const [viewMode, setViewMode] = useState('dashboard');
   
   const { data: tasks, isLoading } = useTasks();
   const { data: clients } = useClients();
@@ -45,6 +44,7 @@ export default function TasksPage() {
   const updateTaskAssignees = useUpdateTaskAssignees();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [viewingTask, setViewingTask] = useState<TaskWithAssignees | null>(null);
   const [editingTask, setEditingTask] = useState<TaskWithAssignees | null>(null);
   
   const [filters, setFilters] = useState<TaskFiltersState>({
@@ -75,7 +75,7 @@ export default function TasksPage() {
   });
 
   const handleViewChange = (view: string) => {
-    setSearchParams({ view });
+    setViewMode(view);
   };
 
   // Uses atomic RPC — single transaction for task + assignees + subtasks
@@ -188,13 +188,13 @@ export default function TasksPage() {
                   <LayoutDashboard className="h-4 w-4" />
                   Painel
                 </TabsTrigger>
+                <TabsTrigger value="kanban" className="gap-2">
+                  <Kanban className="h-4 w-4" />
+                  Kanban
+                </TabsTrigger>
                 <TabsTrigger value="list" className="gap-2">
                   <List className="h-4 w-4" />
                   Lista
-                </TabsTrigger>
-                <TabsTrigger value="calendar" className="gap-2">
-                  <CalendarDays className="h-4 w-4" />
-                  Agenda
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -338,10 +338,22 @@ export default function TasksPage() {
         {viewMode === 'dashboard' ? (
           <TasksDashboard
             tasks={tasks || []}
-            onTaskClick={setEditingTask}
+            onTaskClick={setViewingTask}
           />
-        ) : viewMode === 'calendar' ? (
-          <AgendaTab />
+        ) : viewMode === 'kanban' ? (
+          <>
+            <TaskFilters
+              filters={filters}
+              onFiltersChange={setFilters}
+              clients={clients || []}
+              projects={projects || []}
+            />
+            <TasksKanban
+              tasks={filteredTasks}
+              onStatusChange={handleStatusChange}
+              onTaskClick={setViewingTask}
+            />
+          </>
         ) : (
           <>
             <TaskFilters
@@ -356,7 +368,7 @@ export default function TasksPage() {
               teamMembers={teamMembers || []}
               onStatusChange={handleStatusChange}
               onAssigneesChange={handleAssigneesChange}
-              onEdit={setEditingTask}
+              onEdit={setViewingTask}
               onComplete={handleComplete}
               onDelete={(id) => deleteTask.mutate(id)}
               onCreateTask={() => setIsCreateDialogOpen(true)}
@@ -364,6 +376,16 @@ export default function TasksPage() {
             />
           </>
         )}
+
+        <TaskDetailModal
+          task={viewingTask}
+          open={!!viewingTask}
+          onOpenChange={(open) => !open && setViewingTask(null)}
+          onEdit={(task) => {
+            setViewingTask(null);
+            setEditingTask(task);
+          }}
+        />
 
         <TaskEditDialog
           task={editingTask}

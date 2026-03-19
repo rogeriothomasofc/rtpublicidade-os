@@ -59,6 +59,7 @@ export default function ClientsPage() {
     city: '',
     state: '',
     zip_code: '',
+    whatsapp_group_id: '',
   });
 
   const filteredClients = clients?.filter(client => {
@@ -91,7 +92,7 @@ export default function ClientsPage() {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', company: '', email: '', phone: '', status: 'Lead', fee: 0, person_type: 'pj', cnpj: '', cpf: '', rg: '', razao_social: '', inscricao_estadual: '', address: '', city: '', state: '', zip_code: '' });
+    setFormData({ name: '', company: '', email: '', phone: '', status: 'Lead', fee: 0, person_type: 'pj', cnpj: '', cpf: '', rg: '', razao_social: '', inscricao_estadual: '', address: '', city: '', state: '', zip_code: '', whatsapp_group_id: '' });
     setEditingClient(null);
     setIsDialogOpen(false);
   };
@@ -115,6 +116,7 @@ export default function ClientsPage() {
       city: client.city || '',
       state: client.state || '',
       zip_code: client.zip_code || '',
+      whatsapp_group_id: client.whatsapp_group_id || '',
     });
     setIsDialogOpen(true);
   };
@@ -188,9 +190,9 @@ export default function ClientsPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Lead">Lead</SelectItem>
-                        <SelectItem value="Active">Ativo</SelectItem>
-                        <SelectItem value="Paused">Pausado</SelectItem>
-                        <SelectItem value="Cancelled">Cancelado</SelectItem>
+                        <SelectItem value="Ativo">Ativo</SelectItem>
+                        <SelectItem value="Pausado">Pausado</SelectItem>
+                        <SelectItem value="Cancelado">Cancelado</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -338,9 +340,9 @@ export default function ClientsPage() {
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="Lead">Lead</SelectItem>
-                  <SelectItem value="Active">Ativo</SelectItem>
-                  <SelectItem value="Paused">Pausado</SelectItem>
-                  <SelectItem value="Cancelled">Cancelado</SelectItem>
+                  <SelectItem value="Ativo">Ativo</SelectItem>
+                  <SelectItem value="Pausado">Pausado</SelectItem>
+                  <SelectItem value="Cancelado">Cancelado</SelectItem>
                 </SelectContent>
               </Select>
             </div>

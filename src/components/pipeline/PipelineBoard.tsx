@@ -3,11 +3,8 @@ import { SalesPipeline, PipelineStage } from '@/types/database';
 import { PipelineColumn } from './PipelineColumn';
 
 import { LeadProfileDialog } from './LeadProfileDialog';
-import { WhatsAppChatDrawer } from './WhatsAppChatDrawer';
 import { useUpdateLead } from '@/hooks/useSalesPipeline';
-import { useUnreadMessages, markMessagesAsRead } from '@/hooks/useUnreadMessages';
 import { useQueryClient } from '@tanstack/react-query';
-import { playNotificationSound } from '@/lib/notifications';
 import { supabase } from '@/integrations/supabase/client';
 import { useCreateClient, createOnboardingParentTask, ONBOARDING_SUBTASKS } from '@/hooks/useClients';
 import { useCreateTask } from '@/hooks/useTasks';
@@ -33,7 +30,6 @@ interface PipelineBoardProps {
 
 export function PipelineBoard({ leads }: PipelineBoardProps) {
   const { data: stages, isLoading: stagesLoading } = usePipelineStages();
-  const { data: unreadCounts } = useUnreadMessages();
   const queryClient = useQueryClient();
   
   const updateLead = useUpdateLead();
@@ -42,40 +38,9 @@ export function PipelineBoard({ leads }: PipelineBoardProps) {
   const createSubtasks = useCreateManySubtasks();
   const createContract = useCreateContract();
   const createFinance = useCreateFinance();
-  const [chatLead, setChatLead] = useState<SalesPipeline | null>(null);
   const [profileLead, setProfileLead] = useState<SalesPipeline | null>(null);
   const [lossReasonDialog, setLossReasonDialog] = useState<{ leadId: string; leadName: string } | null>(null);
   const [lossReason, setLossReason] = useState('');
-
-  // Play notification sound on new incoming messages (realtime)
-  useEffect(() => {
-    const channel = supabase
-      .channel('pipeline-new-messages')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'whatsapp_messages',
-          filter: 'direction=eq.received',
-        },
-        () => {
-          playNotificationSound();
-          queryClient.invalidateQueries({ queryKey: ['unread-messages'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
-
-  const handleOpenChat = async (lead: SalesPipeline) => {
-    setChatLead(lead);
-    await markMessagesAsRead(lead.id);
-    queryClient.invalidateQueries({ queryKey: ['unread-messages'] });
-  };
 
   const handleMoveLead = async (leadId: string, newStage: PipelineStage) => {
     const lead = leads.find((l) => l.id === leadId);
@@ -201,9 +166,7 @@ export function PipelineBoard({ leads }: PipelineBoardProps) {
               leads={leads.filter((lead) => lead.stage === stage.name)}
               totalValue={calculateStageValue(stage.name)}
               onMoveLead={handleMoveLead}
-              onOpenChat={handleOpenChat}
               onOpenProfile={(lead) => setProfileLead(lead)}
-              unreadCounts={unreadCounts || {}}
             />
           </div>
         ))}
@@ -241,13 +204,6 @@ export function PipelineBoard({ leads }: PipelineBoardProps) {
         lead={profileLead}
         open={!!profileLead}
         onOpenChange={(open) => !open && setProfileLead(null)}
-        onOpenChat={handleOpenChat}
-      />
-      {/* WhatsApp Chat Drawer */}
-      <WhatsAppChatDrawer
-        lead={chatLead}
-        open={!!chatLead}
-        onOpenChange={(open) => !open && setChatLead(null)}
       />
     </div>
   );

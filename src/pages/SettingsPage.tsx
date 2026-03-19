@@ -1,12 +1,10 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plug, User, Building2, Zap, Target, ScrollText, Megaphone } from 'lucide-react';
+import { Plug, User, Building2, Target, Megaphone } from 'lucide-react';
 import { IntegrationsTab } from '@/components/settings/IntegrationsTab';
 import { ProfileTab } from '@/components/settings/ProfileTab';
 import { AgencyTab } from '@/components/settings/AgencyTab';
-import { AutomationsTab } from '@/components/settings/AutomationsTab';
 import { MonthlyGoalsTab } from '@/components/settings/MonthlyGoalsTab';
-import { ChangelogTab } from '@/components/settings/ChangelogTab';
 import { AnnouncementsTab } from '@/components/settings/AnnouncementsTab';
 
 export default function SettingsPage() {
@@ -32,10 +30,6 @@ export default function SettingsPage() {
               <Building2 className="w-4 h-4" />
               Agência
             </TabsTrigger>
-            <TabsTrigger value="automations" className="gap-2">
-              <Zap className="w-4 h-4" />
-              Automações
-            </TabsTrigger>
             <TabsTrigger value="goals" className="gap-2">
               <Target className="w-4 h-4" />
               Metas
@@ -43,10 +37,6 @@ export default function SettingsPage() {
             <TabsTrigger value="announcements" className="gap-2">
               <Megaphone className="w-4 h-4" />
               Avisos
-            </TabsTrigger>
-            <TabsTrigger value="changelog" className="gap-2">
-              <ScrollText className="w-4 h-4" />
-              Atualizações
             </TabsTrigger>
           </TabsList>
 
@@ -59,17 +49,11 @@ export default function SettingsPage() {
           <TabsContent value="agency">
             <AgencyTab />
           </TabsContent>
-          <TabsContent value="automations">
-            <AutomationsTab />
-          </TabsContent>
           <TabsContent value="goals">
             <MonthlyGoalsTab />
           </TabsContent>
           <TabsContent value="announcements">
             <AnnouncementsTab />
-          </TabsContent>
-          <TabsContent value="changelog">
-            <ChangelogTab />
           </TabsContent>
         </Tabs>
       </div>

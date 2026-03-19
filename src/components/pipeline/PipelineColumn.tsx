@@ -12,9 +12,7 @@ interface PipelineColumnProps {
   leads: SalesPipeline[];
   totalValue: number;
   onMoveLead: (leadId: string, newStage: PipelineStage) => void;
-  onOpenChat?: (lead: SalesPipeline) => void;
   onOpenProfile?: (lead: SalesPipeline) => void;
-  unreadCounts?: Record<string, number>;
 }
 
 const stageColors: Record<string, string> = {
@@ -28,7 +26,7 @@ const stageColors: Record<string, string> = {
   Perdido: 'bg-red-500',
 };
 
-export function PipelineColumn({ title, stage, probability, description, leads, totalValue, onMoveLead, onOpenChat, onOpenProfile, unreadCounts }: PipelineColumnProps) {
+export function PipelineColumn({ title, stage, probability, description, leads, totalValue, onMoveLead, onOpenProfile }: PipelineColumnProps) {
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
@@ -69,7 +67,7 @@ export function PipelineColumn({ title, stage, probability, description, leads, 
       </div>
       <div className="space-y-2">
         {leads.map((lead) => (
-          <PipelineCard key={lead.id} lead={lead} onOpenChat={onOpenChat} onOpenProfile={onOpenProfile} unreadCount={unreadCounts?.[lead.id] || 0} />
+          <PipelineCard key={lead.id} lead={lead} onOpenProfile={onOpenProfile} />
         ))}
       </div>
     </div>

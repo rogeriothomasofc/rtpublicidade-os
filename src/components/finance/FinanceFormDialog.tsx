@@ -111,10 +111,6 @@ export function FinanceFormDialog({
       newErrors.client_id = 'Cliente é obrigatório para receitas';
     }
 
-    if (isExpense && !formData.category) {
-      newErrors.category = 'Categoria é obrigatória para despesas';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -124,7 +120,7 @@ export function FinanceFormDialog({
 
     const submitData: Omit<Finance, 'id' | 'created_at' | 'updated_at'> = {
       type: formData.type,
-      client_id: isRevenue ? formData.client_id : null,
+      client_id: formData.client_id || null,
       amount: formData.amount,
       due_date: formData.due_date,
       status: formData.status,

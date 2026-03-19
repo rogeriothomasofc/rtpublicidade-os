@@ -48,31 +48,17 @@ export function PlanningOverviewTab({ campaign, planningId }: Props) {
     try {
       const { data, error } = await supabase.functions.invoke('planning-ai-summary', {
         body: {
-          campaign: {
-            name: campaign.name,
-            objective: campaign.objective,
-            platform: campaign.platform,
-            status: campaign.status,
-            total_budget: campaign.total_budget,
-            daily_budget: campaign.daily_budget,
-            kpis: campaign.kpis,
-          },
+          campaign: { name: campaign.name, objective: campaign.objective, platform: campaign.platform, status: campaign.status, total_budget: campaign.total_budget, daily_budget: campaign.daily_budget, kpis: campaign.kpis },
           structures: structures.map(s => ({ name: s.name, type: s.type, objective: s.objective, budget: s.budget })),
           audiences: audiences.map(a => ({ name: a.name, type: a.type, description: a.description, estimated_size: a.estimated_size, tags: a.tags })),
           creatives: creatives.map(c => ({ name: c.name, format: c.format, status: c.status, headline: c.headline, copy_text: c.copy_text, cta: c.cta })),
         },
       });
-
       if (error) throw error;
-      if (data?.error) {
-        toast.error(data.error);
-        return;
-      }
+      if (data?.error) { toast.error(data.error); return; }
       setAiSummary(data.summary);
-      // Save to database
       await supabase.from('planning_campaigns').update({ ai_summary: data.summary }).eq('id', planningId);
     } catch (e: unknown) {
-      console.error(e);
       toast.error('Erro ao gerar resumo com IA');
     } finally {
       setIsGenerating(false);
@@ -144,7 +130,6 @@ export function PlanningOverviewTab({ campaign, planningId }: Props) {
 
       {/* AI Strategy Summary */}
       <Separator />
-
       <Card className="border-border bg-card">
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-4">
@@ -152,36 +137,17 @@ export function PlanningOverviewTab({ campaign, planningId }: Props) {
               <Sparkles className="w-5 h-5 text-primary" />
               <h3 className="text-lg font-semibold">Resumo Estratégico da Campanha</h3>
             </div>
-            <Button
-              variant={aiSummary ? 'outline' : 'default'}
-              size="sm"
-              onClick={generateSummary}
-              disabled={isGenerating}
-            >
-              {isGenerating ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Gerando...</>
-              ) : aiSummary ? (
-                <><RefreshCw className="w-4 h-4 mr-2" /> Regerar</>
-              ) : (
-                <><Sparkles className="w-4 h-4 mr-2" /> Gerar com IA</>
-              )}
+            <Button variant={aiSummary ? 'outline' : 'default'} size="sm" onClick={generateSummary} disabled={isGenerating}>
+              {isGenerating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Gerando...</> : aiSummary ? <><RefreshCw className="w-4 h-4 mr-2" /> Regerar</> : <><Sparkles className="w-4 h-4 mr-2" /> Gerar com IA</>}
             </Button>
           </div>
-
           {aiSummary ? (
-            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed">
-              {aiSummary}
-            </div>
+            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed">{aiSummary}</div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <Sparkles className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">
-                Clique em <span className="font-medium text-foreground">"Gerar com IA"</span> para criar um resumo estratégico
-                com base nas estruturas, públicos e criativos cadastrados.
-              </p>
-              <p className="text-xs mt-1 text-muted-foreground/70">
-                {structures.length} estrutura(s) · {audiences.length} público(s) · {creatives.length} criativo(s)
-              </p>
+              <p className="text-sm">Clique em <span className="font-medium text-foreground">"Gerar com IA"</span> para criar um resumo estratégico com base nas estruturas, públicos e criativos cadastrados.</p>
+              <p className="text-xs mt-1 text-muted-foreground/70">{structures.length} estrutura(s) · {audiences.length} público(s) · {creatives.length} criativo(s)</p>
             </div>
           )}
         </CardContent>

@@ -120,7 +120,7 @@ export default function ClientDetailPage() {
   const [editForm, setEditForm] = useState({
     name: '', company: '', email: '', phone: '', status: 'Lead' as ClientStatus,
     fee: 0, person_type: 'pj' as PersonType, cnpj: '', cpf: '', rg: '', razao_social: '', inscricao_estadual: '',
-    address: '', city: '', state: '', zip_code: '', drive_link: '', meta_ads_account: '',
+    address: '', city: '', state: '', zip_code: '', drive_link: '', meta_ads_account: '', whatsapp_group_id: '',
   });
 
   const openEditDialog = () => {
@@ -134,6 +134,7 @@ export default function ClientDetailPage() {
       address: client.address || '', city: client.city || '',
       state: client.state || '', zip_code: client.zip_code || '',
       drive_link: (client as any).drive_link || '', meta_ads_account: (client as any).meta_ads_account || '',
+      whatsapp_group_id: client.whatsapp_group_id || '',
     });
     setEditDialogOpen(true);
   };
@@ -799,6 +800,10 @@ export default function ClientDetailPage() {
               <div>
                 <Label>Conta Meta Ads</Label>
                 <Input value={editForm.meta_ads_account} onChange={e => setEditForm({ ...editForm, meta_ads_account: e.target.value })} placeholder="ID da conta de anúncio" />
+              </div>
+              <div>
+                <Label>ID Grupo WhatsApp</Label>
+                <Input value={editForm.whatsapp_group_id} onChange={e => setEditForm({ ...editForm, whatsapp_group_id: e.target.value })} placeholder="120363401557449318@g.us" />
               </div>
             </div>
             <Button onClick={handleEditSubmit} className="w-full" disabled={updateClient.isPending}>

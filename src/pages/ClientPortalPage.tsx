@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, LogOut, CheckSquare, DollarSign, Lightbulb, MessageCircle, Send, Clock, AlertCircle, CheckCircle2, Circle, ArrowLeft, CalendarPlus, Phone, Megaphone } from 'lucide-react';
+import { Loader2, LogOut, CheckSquare, DollarSign, Lightbulb, MessageCircle, Send, Clock, AlertCircle, CheckCircle2, Circle, ArrowLeft, CalendarPlus, Phone, Megaphone, ShoppingCart } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { toast } from 'sonner';
 import { ClientPortalAlerts } from '@/components/portal/ClientPortalAlerts';
@@ -17,6 +17,7 @@ import { PortalAISummary } from '@/components/portal/PortalAISummary';
 import { ScheduleMeetingDialog } from '@/components/portal/ScheduleMeetingDialog';
 import { useCreatePortalAccessLog, useUpdatePortalAccessLog } from '@/hooks/usePortalAccessLogs';
 import { useClientAnnouncements } from '@/hooks/usePortalAnnouncements';
+import { SalesPortalPanel } from '@/components/portal/SalesPortalPanel';
 
 const taskStatusIcons: Record<string, React.ReactNode> = {
   'A Fazer': <Circle className="w-4 h-4 text-muted-foreground" />,
@@ -128,7 +129,7 @@ export default function ClientPortalPage() {
 
   const [commentText, setCommentText] = useState('');
   const [commentTarget, setCommentTarget] = useState<{ entityType: string; entityId: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'tasks' | 'finance' | 'planning'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'tasks' | 'finance' | 'planning' | 'sales'>('all');
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
 
   const createLog = useCreatePortalAccessLog();
@@ -354,7 +355,7 @@ export default function ClientPortalPage() {
 
         {/* Tabs */}
         <div className="flex gap-2 overflow-x-auto">
-          {(['all', 'tasks', 'finance', 'planning'] as const).map(tab => (
+          {(['all', 'tasks', 'finance', 'planning', 'sales'] as const).map(tab => (
             <Button
               key={tab}
               variant={activeTab === tab ? 'default' : 'outline'}
@@ -366,6 +367,7 @@ export default function ClientPortalPage() {
               {tab === 'tasks' && <><CheckSquare className="w-3.5 h-3.5 mr-1.5" />Tarefas</>}
               {tab === 'finance' && <><DollarSign className="w-3.5 h-3.5 mr-1.5" />Financeiro</>}
               {tab === 'planning' && <><Lightbulb className="w-3.5 h-3.5 mr-1.5" />Planejamentos</>}
+              {tab === 'sales' && <><ShoppingCart className="w-3.5 h-3.5 mr-1.5" />Vendas</>}
             </Button>
           ))}
         </div>
@@ -399,8 +401,11 @@ export default function ClientPortalPage() {
           </Card>
         )}
 
+        {/* Sales Panel */}
+        {activeTab === 'sales' && <SalesPortalPanel clientId={clientId} />}
+
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {activeTab !== 'sales' && <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="border-border/50">
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold text-foreground">{timeline?.tasks?.length || 0}</p>
@@ -429,10 +434,10 @@ export default function ClientPortalPage() {
               <p className="text-xs text-muted-foreground">Pendentes</p>
             </CardContent>
           </Card>
-        </div>
+        </div>}
 
         {/* Timeline */}
-        <Card className="border-border/50">
+        {activeTab !== 'sales' && <Card className="border-border/50">
           <CardHeader>
             <CardTitle className="text-lg">Linha do Tempo</CardTitle>
           </CardHeader>
@@ -512,7 +517,7 @@ export default function ClientPortalPage() {
               </div>
             )}
           </CardContent>
-        </Card>
+        </Card>}
       </main>
 
       <ScheduleMeetingDialog

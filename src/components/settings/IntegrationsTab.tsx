@@ -21,7 +21,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useGoogleCalendarStatus, useGoogleCalendarAuth, useGoogleCalendarDisconnect } from '@/hooks/useGoogleCalendar';
 import {
   Wifi,
   WifiOff,
@@ -34,8 +33,6 @@ import {
   Webhook,
   Copy,
   Check as CheckIcon,
-  Calendar,
-  MessageCircle,
   Settings,
   Plus,
   ExternalLink,
@@ -49,11 +46,6 @@ export function IntegrationsTab() {
   const disconnect = useDisconnectIntegration();
   const { toast } = useToast();
 
-  // Evolution
-  const [evolutionDialog, setEvolutionDialog] = useState(false);
-  const [evolutionForm, setEvolutionForm] = useState({ url: '', apiKey: '', name: '' });
-  const [testingConnection, setTestingConnection] = useState(false);
-
   // Webhook
   const [webhookDialog, setWebhookDialog] = useState(false);
   const [webhookForm, setWebhookForm] = useState({ url: '', secret: '', name: '', events: '' });
@@ -62,73 +54,13 @@ export function IntegrationsTab() {
 
   const [logsDialog, setLogsDialog] = useState<string | null>(null);
 
-  // Google Calendar
-  const [googleDialog, setGoogleDialog] = useState(false);
-  const [googleForm, setGoogleForm] = useState({ clientId: '', clientSecret: '' });
-  const [savingGoogle, setSavingGoogle] = useState(false);
-
   // Asaas
   const [asaasDialog, setAsaasDialog] = useState(false);
   const [asaasForm, setAsaasForm] = useState({ apiKey: '', environment: 'sandbox' as 'sandbox' | 'production' });
   const [savingAsaas, setSavingAsaas] = useState(false);
   const [testingAsaas, setTestingAsaas] = useState(false);
-  const { data: gcalStatus } = useGoogleCalendarStatus();
-  const googleAuth = useGoogleCalendarAuth();
-  const googleDisconnect = useGoogleCalendarDisconnect();
-
-  const evolutionIntegration = integrations?.find((i) => i.provider === 'evolution_api');
   const webhookIntegration = integrations?.find((i) => i.provider === 'webhook');
-  const googleIntegration = integrations?.find((i) => i.provider === 'google_calendar');
   const asaasIntegration = integrations?.find((i) => i.provider === 'asaas');
-
-  // Evolution API handlers
-  const handleConnectEvolution = () => {
-    if (evolutionIntegration) {
-      const config = evolutionIntegration.config as Record<string, unknown> | null;
-      setEvolutionForm({
-        url: (config?.url as string) || '',
-        apiKey: (config?.apiKey as string) || '',
-        name: evolutionIntegration.name || '',
-      });
-    }
-    setEvolutionDialog(true);
-  };
-
-  const handleTestEvolution = async () => {
-    if (!evolutionForm.url) {
-      toast({ title: 'Informe a URL da instância', variant: 'destructive' });
-      return;
-    }
-    setTestingConnection(true);
-    try {
-      const url = evolutionForm.url.replace(/\/$/, '');
-      const res = await fetch(`${url}/instance/fetchInstances`, {
-        headers: { apikey: evolutionForm.apiKey },
-      });
-      if (res.ok) {
-        toast({ title: 'Conexão bem-sucedida!' });
-      } else {
-        toast({ title: 'Falha na conexão', description: `Status: ${res.status}`, variant: 'destructive' });
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro desconhecido';
-      toast({ title: 'Erro de conexão', description: message, variant: 'destructive' });
-    } finally {
-      setTestingConnection(false);
-    }
-  };
-
-  const handleSaveEvolution = () => {
-    upsert.mutate(
-      {
-        provider: 'evolution_api',
-        name: evolutionForm.name || 'API Evolution',
-        status: 'connected',
-        config: { url: evolutionForm.url, apiKey: evolutionForm.apiKey } as any,
-      },
-      { onSuccess: () => setEvolutionDialog(false) }
-    );
-  };
 
   const handleDisconnect = (id: string) => {
     disconnect.mutate(id);
@@ -203,55 +135,6 @@ export function IntegrationsTab() {
         setTimeout(() => setCopiedUrl(false), 2000);
         toast({ title: 'URL copiada!' });
       }
-    }
-  };
-
-  // Google Calendar handlers
-  const handleOpenGoogleDialog = () => {
-    const config = googleIntegration?.config as Record<string, unknown> | null;
-    setGoogleForm({
-      clientId: (config?.client_id as string) || '',
-      clientSecret: (config?.client_secret as string) || '',
-    });
-    setGoogleDialog(true);
-  };
-
-  const handleSaveGoogleCredentials = () => {
-    if (!googleForm.clientId.trim() || !googleForm.clientSecret.trim()) {
-      toast({ title: 'Preencha todos os campos', variant: 'destructive' });
-      return;
-    }
-    setSavingGoogle(true);
-    upsert.mutate(
-      {
-        provider: 'google_calendar',
-        name: 'Google Calendar',
-        status: 'connected',
-        config: {
-          client_id: googleForm.clientId.trim(),
-          client_secret: googleForm.clientSecret.trim(),
-          connected_at: new Date().toISOString(),
-        } as any,
-      },
-      {
-        onSuccess: () => {
-          setGoogleDialog(false);
-          setSavingGoogle(false);
-          toast({ title: 'Credenciais salvas!', description: 'Agora clique em "Conectar" para autorizar o Google Calendar.' });
-        },
-        onError: () => setSavingGoogle(false),
-      }
-    );
-  };
-
-  const handleConnectGoogle = () => {
-    googleAuth.mutate();
-  };
-
-  const handleDisconnectGoogle = () => {
-    googleDisconnect.mutate();
-    if (googleIntegration) {
-      disconnect.mutate(googleIntegration.id);
     }
   };
 
@@ -345,10 +228,7 @@ export function IntegrationsTab() {
     );
   }
 
-  const isEvolutionConnected = evolutionIntegration?.status === 'connected';
   const isWebhookConnected = webhookIntegration?.status === 'connected';
-  const isGoogleConnected = gcalStatus?.connected || false;
-  const hasGoogleCredentials = googleIntegration?.status === 'connected';
   const isAsaasConnected = asaasIntegration?.status === 'connected';
 
   return (
@@ -362,121 +242,12 @@ export function IntegrationsTab() {
           </div>
         </div>
 
-        {/* Canais de Comunicação */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Canais de Comunicação</h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* WhatsApp */}
-            <Card className="relative">
-              <CardContent className="p-5">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
-                    <MessageCircle className="w-6 h-6 text-green-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold">API Evolution (WhatsApp)</span>
-                      <Badge variant={isEvolutionConnected ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
-                        {isEvolutionConnected ? 'Conectado' : 'Disponível'}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Conecte via Evolution API para receber e enviar mensagens
-                    </p>
-                    {isEvolutionConnected && (
-                      <p className="text-xs text-muted-foreground">
-                        Última sincronização: {formatSyncDate(evolutionIntegration?.last_sync_at ?? null) || 'Nunca'}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {isEvolutionConnected ? (
-                      <>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleConnectEvolution}>
-                          <Settings className="w-4 h-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => {}}>
-                          <CheckIcon className="w-3.5 h-3.5" />
-                          Conectado
-                        </Button>
-                      </>
-                    ) : (
-                      <Button size="sm" className="gap-1.5" onClick={handleConnectEvolution}>
-                        Conectar
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
         {/* Ferramentas */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Ferramentas</h3>
           <div className="grid gap-4 md:grid-cols-2">
             {/* Email SMTP */}
             <SmtpSettingsCard />
-            {/* Google Calendar */}
-            <Card>
-              <CardContent className="p-5">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
-                    <Calendar className="w-6 h-6 text-amber-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold">Google Calendar</span>
-                      <Badge
-                        variant={isGoogleConnected ? 'default' : hasGoogleCredentials ? 'secondary' : 'secondary'}
-                        className="text-[10px] px-1.5 py-0"
-                      >
-                        {isGoogleConnected ? 'Conectado' : hasGoogleCredentials ? 'Credenciais salvas' : 'Disponível'}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Sincronize tarefas, projetos e financeiro com o Google Agenda
-                    </p>
-                    {hasGoogleCredentials && (
-                      <p className="text-xs text-muted-foreground">
-                        Client ID: {((googleIntegration?.config as any)?.client_id as string)?.slice(0, 20)}...
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {isGoogleConnected ? (
-                      <>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenGoogleDialog}>
-                          <Settings className="w-4 h-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDisconnectGoogle}>
-                          <CheckIcon className="w-3.5 h-3.5" />
-                          Conectado
-                        </Button>
-                      </>
-                    ) : hasGoogleCredentials ? (
-                      <>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenGoogleDialog}>
-                          <Settings className="w-4 h-4" />
-                        </Button>
-                        <Button size="sm" className="gap-1.5" onClick={handleConnectGoogle} disabled={googleAuth.isPending}>
-                          {googleAuth.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                          Conectar
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </Button>
-                      </>
-                    ) : (
-                      <Button size="sm" className="gap-1.5" onClick={handleOpenGoogleDialog}>
-                        Conectar
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Asaas */}
             <Card>
@@ -594,7 +365,7 @@ export function IntegrationsTab() {
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground">Endpoints Disponíveis</Label>
                       <div className="flex flex-wrap gap-1.5">
-                        {['whatsapp-webhook', 'whatsapp-chat', 'update-overdue-tasks', 'update-overdue-finance', 'send-push', 'send-client-email', 'dashboard-summary', 'goals-action-plan', 'planning-ai-summary', 'portal-ai-summary', 'invite-client', 'create-member-user', 'google-calendar-auth', 'google-calendar-callback', 'google-calendar-sync'].map((ep) => (
+                        {['update-overdue-tasks', 'update-overdue-finance', 'send-push', 'send-client-email', 'invite-client', 'create-member-user'].map((ep) => (
                           <span key={ep} className="text-[11px] bg-muted px-2 py-0.5 rounded-full border border-border font-mono">
                             {ep}
                           </span>
@@ -608,50 +379,6 @@ export function IntegrationsTab() {
           </Card>
         </div>
       </div>
-      <Dialog open={evolutionDialog} onOpenChange={setEvolutionDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Configurar API Evolution</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Nome da conexão</Label>
-              <Input
-                value={evolutionForm.name}
-                onChange={(e) => setEvolutionForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Ex: WhatsApp Principal"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>URL da instância</Label>
-              <Input
-                value={evolutionForm.url}
-                onChange={(e) => setEvolutionForm((f) => ({ ...f, url: e.target.value }))}
-                placeholder="https://api.evolution.exemplo.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>API Key</Label>
-              <Input
-                type="password"
-                value={evolutionForm.apiKey}
-                onChange={(e) => setEvolutionForm((f) => ({ ...f, apiKey: e.target.value }))}
-                placeholder="Sua chave de API"
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={handleTestEvolution} disabled={testingConnection}>
-              {testingConnection ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Wifi className="w-4 h-4 mr-1" />}
-              Testar conexão
-            </Button>
-            <Button onClick={handleSaveEvolution} disabled={upsert.isPending}>
-              Salvar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Webhook Dialog */}
       <Dialog open={webhookDialog} onOpenChange={setWebhookDialog}>
         <DialogContent>
@@ -706,55 +433,6 @@ export function IntegrationsTab() {
             </Button>
             <Button onClick={handleSaveWebhook} disabled={upsert.isPending}>
               Salvar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Google Calendar Credentials Dialog */}
-      <Dialog open={googleDialog} onOpenChange={setGoogleDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Credenciais Google Calendar</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>ID do Cliente (Client ID)</Label>
-              <Input
-                value={googleForm.clientId}
-                onChange={(e) => setGoogleForm((f) => ({ ...f, clientId: e.target.value }))}
-                placeholder="xxxxx.apps.googleusercontent.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Chave Secreta (Client Secret)</Label>
-              <Input
-                type="password"
-                value={googleForm.clientSecret}
-                onChange={(e) => setGoogleForm((f) => ({ ...f, clientSecret: e.target.value }))}
-                placeholder="GOCSPX-..."
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Obtenha as credenciais no{' '}
-              <a
-                href="https://console.cloud.google.com/apis/credentials"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline text-primary"
-              >
-                Google Cloud Console
-              </a>
-              . A URI de redirecionamento autorizada deve ser:{' '}
-              <code className="text-xs bg-muted px-1 rounded break-all">
-                {import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-callback
-              </code>
-            </p>
-          </div>
-          <DialogFooter>
-            <Button onClick={handleSaveGoogleCredentials} disabled={savingGoogle || upsert.isPending}>
-              {savingGoogle ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-              Salvar credenciais
             </Button>
           </DialogFooter>
         </DialogContent>

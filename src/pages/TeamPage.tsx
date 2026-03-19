@@ -38,7 +38,7 @@ export default function TeamPage() {
 
   const [grantAccess, setGrantAccess] = useState(false);
   const [tempPassword, setTempPassword] = useState('');
-  const [accessLevel, setAccessLevel] = useState<'Gestor' | 'Analista' | 'Criativo'>('Analista');
+  const [accessLevel, setAccessLevel] = useState<'Gestor' | 'Analista' | 'Designer'>('Analista');
 
   const resetForm = () => {
     setFormData({ name: '', email: '', role: '', avatar_url: '' });
@@ -59,6 +59,9 @@ export default function TeamPage() {
       role: member.role || '',
       avatar_url: member.avatar_url || '',
     });
+    const validLevels = ['Gestor', 'Analista', 'Designer'] as const;
+    const level = validLevels.find(l => l === member.role) ?? 'Analista';
+    setAccessLevel(level);
     setEditingMember(member);
   };
 
@@ -79,7 +82,7 @@ export default function TeamPage() {
         const newMember = await createMember.mutateAsync({
           name: formData.name,
           email: formData.email,
-          role: formData.role || null,
+          role: accessLevel,
           avatar_url: formData.avatar_url || null,
           is_active: true,
         });
@@ -112,7 +115,7 @@ export default function TeamPage() {
       await createMember.mutateAsync({
         name: formData.name,
         email: formData.email || null,
-        role: formData.role || null,
+        role: accessLevel,
         avatar_url: formData.avatar_url || null,
         is_active: true,
       });
@@ -128,7 +131,7 @@ export default function TeamPage() {
       id: editingMember.id,
       name: formData.name,
       email: formData.email || null,
-      role: formData.role || null,
+      role: accessLevel,
       avatar_url: formData.avatar_url || null,
     });
     resetForm();
@@ -210,13 +213,21 @@ export default function TeamPage() {
                     placeholder="email@exemplo.com"
                   />
                 </div>
-                <div>
-                  <Label>Cargo / Função</Label>
-                  <Input
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    placeholder="Ex: Designer, Gestor de Tráfego"
-                  />
+                <div className="space-y-2">
+                  <Label>Nível de acesso</Label>
+                  <Select
+                    value={accessLevel}
+                    onValueChange={(v) => setAccessLevel(v as typeof accessLevel)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Gestor">Gestor — acesso total</SelectItem>
+                      <SelectItem value="Analista">Analista — acesso operacional</SelectItem>
+                      <SelectItem value="Designer">Designer — só tarefas e planejamentos</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <AvatarUpload
                   currentUrl={formData.avatar_url || null}
@@ -240,22 +251,6 @@ export default function TeamPage() {
                   </div>
                   {grantAccess && (
                     <div className="space-y-3 pl-6">
-                      <div className="space-y-2">
-                        <Label>Nível de acesso *</Label>
-                        <Select
-                          value={accessLevel}
-                          onValueChange={(v) => setAccessLevel(v as typeof accessLevel)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Gestor">Gestor — acesso total</SelectItem>
-                            <SelectItem value="Analista">Analista — acesso operacional</SelectItem>
-                            <SelectItem value="Criativo">Criativo — só tarefas e planejamentos</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
                       <div className="space-y-2">
                         <Label>Senha temporária *</Label>
                         <Input
@@ -410,13 +405,21 @@ export default function TeamPage() {
                   placeholder="email@exemplo.com"
                 />
               </div>
-              <div>
-                <Label>Cargo / Função</Label>
-                <Input
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  placeholder="Ex: Designer, Gestor de Tráfego"
-                />
+              <div className="space-y-2">
+                <Label>Nível de acesso</Label>
+                <Select
+                  value={accessLevel}
+                  onValueChange={(v) => setAccessLevel(v as typeof accessLevel)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Gestor">Gestor — acesso total</SelectItem>
+                    <SelectItem value="Analista">Analista — acesso operacional</SelectItem>
+                    <SelectItem value="Designer">Designer — só tarefas e planejamentos</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <AvatarUpload
                 currentUrl={formData.avatar_url || null}

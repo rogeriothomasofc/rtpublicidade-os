@@ -8,7 +8,6 @@ import { PWAProvider, PWAInstallPrompt, PWAUpdatePrompt, OfflineBanner } from "@
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { AppErrorBoundary, PageErrorBoundary } from "@/components/layout/ErrorBoundary";
 import AuthPage from "./pages/AuthPage";
-import { FocusMode } from "@/components/focus/FocusMode";
 import NotFound from "./pages/NotFound";
 import OfflinePage from "./pages/OfflinePage";
 
@@ -25,7 +24,6 @@ const ProposalsPage = lazy(() => import("./pages/ProposalsPage"));
 const TeamPage = lazy(() => import("./pages/TeamPage"));
 const ContractsPage = lazy(() => import("./pages/ContractsPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
-const WhatsAppPage = lazy(() => import("./pages/WhatsAppPage"));
 const PlanningPage = lazy(() => import("./pages/PlanningPage"));
 const PlanningDetailPage = lazy(() => import("./pages/PlanningDetailPage"));
 
@@ -67,8 +65,6 @@ const App = () => (
               <Route path="/proposals" element={<ProtectedRoute><P><ProposalsPage /></P></ProtectedRoute>} />
               <Route path="/team" element={<ProtectedRoute><P><TeamPage /></P></ProtectedRoute>} />
               <Route path="/contracts" element={<ProtectedRoute><P><ContractsPage /></P></ProtectedRoute>} />
-              <Route path="/whatsapp" element={<ProtectedRoute><P><WhatsAppPage /></P></ProtectedRoute>} />
-
               <Route path="/planning" element={<ProtectedRoute><P><PlanningPage /></P></ProtectedRoute>} />
               <Route path="/planning/:id" element={<ProtectedRoute><P><PlanningDetailPage /></P></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><P><SettingsPage /></P></ProtectedRoute>} />
@@ -76,7 +72,6 @@ const App = () => (
             </Routes>
           </Suspense>
         </BrowserRouter>
-        <FocusMode />
       </TooltipProvider>
     </QueryClientProvider>
   </AppErrorBoundary>

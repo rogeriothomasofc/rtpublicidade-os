@@ -54,26 +54,18 @@ export function MonthlyGoalsTab() {
       toast({ title: 'Defina pelo menos uma meta antes de gerar o plano', variant: 'destructive' });
       return;
     }
-
     setGeneratingPlan(true);
     try {
       const { data, error } = await supabase.functions.invoke('goals-action-plan', {
         body: { goals: form },
       });
-
       if (error) throw error;
       if (data?.error) {
         toast({ title: data.error, variant: 'destructive' });
         return;
       }
-
       setAiPlan(data.plan);
-      // Auto-save with plan
-      await saveGoal.mutateAsync({
-        month: currentMonth,
-        ...form,
-        ai_action_plan: data.plan,
-      });
+      await saveGoal.mutateAsync({ month: currentMonth, ...form, ai_action_plan: data.plan });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
       toast({ title: 'Erro ao gerar plano', description: message, variant: 'destructive' });
