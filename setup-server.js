@@ -44,6 +44,16 @@ const AGENT_PORT = (() => {
   catch { return 9876; }
 })();
 
+// Chave pré-preenchida via install.sh
+const PRE_LICENSE_KEY = (() => {
+  try { return fs.readFileSync(path.join(APP_DIR, '.license-key'), 'utf8').trim(); }
+  catch { return ''; }
+})();
+
+// URL do servidor de provisioning do dono
+// Troque pela sua URL antes de publicar
+const PROVISION_SERVER = 'https://licencas.rtpublicidade.com.br';
+
 // ── HTML do wizard ──────────────────────────────────────────
 const setupHTML = () => `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -119,28 +129,20 @@ const setupHTML = () => `<!DOCTYPE html>
     <div class="step-dot" id="dot2"></div>
   </div>
 
-  <!-- ── STEP 1: Supabase ──────────────────────────── -->
+  <!-- ── STEP 1: Licença ───────────────────────────── -->
   <div class="section visible" id="step0">
-    <p class="section-title">1. Banco de dados</p>
+    <p class="section-title">1. Chave de licença</p>
     <p class="section-desc">
-      Crie um projeto gratuito em <a href="https://supabase.com" target="_blank" style="color:var(--primary)">supabase.com</a>,
-      acesse <strong>Settings → API</strong> e preencha abaixo.
+      Informe a chave fornecida pelo vendedor. O banco de dados já foi
+      configurado para você — não é necessário criar conta no Supabase.
     </p>
     <div class="field">
-      <label>Project URL</label>
-      <input type="url" id="sbUrl" placeholder="https://xxxxxxxx.supabase.co" />
-    </div>
-    <div class="field">
-      <label>Anon / Public Key</label>
-      <input type="text" id="sbAnon" placeholder="eyJhbGci..." />
-    </div>
-    <div class="field">
-      <label>Access Token <span class="tag">Settings → Access Tokens</span></label>
-      <input type="password" id="sbToken" placeholder="sbp_..." />
-      <p class="hint">Usado para aplicar o banco de dados e publicar as funções. <a href="https://supabase.com/dashboard/account/tokens" target="_blank">Gerar token →</a></p>
+      <label>Chave de licença</label>
+      <input type="text" id="licenseKey" placeholder="AGC-XXXX-XXXX-XXXX"
+        value="${PRE_LICENSE_KEY}" style="font-family:monospace;letter-spacing:.05em" />
     </div>
     <p class="err" id="err0"></p>
-    <button class="btn" onclick="goStep1()">Próximo →</button>
+    <button class="btn" onclick="goStep1()">Validar →</button>
   </div>
 
   <!-- ── STEP 2: Admin ─────────────────────────────── -->
@@ -164,11 +166,6 @@ const setupHTML = () => `<!DOCTYPE html>
         <label>Confirmar senha</label>
         <input type="password" id="adminPass2" placeholder="Repita a senha" />
       </div>
-    </div>
-    <div class="field">
-      <label>Chave de licença</label>
-      <input type="text" id="licenseKey" placeholder="AGC-XXXX-XXXX-XXXX" />
-      <p class="hint">Fornecida pelo vendedor após a compra. Deixe em branco se não tiver.</p>
     </div>
     <p class="err" id="err1"></p>
     <button class="btn" onclick="goStep2()">Instalar →</button>
@@ -233,22 +230,37 @@ function showStep(n) {
 
 function back(n) { showStep(n); }
 
-function goStep1() {
+async function goStep1() {
   clearErr('err0');
-  const url   = document.getElementById('sbUrl').value.trim();
-  const anon  = document.getElementById('sbAnon').value.trim();
-  const token = document.getElementById('sbToken').value.trim();
+  const key = document.getElementById('licenseKey').value.trim();
+  if (!key) return showErr('err0', 'Informe a chave de licença.');
 
-  if (!url || !url.startsWith('https://'))   return showErr('err0', 'URL inválida. Ex: https://xxxxxxxx.supabase.co');
-  if (!anon)   return showErr('err0', 'Informe a Anon Key.');
-  if (!token)  return showErr('err0', 'Informe o Access Token.');
+  const btn = document.querySelector('#step0 .btn');
+  btn.disabled = true;
+  btn.textContent = 'Validando...';
 
-  data.supabaseUrl  = url;
-  data.anonKey      = anon;
-  data.accessToken  = token;
-  data.projectRef   = url.replace('https://', '').split('.')[0];
-
-  showStep(1);
+  try {
+    const res  = await fetch('/validate-license', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key }),
+    });
+    const json = await res.json();
+    if (!json.valid) return showErr('err0', json.error || 'Chave inválida ou suspensa.');
+    data.licenseKey   = key;
+    data.supabaseUrl  = json.supabase_url;
+    data.anonKey      = json.supabase_anon_key;
+    data.serviceKey   = json.supabase_service_key;
+    data.projectRef   = json.supabase_project_ref;
+    // Pré-preenche nome da agência se disponível
+    if (json.buyer_name) document.getElementById('agencyName').value = json.buyer_name;
+    showStep(1);
+  } catch(e) {
+    showErr('err0', 'Erro ao validar: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Validar →';
+  }
 }
 
 function goStep2() {
@@ -266,7 +278,6 @@ function goStep2() {
   data.agencyName    = agency;
   data.adminEmail    = email;
   data.adminPassword = pass;
-  data.licenseKey    = document.getElementById('licenseKey').value.trim();
 
   showStep(2);
   startInstall();
@@ -335,18 +346,35 @@ function run(cmd, opts = {}) {
   return execSync(cmd, { cwd: APP_DIR, stdio: 'pipe', ...opts }).toString().trim();
 }
 
+// ── Validar licença no servidor do dono ─────────────────────
+async function validateLicense(key) {
+  const https = require('https');
+  const url   = new URL(`${PROVISION_SERVER}/functions/v1/provision`);
+  return new Promise((resolve) => {
+    const payload = JSON.stringify({ key, domain: DOMAIN });
+    const req = https.request({
+      hostname: url.hostname,
+      path:     url.pathname,
+      method:   'POST',
+      headers:  { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+    }, res => {
+      let d = '';
+      res.on('data', c => d += c);
+      res.on('end', () => { try { resolve(JSON.parse(d)); } catch { resolve({ valid: false, error: 'Resposta inválida' }); } });
+    });
+    req.on('error', e => resolve({ valid: false, error: e.message }));
+    req.write(payload);
+    req.end();
+  });
+}
+
 // ── Lógica de configuração ──────────────────────────────────
 async function configure(body, res) {
-  const { supabaseUrl, anonKey, accessToken, projectRef, agencyName, adminEmail, adminPassword, licenseKey } = body;
+  const { supabaseUrl, anonKey, serviceKey, projectRef, agencyName, adminEmail, adminPassword, licenseKey } = body;
 
   try {
-    // 1. Validar token Supabase
-    send(res, { log: '▶ Validando credenciais do Supabase...' });
-    const orgsCheck = run(`curl -sf "${process.env.SUPABASE_API || 'https://api.supabase.com/v1'}/organizations" -H "Authorization: Bearer ${accessToken}"`);
-    if (!orgsCheck || orgsCheck.includes('"error"')) {
-      return send(res, { error: 'Access Token inválido. Verifique e tente novamente.' });
-    }
-    send(res, { log: '✔ Token válido' });
+    send(res, { log: '▶ Credenciais do banco de dados recebidas via licença' });
+    send(res, { log: `✔ Projeto: ${projectRef}` });
 
     // 2. Aplicar migrations
     send(res, { log: '▶ Aplicando banco de dados (migrations)...' });
@@ -446,15 +474,9 @@ server {
     run('nginx -t -q && systemctl reload nginx');
     send(res, { log: '✔ Servidor web configurado' });
 
-    // 7. Obter service_role key para criar o admin
+    // 7. Criar admin
     send(res, { log: '▶ Criando usuário administrador...' });
-    let serviceKey = anonKey; // fallback
-    try {
-      const keysRaw = run(`curl -sf "https://api.supabase.com/v1/projects/${projectRef}/api-keys" -H "Authorization: Bearer ${accessToken}"`);
-      const keys = JSON.parse(keysRaw);
-      const srKey = keys.find(k => k.name === 'service_role');
-      if (srKey) serviceKey = srKey.api_key;
-    } catch {}
+    const svcKey = serviceKey || anonKey;
 
     // Criar usuário via Auth admin API
     const createUserPayload = JSON.stringify({
@@ -466,7 +488,7 @@ server {
 
     const createUserResp = run(`curl -sf -X POST "${supabaseUrl}/auth/v1/admin/users" \
       -H "apikey: ${anonKey}" \
-      -H "Authorization: Bearer ${serviceKey}" \
+      -H "Authorization: Bearer ${svcKey}" \
       -H "Content-Type: application/json" \
       -d '${createUserPayload.replace(/'/g, "'\\''")}'`);
 
@@ -474,8 +496,7 @@ server {
     const userId = userObj.id;
 
     if (userId) {
-      // Inserir profile, user_role, agency_settings
-      const restHeaders = `-H "apikey: ${anonKey}" -H "Authorization: Bearer ${serviceKey}" -H "Content-Type: application/json" -H "Prefer: resolution=ignore-duplicates"`;
+      const restHeaders = `-H "apikey: ${anonKey}" -H "Authorization: Bearer ${svcKey}" -H "Content-Type: application/json" -H "Prefer: resolution=ignore-duplicates"`;
 
       run(`curl -sf -X POST "${supabaseUrl}/rest/v1/profiles" ${restHeaders} -d '{"user_id":"${userId}","name":"Admin","role":"admin"}' || true`);
       run(`curl -sf -X POST "${supabaseUrl}/rest/v1/user_roles" ${restHeaders} -d '{"user_id":"${userId}","role":"admin"}' || true`);
@@ -519,6 +540,24 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(setupHTML());
+    return;
+  }
+
+  // Valida licença no servidor do dono e retorna credenciais Supabase
+  if (req.method === 'POST' && req.url === '/validate-license') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const { key } = JSON.parse(body);
+        const result = await validateLicense(key);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (e) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ valid: false, error: e.message }));
+      }
+    });
     return;
   }
 

@@ -56,18 +56,23 @@ print_banner
 echo -e "${BOLD}Antes de começar, certifique-se de que:${NC}"
 echo ""
 echo "  ✔ O domínio já está apontando para o IP deste servidor"
-echo "  ✔ Você tem uma conta gratuita em supabase.com"
+echo "  ✔ Você tem a chave de licença fornecida pelo vendedor"
+echo ""
+echo "  Só isso! O banco de dados já foi criado para você."
 echo ""
 read -p "Pressione ENTER para continuar..."
 
-# ── Coletar apenas o domínio ────────────────────────────────
+# ── Coletar domínio e chave de licença ──────────────────────
 step "Configuração inicial"
 
 read -p "  Domínio do sistema (ex: app.minhaagencia.com.br): " DOMAIN
 [ -z "$DOMAIN" ] && error_exit "Domínio é obrigatório"
 
+read -p "  Chave de licença (ex: AGC-XXXX-XXXX-XXXX): " LICENSE_KEY
+[ -z "$LICENSE_KEY" ] && error_exit "Chave de licença é obrigatória"
+
 echo ""
-echo -e "${YELLOW}  O restante da configuração será feito pelo navegador.${NC}"
+echo -e "${YELLOW}  Ótimo! O restante da configuração será feito pelo navegador.${NC}"
 echo ""
 
 # ── Atualizar sistema ───────────────────────────────────────
@@ -183,7 +188,8 @@ systemctl start  agencyos-updater
 ok "Update agent ativo (porta $AGENT_PORT)"
 
 # ── Salvar domínio e porta para o setup-server ──────────────
-echo "$DOMAIN" > "$APP_DIR/.setup-domain"
+echo "$DOMAIN"      > "$APP_DIR/.setup-domain"
+echo "$LICENSE_KEY" > "$APP_DIR/.license-key"
 
 # ── Iniciar servidor de setup ───────────────────────────────
 step "Iniciando assistente de configuração"
