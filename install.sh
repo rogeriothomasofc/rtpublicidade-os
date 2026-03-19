@@ -654,6 +654,21 @@ NGINXEOF
 
 ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/agencyos
 rm -f /etc/nginx/sites-enabled/default
+
+# Liberar porta 80 se estiver em uso por outro serviço
+PORT80_PID=$(ss -tlnp 'sport = :80' 2>/dev/null | grep -oP 'pid=\K[0-9]+' | head -1)
+if [ -n "$PORT80_PID" ]; then
+  PORT80_NAME=$(ps -p "$PORT80_PID" -o comm= 2>/dev/null || echo "processo")
+  warn "Porta 80 em uso por '$PORT80_NAME' (PID $PORT80_PID) — liberando..."
+  # Parar serviços conhecidos que usam porta 80
+  systemctl stop apache2 2>/dev/null || true
+  systemctl stop lighttpd 2>/dev/null || true
+  systemctl disable apache2 2>/dev/null || true
+  # Se ainda estiver em uso, matar o processo
+  ss -tlnp 'sport = :80' 2>/dev/null | grep -oP 'pid=\K[0-9]+' | xargs -r kill -9 2>/dev/null || true
+  sleep 1
+fi
+
 nginx -t -q && (systemctl is-active --quiet nginx && systemctl reload nginx || systemctl start nginx)
 ok "Nginx configurado"
 
