@@ -1,11 +1,12 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plug, User, Building2, Target, Megaphone } from 'lucide-react';
+import { Plug, User, Building2, Target, Megaphone, Smartphone } from 'lucide-react';
 import { IntegrationsTab } from '@/components/settings/IntegrationsTab';
 import { ProfileTab } from '@/components/settings/ProfileTab';
 import { AgencyTab } from '@/components/settings/AgencyTab';
 import { MonthlyGoalsTab } from '@/components/settings/MonthlyGoalsTab';
 import { AnnouncementsTab } from '@/components/settings/AnnouncementsTab';
+import { SystemTab } from '@/components/settings/SystemTab';
 
 export default function SettingsPage() {
   return (
@@ -38,6 +39,10 @@ export default function SettingsPage() {
               <Megaphone className="w-4 h-4" />
               Avisos
             </TabsTrigger>
+            <TabsTrigger value="system" className="gap-2">
+              <Smartphone className="w-4 h-4" />
+              Sistema
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="integrations">
@@ -54,6 +59,9 @@ export default function SettingsPage() {
           </TabsContent>
           <TabsContent value="announcements">
             <AnnouncementsTab />
+          </TabsContent>
+          <TabsContent value="system">
+            <SystemTab />
           </TabsContent>
         </Tabs>
       </div>
