@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { APP_VERSION } from '@/lib/version';
 import { useLocation, Link } from 'react-router-dom';
 import { LayoutDashboard, Users, FolderKanban, CheckSquare, DollarSign, TrendingUp, ChevronLeft, Zap, UsersRound, FileText, FileCheck, Settings, Lightbulb, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -124,7 +123,6 @@ export function AppSidebar() {
 
           <div className="shrink-0 border-t border-sidebar-border py-2">
             {showSettings && renderNavItem({ name: 'Configurações', href: '/settings', icon: Settings })}
-            <p className="text-[10px] text-sidebar-muted text-center mt-1 pb-1">v{APP_VERSION}</p>
           </div>
         </aside>
       </>
@@ -176,7 +174,6 @@ export function AppSidebar() {
 
       <div className="shrink-0 border-t border-sidebar-border py-2">
         {showSettings && renderNavItem({ name: 'Configurações', href: '/settings', icon: Settings })}
-        {!collapsed && <p className="text-[10px] text-sidebar-muted text-center mt-1 pb-1">v{APP_VERSION}</p>}
       </div>
     </aside>
   );

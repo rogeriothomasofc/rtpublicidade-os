@@ -6,11 +6,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Menu, RefreshCw, Settings, Search, Sparkles } from 'lucide-react';
+import { LogOut, Menu, Settings, Search, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
 import { AIChat } from '@/components/ai/AIChat';
@@ -25,7 +23,6 @@ export const onMobileSidebarToggle = (cb: () => void) => {
 export function TopBar() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [searchOpen, setSearchOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -41,11 +38,6 @@ export function TopBar() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
-
-  const handleRefresh = () => {
-    queryClient.invalidateQueries();
-    toast.success('Dados atualizados!');
-  };
 
   const { data: profile } = useQuery({
     queryKey: ['profile-topbar', user?.id],
@@ -116,15 +108,6 @@ export function TopBar() {
               </Button>
             </TooltipTrigger>
             <TooltipContent>Assistente IA</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRefresh}>
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Atualizar dados</TooltipContent>
           </Tooltip>
 
           <NotificationBell />
