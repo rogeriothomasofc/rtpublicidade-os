@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="22" fill="#10B981"/>
+  <!-- Zap / bolt shape matching lucide Zap icon -->
+  <polygon points="58,8 28,54 50,54 42,92 72,46 50,46 58,8" fill="white"/>
+</svg>
