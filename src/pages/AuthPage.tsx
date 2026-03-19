@@ -92,7 +92,7 @@ export default function AuthPage() {
         throw updateError;
       }
 
-      toast({ title: 'Senha definida com sucesso!', description: 'Bem-vindo ao Sinap.' });
+      toast({ title: 'Senha definida com sucesso!', description: 'Bem-vindo ao Agency OS.' });
       navigate('/');
     } catch (err: any) {
       if (err instanceof z.ZodError) {
@@ -119,7 +119,7 @@ export default function AuthPage() {
             <span className="text-primary-foreground font-bold text-xl">S</span>
           </div>
           <CardTitle className="text-2xl">
-            {tab === 'login' ? 'Entrar no Sinap' : 'Primeiro Acesso'}
+            {tab === 'login' ? 'Entrar no Agency OS' : 'Primeiro Acesso'}
           </CardTitle>
           <CardDescription>
             {tab === 'login'

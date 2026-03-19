@@ -30,17 +30,16 @@ export function ProfileTab() {
 
     const fetchProfile = async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from('profiles')
-        .select('name, avatar_url, role')
-        .eq('user_id', user.id)
-        .single();
+      const [{ data: profile }, { data: member }] = await Promise.all([
+        supabase.from('profiles').select('name, avatar_url, role').eq('user_id', user.id).single(),
+        supabase.from('team_members').select('name, role').eq('email', user.email).maybeSingle(),
+      ]);
 
       setForm({
-        name: data?.name || '',
+        name: profile?.name || member?.name || '',
         email: user.email || '',
-        role: data?.role || '',
-        avatar_url: data?.avatar_url || '',
+        role: profile?.role || member?.role || '',
+        avatar_url: profile?.avatar_url || '',
       });
       setLoading(false);
     };
