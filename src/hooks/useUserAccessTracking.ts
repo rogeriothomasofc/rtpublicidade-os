@@ -60,7 +60,20 @@ export function useUserAccessStats() {
   return useQuery({
     queryKey: ['user-access-stats'],
     queryFn: async () => {
-      // Fetch all access logs
+      // Try RPC first (resolves name via auth.users + profiles + team_members)
+      const { data: rpcData, error: rpcError } = await (supabase as any).rpc('get_user_access_stats');
+      if (!rpcError && rpcData) {
+        return (rpcData as any[]).map(row => ({
+          userId: row.user_id,
+          userName: row.user_name || 'Usuário',
+          avatarUrl: row.avatar_url || null,
+          lastAccess: row.last_access,
+          totalSessions: Number(row.total_sessions),
+          totalTimeSeconds: Number(row.total_time_seconds),
+        })) as UserAccessStats[];
+      }
+
+      // Fallback: manual aggregation
       const { data: logs, error } = await supabase
         .from('user_access_logs')
         .select('user_id, started_at, duration_seconds')
@@ -68,16 +81,18 @@ export function useUserAccessStats() {
         .limit(500);
       if (error) throw error;
 
-      // Fetch profiles
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, name, avatar_url');
 
+      const { data: members } = await supabase
+        .from('team_members')
+        .select('name, avatar_url, email');
+
       const profileMap = new Map(
-        (profiles || []).map(p => [p.user_id, { name: p.name || 'Usuário', avatar_url: p.avatar_url }])
+        (profiles || []).map(p => [p.user_id, { name: p.name, avatar_url: p.avatar_url }])
       );
 
-      // Group by user
       const userMap = new Map<string, { lastAccess: string | null; sessions: number; totalTime: number }>();
       for (const log of logs || []) {
         const existing = userMap.get(log.user_id) || { lastAccess: null, sessions: 0, totalTime: 0 };
@@ -92,9 +107,13 @@ export function useUserAccessStats() {
       const stats: UserAccessStats[] = [];
       for (const [userId, data] of userMap) {
         const profile = profileMap.get(userId);
+        // Try to find team_member by matching (best effort without email)
+        const member = (!profile?.name && members?.length)
+          ? members.find(m => !m.name) // can't link without email, leave for RPC
+          : null;
         stats.push({
           userId,
-          userName: profile?.name || 'Usuário',
+          userName: profile?.name?.trim() || 'Usuário',
           avatarUrl: profile?.avatar_url || null,
           lastAccess: data.lastAccess,
           totalSessions: data.sessions,
@@ -102,7 +121,6 @@ export function useUserAccessStats() {
         });
       }
 
-      // Sort by last access (most recent first)
       stats.sort((a, b) => {
         if (!a.lastAccess) return 1;
         if (!b.lastAccess) return -1;
