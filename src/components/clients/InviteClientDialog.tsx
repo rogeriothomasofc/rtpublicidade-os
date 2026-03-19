@@ -15,19 +15,21 @@ interface InviteClientDialogProps {
   clientEmail?: string;
 }
 
+function genPassword() {
+  const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let pwd = '';
+  for (let i = 0; i < 8; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+  return pwd;
+}
+
 export function InviteClientDialog({ open, onOpenChange, clientId, clientName, clientEmail }: InviteClientDialogProps) {
   const [email, setEmail] = useState(clientEmail || '');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState(genPassword);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const generatePassword = () => {
-    const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let pwd = '';
-    for (let i = 0; i < 8; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
-    setPassword(pwd);
-  };
+  const generatePassword = () => setPassword(genPassword());
 
   const handleInvite = async () => {
     if (!email || !password) {
@@ -66,7 +68,7 @@ export function InviteClientDialog({ open, onOpenChange, clientId, clientName, c
   const handleClose = (open: boolean) => {
     if (!open) {
       setSuccess(false);
-      setPassword('');
+      setPassword(genPassword());
     }
     onOpenChange(open);
   };

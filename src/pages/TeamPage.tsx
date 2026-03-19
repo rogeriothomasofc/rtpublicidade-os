@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Pencil, Trash2, Users, Loader2, KeyRound, UsersRound, ShieldCheck, Mail } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Loader2, KeyRound, UsersRound, ShieldCheck, Mail, RefreshCw, Copy } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { AvatarUpload } from '@/components/team/AvatarUpload';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,6 +21,13 @@ import { usePermissions, ALL_PAGES } from '@/hooks/usePermissions';
 
 // Pages selectable in the permissions UI (dashboard is always on, skip it)
 const PERMISSION_PAGES = ALL_PAGES.filter((p) => p.slug !== 'dashboard');
+
+function genPassword() {
+  const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#';
+  let pwd = '';
+  for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+  return pwd;
+}
 
 async function loadMemberPermissions(teamMemberId: string): Promise<string[]> {
   const { data } = await (supabase as any)
@@ -364,7 +371,10 @@ export default function TeamPage() {
                       <Checkbox
                         id="grant-access"
                         checked={grantAccess}
-                        onCheckedChange={(checked) => setGrantAccess(checked === true)}
+                        onCheckedChange={(checked) => {
+                          setGrantAccess(checked === true);
+                          if (checked) setTempPassword(genPassword());
+                        }}
                       />
                       <Label htmlFor="grant-access" className="flex items-center gap-2 cursor-pointer">
                         <KeyRound className="w-4 h-4 text-primary" />
@@ -374,15 +384,35 @@ export default function TeamPage() {
                     {grantAccess && (
                       <div className="space-y-3 pl-6">
                         <div className="space-y-2">
-                          <Label>Senha temporária *</Label>
-                          <Input
-                            type="text"
-                            value={tempPassword}
-                            onChange={(e) => setTempPassword(e.target.value)}
-                            placeholder="Mínimo 6 caracteres"
-                          />
+                          <Label>Senha temporária gerada</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              type="text"
+                              value={tempPassword}
+                              readOnly
+                              className="font-mono bg-muted/50"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              title="Regenerar senha"
+                              onClick={() => setTempPassword(genPassword())}
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              title="Copiar senha"
+                              onClick={() => { navigator.clipboard.writeText(tempPassword); toast({ title: 'Senha copiada!' }); }}
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                          </div>
                           <p className="text-xs text-muted-foreground">
-                            O membro usará essa senha no "Primeiro Acesso" para definir sua senha definitiva.
+                            Senha gerada automaticamente. Anote antes de salvar — o membro deve alterá-la no primeiro acesso.
                           </p>
                         </div>
                       </div>
