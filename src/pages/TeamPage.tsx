@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Pencil, Trash2, Users, Loader2, KeyRound, UsersRound, ShieldCheck } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Loader2, KeyRound, UsersRound, ShieldCheck, Mail } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { AvatarUpload } from '@/components/team/AvatarUpload';
 import { supabase } from '@/integrations/supabase/client';
@@ -105,6 +105,7 @@ export default function TeamPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [creatingAccess, setCreatingAccess] = useState(false);
+  const [resettingPasswordFor, setResettingPasswordFor] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -181,6 +182,7 @@ export default function TeamPage() {
             role: formData.role || null,
             access_level: accessLevel,
             team_member_id: newMember.id,
+            app_url: window.location.origin,
           },
         });
 
@@ -192,9 +194,10 @@ export default function TeamPage() {
         if (permErr) {
           toast({ title: 'Erro ao salvar permissões', description: permErr, variant: 'destructive' });
         } else {
+          const emailNote = data?.email_sent ? ' Email de boas-vindas enviado!' : '';
           toast({
             title: 'Membro cadastrado com acesso!',
-            description: `Senha temporária: ${tempPassword} — o membro deve alterar no primeiro acesso.`,
+            description: `Senha temporária: ${tempPassword} — o membro deve alterar no primeiro acesso.${emailNote}`,
           });
         }
       } catch (err: any) {
@@ -240,6 +243,30 @@ export default function TeamPage() {
 
   const handleDelete = async (id: string) => {
     await deleteMember.mutateAsync(id);
+  };
+
+  const handleResetPassword = async (member: TeamMember) => {
+    if (!member.email) {
+      toast({ title: 'Membro sem email cadastrado', variant: 'destructive' });
+      return;
+    }
+    setResettingPasswordFor(member.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-member-password', {
+        body: { email: member.email, app_url: window.location.origin },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.email_sent) {
+        toast({ title: 'Email de redefinição enviado!', description: `Um link foi enviado para ${member.email}.` });
+      } else {
+        toast({ title: 'Link gerado, mas email não enviado', description: data?.reason || 'Configure o SMTP em Integrações.', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Erro ao redefinir senha', description: err.message, variant: 'destructive' });
+    } finally {
+      setResettingPasswordFor(null);
+    }
   };
 
   const getInitials = (name: string) => {
@@ -423,6 +450,19 @@ export default function TeamPage() {
                               <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(member)}>
                                 <Pencil className="h-4 w-4" />
                               </Button>
+                              {member.email && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  title="Enviar redefinição de senha"
+                                  disabled={resettingPasswordFor === member.id}
+                                  onClick={() => handleResetPassword(member)}
+                                >
+                                  {resettingPasswordFor === member.id
+                                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                                    : <Mail className="h-4 w-4" />}
+                                </Button>
+                              )}
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">

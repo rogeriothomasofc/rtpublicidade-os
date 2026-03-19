@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import nodemailer from "npm:nodemailer@6.9.10";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,7 +46,7 @@ serve(async (req) => {
       throw new Error("Apenas administradores podem cadastrar membros com acesso ao sistema");
     }
 
-    const { email, password, name, role, access_level, team_member_id } = await req.json();
+    const { email, password, name, role, access_level, team_member_id, app_url } = await req.json();
 
     if (!email || !password || !name) {
       throw new Error("Email, nome e senha temporária são obrigatórios");
@@ -110,8 +111,58 @@ serve(async (req) => {
       }
     }
 
+    // Send welcome email via SMTP (non-fatal)
+    let email_sent = false;
+    try {
+      const [{ data: smtp }, { data: agency }] = await Promise.all([
+        adminClient.from("smtp_settings").select("*").eq("is_active", true).limit(1).maybeSingle(),
+        adminClient.from("agency_settings").select("name").limit(1).maybeSingle(),
+      ]);
+
+      if (smtp) {
+        const agencyName = agency?.name || "Agency OS";
+        const loginUrl = app_url || "https://agencia.rtpublicidade.com";
+        const transport = nodemailer.createTransport({
+          host: smtp.host,
+          port: smtp.port,
+          secure: smtp.encryption === "ssl",
+          auth: { user: smtp.username, pass: smtp.password },
+          ...(smtp.encryption === "tls" ? { requireTLS: true } : {}),
+        });
+        await transport.sendMail({
+          from: smtp.from_name ? `${smtp.from_name} <${smtp.from_email}>` : smtp.from_email,
+          to: `${name} <${email}>`,
+          subject: `Bem-vindo ao ${agencyName} — seus dados de acesso`,
+          html: `
+            <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; background: #ffffff;">
+              <h2 style="color: #111; margin-bottom: 8px;">Bem-vindo, ${name}!</h2>
+              <p style="color: #555; margin-bottom: 24px;">
+                Seu acesso ao <strong>${agencyName}</strong> foi criado. Use as credenciais abaixo para entrar.
+              </p>
+              <div style="background: #f4f4f5; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
+                <p style="margin: 0 0 8px; color: #333;"><strong>Email:</strong> ${email}</p>
+                <p style="margin: 0 0 8px; color: #333;"><strong>Senha temporária:</strong> ${password}</p>
+                <p style="margin: 0; color: #333;"><strong>Nível:</strong> ${access_level}</p>
+              </div>
+              <a href="${loginUrl}"
+                style="display: inline-block; background: #6366f1; color: #ffffff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-bottom: 24px;">
+                Acessar o sistema
+              </a>
+              <p style="color: #999; font-size: 12px; margin-top: 32px;">
+                Recomendamos alterar sua senha após o primeiro acesso em Configurações &gt; Meu Perfil.<br/>
+                ${agencyName}
+              </p>
+            </div>
+          `,
+        });
+        email_sent = true;
+      }
+    } catch (emailErr: any) {
+      console.error("Welcome email error (non-fatal):", emailErr.message);
+    }
+
     return new Response(
-      JSON.stringify({ success: true, user_id: newUser.user.id }),
+      JSON.stringify({ success: true, user_id: newUser.user.id, email_sent }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   } catch (error: any) {
