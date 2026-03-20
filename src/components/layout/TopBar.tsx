@@ -90,7 +90,7 @@ export function TopBar() {
 
   return (
     <>
-      <div className="flex items-center justify-between gap-2 px-4 md:px-8 py-4 md:py-5 bg-transparent">
+      <div className="flex items-center justify-between gap-2 px-4 md:px-8 pt-6 md:pt-7 pb-4 md:pb-5 bg-transparent">
 
         {/* Left — hamburger mobile + título da página */}
         <div className="flex items-center gap-3 min-w-0">
@@ -164,9 +164,6 @@ export function TopBar() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ml-1">
-                {firstName && !isMobile && (
-                  <span className="text-sm font-medium text-foreground hidden md:block">{firstName}</span>
-                )}
                 <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-border hover:ring-primary transition-colors">
                   <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.name || ''} />
                   <AvatarFallback className="text-xs bg-primary/10 text-primary font-medium">
