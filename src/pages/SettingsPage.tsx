@@ -17,8 +17,8 @@ export default function SettingsPage() {
         </div>
 
         <Tabs defaultValue="integrations" className="space-y-6">
-          <div className="overflow-x-auto pb-1">
-          <TabsList className="w-max min-w-full sm:w-auto">
+          <div className="overflow-x-auto pb-1 -mx-1 px-1">
+          <TabsList className="w-full h-auto flex-wrap gap-1 justify-start">
             <TabsTrigger value="integrations" className="gap-2">
               <Plug className="w-4 h-4" />
               Integrações
