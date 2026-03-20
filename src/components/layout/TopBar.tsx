@@ -90,7 +90,7 @@ export function TopBar() {
 
   return (
     <>
-      <div className="flex items-center justify-between gap-2 px-4 md:px-8 pt-7 md:pt-8 pb-5 md:pb-6 bg-transparent">
+      <div className="flex items-center justify-between gap-2 px-4 md:px-8 pt-10 md:pt-12 pb-5 md:pb-6 bg-transparent">
 
         {/* Left — hamburger mobile + título da página */}
         <div className="flex items-center gap-3 min-w-0">
