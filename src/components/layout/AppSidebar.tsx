@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { LayoutDashboard, Users, FolderKanban, CheckSquare, DollarSign, TrendingUp, ChevronLeft, Zap, UsersRound, FileText, FileCheck, Settings, Lightbulb, X } from 'lucide-react';
+import { LayoutDashboard, Users, FolderKanban, CheckSquare, DollarSign, TrendingUp, PanelLeftClose, Zap, UsersRound, FileText, FileCheck, Settings, Lightbulb, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -153,19 +153,14 @@ export function AppSidebar() {
         </Tooltip>
 
         {!collapsed && (
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute z-40 h-7 w-7 rounded-full border border-sidebar-border bg-sidebar text-sidebar-muted hover:text-primary hover:bg-sidebar-accent/50 top-1/2 -translate-y-1/2 right-2"
-                onClick={() => setCollapsed(true)}
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="font-medium">Recolher menu</TooltipContent>
-          </Tooltip>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute z-40 h-7 w-7 rounded-md text-sidebar-muted hover:text-primary hover:bg-sidebar-accent/50 top-1/2 -translate-y-1/2 right-2"
+            onClick={() => setCollapsed(true)}
+          >
+            <PanelLeftClose className="w-4 h-4" />
+          </Button>
         )}
       </div>
 

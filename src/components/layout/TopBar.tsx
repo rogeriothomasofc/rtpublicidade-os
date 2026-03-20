@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Menu, Settings, Search, Sparkles, Sun, Moon } from 'lucide-react';
+import { LogOut, Menu, Settings, Search, Sparkles, Sun, Moon, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -90,7 +90,7 @@ export function TopBar() {
 
   return (
     <>
-      <div className="flex items-center justify-between gap-2 px-4 md:px-8 pt-6 md:pt-7 pb-4 md:pb-5 bg-transparent">
+      <div className="flex items-center justify-between gap-2 px-4 md:px-8 pt-7 md:pt-8 pb-5 md:pb-6 bg-transparent">
 
         {/* Left — hamburger mobile + título da página */}
         <div className="flex items-center gap-3 min-w-0">
@@ -163,13 +163,17 @@ export function TopBar() {
           {/* Avatar + nome */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ml-1">
-                <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-border hover:ring-primary transition-colors">
+              <button className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 outline-none hover:bg-sidebar-accent/60 transition-colors ml-1">
+                <Avatar className="h-7 w-7 cursor-pointer">
                   <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.name || ''} />
                   <AvatarFallback className="text-xs bg-primary/10 text-primary font-medium">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
+                {firstName && !isMobile && (
+                  <span className="text-sm font-medium text-foreground hidden md:block">{firstName}</span>
+                )}
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground hidden md:block" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
