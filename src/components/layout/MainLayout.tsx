@@ -13,18 +13,19 @@ export function MainLayout({ children }: MainLayoutProps) {
   const isMobile = useIsMobile();
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
+    <div className="flex h-screen w-full overflow-hidden bg-sidebar">
       <AppSidebar />
       <div
-        className="flex-1 flex flex-col overflow-hidden transition-all duration-300"
+        className="flex-1 overflow-y-auto transition-all duration-300"
         style={{ marginLeft: isMobile ? 0 : 'var(--sidebar-current-width, 4rem)' }}
       >
-        <div className="shrink-0 z-30 bg-background">
-          <TopBar />
+        {/* TopBar — não fixo, rola com o conteúdo */}
+        <TopBar />
+
+        {/* Container de conteúdo — fundo destacado, cantos arredondados */}
+        <div className="mx-3 mb-3 rounded-2xl bg-background min-h-[calc(100vh-5rem)] overflow-hidden">
+          <div className="p-4 md:p-6">{children}</div>
         </div>
-        <main className="flex-1 overflow-auto">
-          <div className="p-4 md:p-6 lg:p-8 py-4 md:py-[25px]">{children}</div>
-        </main>
       </div>
     </div>
   );
