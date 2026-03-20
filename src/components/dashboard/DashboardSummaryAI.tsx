@@ -12,14 +12,34 @@ interface DashboardSummaryAIProps {
   isLoading: boolean;
 }
 
+function getDashboardCacheKey() {
+  return `dashboard_summary_${new Date().toISOString().slice(0, 10)}`;
+}
+
+function readDashboardCache(): string | null {
+  try {
+    const raw = localStorage.getItem(getDashboardCacheKey());
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function writeDashboardCache(summary: string) {
+  try { localStorage.setItem(getDashboardCacheKey(), JSON.stringify(summary)); } catch { /* noop */ }
+}
+
 export function DashboardSummaryAI({ stats, isLoading }: DashboardSummaryAIProps) {
   const [summary, setSummary] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const generateSummary = async () => {
+  const generateSummary = async (force = false) => {
     if (!stats) return;
-    
+
+    if (!force) {
+      const cached = readDashboardCache();
+      if (cached) { setSummary(cached); return; }
+    }
+
     setIsGenerating(true);
     setError(null);
 
@@ -41,18 +61,22 @@ export function DashboardSummaryAI({ stats, isLoading }: DashboardSummaryAIProps
         throw new Error(data.error);
       }
 
-      setSummary(data?.summary || null);
+      const text = data?.summary || null;
+      setSummary(text);
+      if (text) writeDashboardCache(text);
     } catch (err) {
       console.error('Error generating summary:', err);
       setError('Não foi possível gerar o resumo. Tente novamente.');
       // Fallback to deterministic summary
-      setSummary(generateFallbackSummary(stats));
+      const fallback = generateFallbackSummary(stats);
+      setSummary(fallback);
+      writeDashboardCache(fallback);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // Auto-generate on stats change
+  // Auto-generate on stats load (with cache check)
   useEffect(() => {
     if (stats && !isLoading) {
       generateSummary();
@@ -114,7 +138,7 @@ export function DashboardSummaryAI({ stats, isLoading }: DashboardSummaryAIProps
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={generateSummary}
+            onClick={() => generateSummary(true)}
             disabled={isGenerating}
             className="text-muted-foreground hover:text-foreground shrink-0 h-8 px-2 md:px-3"
           >

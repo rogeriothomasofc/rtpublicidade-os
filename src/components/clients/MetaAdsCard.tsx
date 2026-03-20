@@ -67,6 +67,26 @@ function getActionValue(actions: MetaAction[] | undefined, types: readonly strin
   return 0;
 }
 
+const META_CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
+
+function getCacheKey(accountId?: string, clientId?: string, period?: string) {
+  return `meta_cache_${accountId || clientId}_${period}`;
+}
+
+function readCache(key: string): { insights: MetaInsights; summary: string | null } | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const { insights, summary, timestamp } = JSON.parse(raw);
+    if (Date.now() - timestamp > META_CACHE_TTL) { localStorage.removeItem(key); return null; }
+    return { insights, summary };
+  } catch { return null; }
+}
+
+function writeCache(key: string, insights: MetaInsights, summary: string | null) {
+  try { localStorage.setItem(key, JSON.stringify({ insights, summary, timestamp: Date.now() })); } catch { /* noop */ }
+}
+
 export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
   const { toast } = useToast();
   const [period, setPeriod] = useState<Period>('7d');
@@ -77,7 +97,17 @@ export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
   const [resultType, setResultType] = useState<ResultTypeLabel>('Conversas iniciadas');
   const [summaryLoading, setSummaryLoading] = useState(false);
 
-  const fetchInsights = async (p: Period = period) => {
+  const fetchInsights = async (p: Period = period, force = false) => {
+    const cacheKey = getCacheKey(accountId, clientId, p);
+    if (!force) {
+      const cached = readCache(cacheKey);
+      if (cached) {
+        setInsights(cached.insights);
+        setSummary(cached.summary);
+        setLoading(false);
+        return;
+      }
+    }
     setLoading(true);
     setError(null);
     try {
@@ -90,8 +120,11 @@ export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
       if (fnError) throw new Error(fnError.message);
       if (data?.error) throw new Error(data.error);
 
-      setInsights(data?.insights || null);
-      setSummary(data?.summary || null);
+      const newInsights = data?.insights || null;
+      const newSummary = data?.summary || null;
+      setInsights(newInsights);
+      setSummary(newSummary);
+      if (newInsights) writeCache(cacheKey, newInsights, newSummary);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao buscar dados';
       setError(msg);
@@ -108,7 +141,7 @@ export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
 
   const handlePeriodChange = (p: Period) => {
     setPeriod(p);
-    fetchInsights(p);
+    fetchInsights(p, false);
   };
 
   const selectedResultConfig = RESULT_TYPES.find((r) => r.label === resultType)!;
@@ -136,7 +169,10 @@ export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
         period,
       };
       const { data } = await supabase.functions.invoke('meta-ads-insights', { body });
-      if (data?.summary) setSummary(data.summary);
+      if (data?.summary) {
+        setSummary(data.summary);
+        if (insights) writeCache(getCacheKey(accountId, clientId, period), insights, data.summary);
+      }
     } catch {
       // keep old summary
     } finally {
@@ -167,7 +203,7 @@ export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
                 30d
               </button>
             </div>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => fetchInsights()} disabled={loading}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => fetchInsights(period, true)} disabled={loading}>
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
@@ -211,7 +247,7 @@ export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
           <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
             <AlertCircle className="w-4 h-4 text-destructive shrink-0" />
             <p className="text-xs text-muted-foreground flex-1">{error}</p>
-            <Button variant="outline" size="sm" className="text-xs h-7 shrink-0" onClick={() => fetchInsights()}>
+            <Button variant="outline" size="sm" className="text-xs h-7 shrink-0" onClick={() => fetchInsights(period, true)}>
               Tentar novamente
             </Button>
           </div>
