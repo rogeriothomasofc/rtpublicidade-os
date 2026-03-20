@@ -73,25 +73,25 @@
 
   /* ── Dark Mode (zinc-950/900/800 — igual Getfy) ──────────── */
   .dark {
-    --background: 240 4% 22%;      /* #333338 — fundo mais claro */
+    --background: 240 6% 4%;       /* zinc-950 — #09090b */
     --foreground: 240 5% 96%;      /* zinc-100 */
 
-    --card: 240 4% 8%;             /* #121214 — cards escuros (transparentes) */
+    --card: 240 4% 16%;            /* zinc-800 — #27272a */
     --card-foreground: 240 5% 96%;
 
-    --popover: 240 4% 8%;
+    --popover: 240 4% 16%;
     --popover-foreground: 240 5% 96%;
 
     --primary: 142 71% 45%;
     --primary-foreground: 240 6% 4%;
 
-    --secondary: 240 4% 8%;
+    --secondary: 240 4% 16%;
     --secondary-foreground: 240 5% 96%;
 
-    --muted: 240 4% 22%;
-    --muted-foreground: 240 4% 55%; /* um pouco mais claro */
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 4% 55%;
 
-    --accent: 240 4% 28%;          /* hover */
+    --accent: 240 4% 22%;          /* hover */
     --accent-foreground: 240 5% 96%;
 
     --destructive: 0 84% 60%;
@@ -103,8 +103,8 @@
     --warning: 38 92% 50%;
     --warning-foreground: 240 6% 4%;
 
-    --border: 240 4% 28%;          /* borda mais visível */
-    --input: 240 4% 28%;
+    --border: 240 4% 22%;          /* zinc-800/700 */
+    --input: 240 4% 22%;
     --ring: 142 71% 45%;
 
     /* Sidebar — zinc-950 */
