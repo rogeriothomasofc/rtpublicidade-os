@@ -5,7 +5,18 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { TrendingUp, RefreshCw, AlertCircle, MousePointerClick, Eye, DollarSign, Users, Sparkles } from 'lucide-react';
+import {
+  TrendingUp, RefreshCw, AlertCircle, MousePointerClick,
+  Eye, DollarSign, Users, Sparkles, ChevronDown,
+} from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+interface MetaAction {
+  action_type: string;
+  value: string;
+}
 
 interface MetaInsights {
   spend: string;
@@ -14,26 +25,46 @@ interface MetaInsights {
   reach: string;
   ctr: string;
   cpc: string;
-  actions?: { action_type: string; value: string }[];
+  actions?: MetaAction[];
 }
 
 interface MetaAdsCardProps {
-  /** Pass accountId (meta_ads_account value) OR clientId — not both */
   accountId?: string;
   clientId?: string;
 }
 
 type Period = '7d' | '30d';
 
-function fmt(val: string | undefined): string {
+// Result type options — maps label → list of action_types to search (first match wins)
+const RESULT_TYPES = [
+  { label: 'Leads', types: ['lead', 'onsite_conversion.lead_grouped'] },
+  { label: 'Conversas iniciadas', types: ['onsite_conversion.messaging_conversation_started_7d', 'onsite_conversion.messaging_first_reply'] },
+  { label: 'Compras', types: ['purchase', 'offsite_conversion.fb_pixel_purchase'] },
+  { label: 'Cadastros', types: ['complete_registration', 'offsite_conversion.fb_pixel_complete_registration'] },
+  { label: 'Cliques no link', types: ['link_click'] },
+  { label: 'Visualizações de vídeo', types: ['video_view'] },
+] as const;
+
+type ResultTypeLabel = (typeof RESULT_TYPES)[number]['label'];
+
+function fmt(val: string | number | undefined): string {
   const n = Number(val || 0);
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return n.toLocaleString('pt-BR');
 }
 
-function fmtCurrency(val: string | undefined): string {
+function fmtCurrency(val: string | number | undefined): string {
   return Number(val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function getActionValue(actions: MetaAction[] | undefined, types: readonly string[]): number {
+  if (!actions) return 0;
+  for (const type of types) {
+    const found = actions.find((a) => a.action_type === type);
+    if (found) return Number(found.value || 0);
+  }
+  return 0;
 }
 
 export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
@@ -43,6 +74,7 @@ export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
   const [insights, setInsights] = useState<MetaInsights | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [resultType, setResultType] = useState<ResultTypeLabel>('Leads');
 
   const fetchInsights = async (p: Period = period) => {
     setLoading(true);
@@ -78,9 +110,10 @@ export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
     fetchInsights(p);
   };
 
-  const leads = insights?.actions?.find(
-    (a) => a.action_type === 'lead' || a.action_type === 'onsite_conversion.lead_grouped'
-  )?.value;
+  const selectedResultConfig = RESULT_TYPES.find((r) => r.label === resultType)!;
+  const resultValue = getActionValue(insights?.actions, selectedResultConfig.types);
+  const spend = Number(insights?.spend || 0);
+  const costPerResult = resultValue > 0 ? spend / resultValue : 0;
 
   return (
     <Card className="border-border/50">
@@ -110,12 +143,36 @@ export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
             </Button>
           </div>
         </div>
+
+        {/* Result type selector */}
+        <div className="flex items-center gap-2 pt-1">
+          <span className="text-xs text-muted-foreground">Resultado:</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5">
+                {resultType}
+                <ChevronDown className="w-3 h-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {RESULT_TYPES.map((r) => (
+                <DropdownMenuItem
+                  key={r.label}
+                  onClick={() => setResultType(r.label)}
+                  className={resultType === r.label ? 'bg-muted' : ''}
+                >
+                  {r.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </CardHeader>
 
       <CardContent className="space-y-3">
         {loading && (
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-            {Array.from({ length: 6 }).map((_, i) => (
+          <div className="grid grid-cols-4 gap-2">
+            {Array.from({ length: 8 }).map((_, i) => (
               <Skeleton key={i} className="h-16 rounded-lg" />
             ))}
           </div>
@@ -134,23 +191,25 @@ export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
         {!loading && !error && !insights && (
           <div className="text-center py-4">
             <Badge variant="outline" className="text-xs">Sem dados no período</Badge>
-            <p className="text-xs text-muted-foreground mt-1">Nenhuma campanha ativa nos últimos {period === '7d' ? '7' : '30'} dias.</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Nenhuma campanha ativa nos últimos {period === '7d' ? '7' : '30'} dias.
+            </p>
           </div>
         )}
 
         {!loading && insights && (
           <>
-            {/* Metrics grid — compact */}
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {/* Primary metrics */}
               <Metric icon={<DollarSign className="w-3.5 h-3.5 text-emerald-500" />} label="Investido" value={fmtCurrency(insights.spend)} bg="bg-emerald-500/10" />
-              <Metric icon={<Eye className="w-3.5 h-3.5 text-blue-500" />} label="Impressões" value={fmt(insights.impressions)} bg="bg-blue-500/10" />
+              <Metric icon={<TrendingUp className="w-3.5 h-3.5 text-green-600" />} label={resultType} value={fmt(resultValue)} bg="bg-green-600/10" highlight />
+              <Metric icon={<DollarSign className="w-3.5 h-3.5 text-amber-500" />} label="Custo por resultado" value={costPerResult > 0 ? fmtCurrency(costPerResult) : '—'} bg="bg-amber-500/10" />
               <Metric icon={<MousePointerClick className="w-3.5 h-3.5 text-violet-500" />} label="Cliques" value={fmt(insights.clicks)} bg="bg-violet-500/10" />
+              {/* Secondary metrics */}
+              <Metric icon={<Eye className="w-3.5 h-3.5 text-blue-500" />} label="Impressões" value={fmt(insights.impressions)} bg="bg-blue-500/10" />
               <Metric icon={<Users className="w-3.5 h-3.5 text-orange-500" />} label="Alcance" value={fmt(insights.reach)} bg="bg-orange-500/10" />
               <Metric icon={<TrendingUp className="w-3.5 h-3.5 text-pink-500" />} label="CTR" value={`${Number(insights.ctr || 0).toFixed(2)}%`} bg="bg-pink-500/10" />
               <Metric icon={<DollarSign className="w-3.5 h-3.5 text-cyan-500" />} label="CPC" value={fmtCurrency(insights.cpc)} bg="bg-cyan-500/10" />
-              {leads && (
-                <Metric icon={<Users className="w-3.5 h-3.5 text-amber-500" />} label="Leads" value={fmt(leads)} bg="bg-amber-500/10" />
-              )}
             </div>
 
             {/* AI Summary */}
@@ -167,12 +226,20 @@ export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
   );
 }
 
-function Metric({ icon, label, value, bg }: { icon: React.ReactNode; label: string; value: string; bg: string }) {
+function Metric({
+  icon, label, value, bg, highlight,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  bg: string;
+  highlight?: boolean;
+}) {
   return (
-    <div className="rounded-lg border border-border p-2.5 space-y-1.5">
+    <div className={`rounded-lg border p-2.5 space-y-1.5 ${highlight ? 'border-green-600/30 bg-green-600/5' : 'border-border'}`}>
       <div className={`w-6 h-6 rounded-md ${bg} flex items-center justify-center`}>{icon}</div>
       <p className="text-[10px] text-muted-foreground leading-none">{label}</p>
-      <p className="text-sm font-bold leading-none">{value}</p>
+      <p className={`text-sm font-bold leading-none ${highlight ? 'text-green-600 dark:text-green-400' : ''}`}>{value}</p>
     </div>
   );
 }

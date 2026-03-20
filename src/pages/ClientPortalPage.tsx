@@ -345,14 +345,16 @@ export default function ClientPortalPage() {
           </Button>
         </div>
 
-        {/* AI Summary */}
-        <PortalAISummary
-          clientId={clientId}
-          clientName={clientData.company || clientData.name}
-          tasks={timeline?.tasks || []}
-          finance={timeline?.finance || []}
-          planning={timeline?.planning || []}
-        />
+        {/* AI Summary — only on "all" tab */}
+        {activeTab === 'all' && (
+          <PortalAISummary
+            clientId={clientId}
+            clientName={clientData.company || clientData.name}
+            tasks={timeline?.tasks || []}
+            finance={timeline?.finance || []}
+            planning={timeline?.planning || []}
+          />
+        )}
 
         {/* Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-1">
