@@ -34,21 +34,34 @@ serve(async (req) => {
       });
     }
 
-    const { account_id, period } = await req.json() as { account_id: string; period?: string };
+    const body = await req.json() as { account_id?: string; client_id?: string; period?: string };
+    const { period = "7d" } = body;
+    let accountId = body.account_id;
 
-    if (!account_id) {
-      return new Response(JSON.stringify({ error: "account_id is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Read Meta access token from integrations table using service role
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // If client_id provided, look up meta_ads_account from clients table
+    if (!accountId && body.client_id) {
+      const { data: client } = await supabaseAdmin
+        .from("clients")
+        .select("meta_ads_account")
+        .eq("id", body.client_id)
+        .single();
+
+      accountId = client?.meta_ads_account || null;
+    }
+
+    if (!accountId) {
+      return new Response(JSON.stringify({ error: "Conta Meta Ads não configurada para este cliente" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Read Meta access token from integrations table
     const { data: integration } = await supabaseAdmin
       .from("integrations")
       .select("config, status")
@@ -72,8 +85,7 @@ serve(async (req) => {
       });
     }
 
-    // Normalize account ID
-    const normalizedAccountId = account_id.replace(/^act_/, "");
+    const normalizedAccountId = accountId.replace(/^act_/, "");
     const datePreset = period === "30d" ? "last_30d" : "last_7d";
     const fields = "spend,impressions,clicks,reach,ctr,cpc,actions";
 
@@ -92,7 +104,53 @@ serve(async (req) => {
 
     const insights = metaData.data?.[0] || null;
 
-    return new Response(JSON.stringify({ insights }), {
+    // Generate AI summary if insights exist
+    let summary: string | null = null;
+    if (insights) {
+      const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+      if (ANTHROPIC_API_KEY) {
+        try {
+          const leads = insights.actions?.find(
+            (a: { action_type: string }) => a.action_type === "lead" || a.action_type === "onsite_conversion.lead_grouped"
+          )?.value || "0";
+
+          const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "x-api-key": ANTHROPIC_API_KEY,
+              "anthropic-version": "2023-06-01",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 150,
+              messages: [{
+                role: "user",
+                content: `Analise estas métricas de Meta Ads dos últimos ${period === "30d" ? "30" : "7"} dias e gere um resumo executivo em 2 frases curtas em português. Seja direto e destaque o ponto mais relevante (positivo ou negativo).
+
+Métricas:
+- Investimento: R$ ${Number(insights.spend || 0).toFixed(2)}
+- Impressões: ${Number(insights.impressions || 0).toLocaleString("pt-BR")}
+- Cliques: ${Number(insights.clicks || 0).toLocaleString("pt-BR")}
+- CTR: ${Number(insights.ctr || 0).toFixed(2)}%
+- CPC: R$ ${Number(insights.cpc || 0).toFixed(2)}
+- Alcance: ${Number(insights.reach || 0).toLocaleString("pt-BR")}
+- Leads: ${leads}`,
+              }],
+            }),
+          });
+
+          if (aiRes.ok) {
+            const aiData = await aiRes.json();
+            summary = aiData.content?.[0]?.text || null;
+          }
+        } catch (e) {
+          console.error("AI summary error:", e);
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ insights, summary }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
