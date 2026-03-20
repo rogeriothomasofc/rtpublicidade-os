@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Building2, Mail, Phone, Calendar, DollarSign, Briefcase, FileText, TrendingUp, Plus, CheckSquare, Edit, MapPin, Pencil, UserPlus, Eye, Lightbulb, ExternalLink, FolderOpen, Megaphone, Loader2 } from 'lucide-react';
+import { ArrowLeft, Building2, Mail, Phone, Calendar, DollarSign, Briefcase, FileText, TrendingUp, Plus, CheckSquare, Edit, MapPin, Pencil, Send, Eye, Lightbulb, ExternalLink, FolderOpen, Megaphone, Loader2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { ClientStatus, TaskStatus, TaskPriority, PersonType } from '@/types/database';
@@ -240,7 +240,7 @@ export default function ClientDetailPage() {
               <Eye className="w-4 h-4" />
             </Button>
             <Button size="icon" variant="outline" onClick={handleSendAccess} disabled={sendingAccess} title="Enviar acesso ao portal">
-              {sendingAccess ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+              {sendingAccess ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
             <Button size="icon" variant="outline" onClick={openEditDialog} title="Editar cliente">
               <Pencil className="w-4 h-4" />
