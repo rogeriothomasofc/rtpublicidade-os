@@ -304,7 +304,7 @@ export function IntegrationsTab() {
 
   return (
     <>
-      <div className="space-y-8">
+      <div className="space-y-6 md:space-y-8">
         {/* Header */}
         <div>
           <h2 className="text-xl md:text-2xl font-bold tracking-tight">Integrações</h2>
@@ -420,11 +420,11 @@ export function IntegrationsTab() {
           {/* Webhooks Configurados */}
           <Card>
             <CardContent className="p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-semibold">Webhooks Configurados</h4>
-                <Button size="sm" className="gap-1.5" onClick={handleConnectWebhook}>
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="font-semibold text-sm md:text-base">Webhooks Configurados</h4>
+                <Button size="sm" className="gap-1.5 shrink-0" onClick={handleConnectWebhook}>
                   <Plus className="w-3.5 h-3.5" />
-                  Novo Webhook
+                  <span className="hidden xs:inline">Novo </span>Webhook
                 </Button>
               </div>
 

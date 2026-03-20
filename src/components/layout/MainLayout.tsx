@@ -16,7 +16,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     <div className="flex h-screen w-full overflow-hidden bg-sidebar">
       <AppSidebar />
       <div
-        className="flex-1 overflow-y-auto transition-all duration-300"
+        className="flex-1 overflow-y-auto overflow-x-hidden transition-all duration-300"
         style={{ marginLeft: isMobile ? 0 : 'var(--sidebar-current-width, 4rem)' }}
       >
         {/* TopBar — não fixo, rola com o conteúdo */}
