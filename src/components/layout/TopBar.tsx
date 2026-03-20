@@ -108,7 +108,7 @@ export function TopBar() {
         </div>
 
         {/* Right */}
-        <div className="flex items-center gap-1.5 md:gap-2">
+        <div className="flex items-center gap-2 md:gap-2.5">
 
           {/* Busca */}
           <Tooltip>
@@ -116,10 +116,10 @@ export function TopBar() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                className="h-10 w-10 text-muted-foreground hover:text-foreground"
                 onClick={() => setSearchOpen(true)}
               >
-                <Search className="h-5 w-5" />
+                <Search className="h-[1.15rem] w-[1.15rem]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Buscar <kbd className="ml-1 text-[10px] font-mono">⌘K</kbd></TooltipContent>
@@ -131,10 +131,10 @@ export function TopBar() {
               <Button
                 variant={aiOpen ? 'default' : 'ghost'}
                 size="icon"
-                className={`h-9 w-9 transition-all ${aiOpen ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-primary'}`}
+                className={`h-10 w-10 transition-all ${aiOpen ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-primary'}`}
                 onClick={() => setAiOpen(prev => !prev)}
               >
-                <Sparkles className="h-5 w-5" />
+                <Sparkles className="h-[1.15rem] w-[1.15rem]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Assistente IA</TooltipContent>
@@ -144,11 +144,11 @@ export function TopBar() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 text-muted-foreground hover:text-foreground hidden sm:flex"
+            className="h-10 w-10 text-muted-foreground hover:text-foreground hidden sm:flex"
             onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
             aria-label="Alternar tema"
           >
-            {resolvedTheme === 'dark' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+            {resolvedTheme === 'dark' ? <Moon className="h-[1.15rem] w-[1.15rem]" /> : <Sun className="h-[1.15rem] w-[1.15rem]" />}
           </Button>
 
           <NotificationBell />
