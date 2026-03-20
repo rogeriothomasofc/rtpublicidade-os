@@ -91,7 +91,7 @@ export function SmtpSettingsCard() {
 
   return (
     <>
-      <Card>
+      <Card className="w-full overflow-hidden">
         <CardContent className="p-4 sm:p-5">
           <div className="flex items-start gap-3 sm:gap-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
