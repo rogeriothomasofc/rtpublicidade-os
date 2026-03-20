@@ -7,29 +7,29 @@
 /* Sinap Agency OS – Dark Green Command Theme */
 
 @layer base {
-  /* ── Light Mode ──────────────────────────────────────────── */
+  /* ── Light Mode (zinc-50 / zinc-100 — igual Getfy) ───────── */
   :root {
     --sidebar-current-width: 16rem;
-    --background: 150 20% 97%;
-    --foreground: 220 20% 12%;
+    --background: 240 5% 96%;      /* zinc-100 */
+    --foreground: 240 4% 10%;      /* zinc-900 */
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 20% 12%;
+    --card: 0 0% 100%;             /* white */
+    --card-foreground: 240 4% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 12%;
+    --popover-foreground: 240 4% 10%;
 
-    --primary: 142 71% 38%;
+    --primary: 142 71% 38%;        /* green (ligeiramente mais escuro no light) */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 148 25% 90%;
-    --secondary-foreground: 220 20% 12%;
+    --secondary: 240 5% 96%;       /* zinc-100 */
+    --secondary-foreground: 240 4% 10%;
 
-    --muted: 148 20% 92%;
-    --muted-foreground: 220 9% 44%;
+    --muted: 240 5% 96%;           /* zinc-100 */
+    --muted-foreground: 240 4% 46%; /* zinc-500 */
 
-    --accent: 142 71% 38%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 240 6% 90%;          /* zinc-200 */
+    --accent-foreground: 240 4% 10%;
 
     --destructive: 0 84% 55%;
     --destructive-foreground: 0 0% 100%;
@@ -40,91 +40,92 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 148 20% 86%;
-    --input: 148 20% 86%;
+    --border: 240 6% 90%;          /* zinc-200 */
+    --input: 240 6% 90%;
     --ring: 142 71% 38%;
 
     --radius: 0.5rem;
 
-    /* Sidebar */
-    --sidebar-background: 150 25% 94%;
-    --sidebar-foreground: 220 20% 12%;
+    /* Sidebar — zinc-50 */
+    --sidebar-background: 240 5% 98%;    /* zinc-50 */
+    --sidebar-foreground: 240 4% 26%;    /* zinc-700 */
     --sidebar-primary: 142 71% 38%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 148 25% 88%;
-    --sidebar-accent-foreground: 220 20% 12%;
-    --sidebar-border: 148 20% 84%;
+    --sidebar-accent: 240 6% 90%;        /* zinc-200 (hover) */
+    --sidebar-accent-foreground: 240 4% 10%;
+    --sidebar-border: 240 6% 90%;        /* zinc-200 */
     --sidebar-ring: 142 71% 38%;
-    --sidebar-muted: 220 9% 50%;
+    --sidebar-muted: 240 4% 46%;         /* zinc-500 */
 
     /* Kanban */
-    --kanban-backlog: 148 20% 88%;
+    --kanban-backlog: 240 6% 90%;
     --kanban-planning: 199 89% 48%;
     --kanban-progress: 38 92% 50%;
     --kanban-done: 142 71% 38%;
 
     /* Pipeline stages */
-    --stage-new: 220 9% 60%;
+    --stage-new: 240 4% 60%;
     --stage-contacted: 199 89% 48%;
     --stage-proposal: 38 92% 50%;
     --stage-won: 142 71% 38%;
     --stage-lost: 0 84% 55%;
   }
 
-  /* ── Dark Mode ───────────────────────────────────────────── */
+  /* ── Dark Mode (zinc-950/900/800 — igual Getfy) ──────────── */
   .dark {
-    --background: 150 8% 11%;
-    --foreground: 220 14% 91%;
+    --background: 240 4% 10%;      /* zinc-900 */
+    --foreground: 240 5% 96%;      /* zinc-100 */
 
-    --card: 150 8% 15%;
-    --card-foreground: 220 14% 91%;
+    --card: 240 4% 16%;            /* zinc-800 */
+    --card-foreground: 240 5% 96%;
 
-    --popover: 150 18% 9%;
-    --popover-foreground: 220 14% 91%;
+    --popover: 240 4% 16%;         /* zinc-800 */
+    --popover-foreground: 240 5% 96%;
 
     --primary: 142 71% 45%;
-    --primary-foreground: 150 15% 4%;
+    --primary-foreground: 240 6% 4%;
 
-    --secondary: 148 33% 18%;
-    --secondary-foreground: 220 14% 91%;
+    --secondary: 240 4% 16%;       /* zinc-800 */
+    --secondary-foreground: 240 5% 96%;
 
-    --muted: 148 33% 18%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 240 4% 16%;           /* zinc-800 */
+    --muted-foreground: 240 4% 46%; /* zinc-500 */
 
-    --accent: 150 100% 50%;
-    --accent-foreground: 150 15% 4%;
+    --accent: 240 4% 16%;          /* zinc-800 */
+    --accent-foreground: 240 5% 96%;
 
     --destructive: 0 84% 60%;
-    --destructive-foreground: 220 14% 91%;
+    --destructive-foreground: 240 5% 96%;
 
     --success: 142 71% 45%;
-    --success-foreground: 150 15% 4%;
+    --success-foreground: 240 6% 4%;
 
     --warning: 38 92% 50%;
-    --warning-foreground: 150 15% 4%;
+    --warning-foreground: 240 6% 4%;
 
-    --border: 148 33% 18%;
-    --input: 148 33% 18%;
+    --border: 240 4% 20%;          /* zinc-800/700 */
+    --input: 240 4% 20%;
     --ring: 142 71% 45%;
 
-    --sidebar-background: 150 10% 2%;
-    --sidebar-foreground: 220 14% 91%;
+    /* Sidebar — zinc-950 */
+    --sidebar-background: 240 6% 4%;     /* zinc-950 */
+    --sidebar-foreground: 240 5% 65%;    /* zinc-400 */
     --sidebar-primary: 142 71% 45%;
-    --sidebar-primary-foreground: 150 15% 4%;
-    --sidebar-accent: 148 25% 10%;
-    --sidebar-accent-foreground: 220 14% 91%;
-    --sidebar-border: 148 20% 10%;
+    --sidebar-primary-foreground: 240 6% 4%;
+    --sidebar-accent: 240 4% 16%;        /* zinc-800 (hover) */
+    --sidebar-accent-foreground: 240 5% 96%;
+    --sidebar-border: 240 4% 16%;        /* zinc-800 */
     --sidebar-ring: 142 71% 45%;
-    --sidebar-muted: 220 9% 42%;
+    --sidebar-muted: 240 4% 46%;         /* zinc-500 */
 
     /* Kanban */
-    --kanban-backlog: 148 33% 18%;
+    --kanban-backlog: 240 4% 16%;
     --kanban-planning: 199 89% 48%;
     --kanban-progress: 38 92% 50%;
     --kanban-done: 142 71% 45%;
 
     /* Pipeline stages */
-    --stage-new: 220 9% 46%;
+    --stage-new: 240 4% 46%;
     --stage-contacted: 199 89% 48%;
     --stage-proposal: 38 92% 50%;
     --stage-won: 142 71% 45%;
