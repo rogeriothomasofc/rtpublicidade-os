@@ -18,11 +18,20 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Plus, Search, CheckCircle, TrendingDown, TrendingUp, Pencil, Trash2, RefreshCw, MoreHorizontal, Wallet, CalendarDays, LayoutList, Building2, Tags, Receipt } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatCurrency, formatDate } from '@/lib/utils';
+
+const FINANCE_PERIOD_PILLS: { label: string; value: PeriodPreset }[] = [
+  { label: 'Total',       value: 'all' },
+  { label: 'Hoje',        value: 'today' },
+  { label: '7 dias',      value: 'last7days' },
+  { label: '30 dias',     value: 'last30days' },
+  { label: 'Este mês',    value: 'thisMonth' },
+  { label: 'Mês passado', value: 'lastMonth' },
+];
 import { FinanceFormDialog } from '@/components/finance/FinanceFormDialog';
 import { FinanceBanksTab } from '@/components/finance/FinanceBanksTab';
 import { FinanceCategoriesTab } from '@/components/finance/FinanceCategoriesTab';
-import { DateRangePickerDashboard } from '@/components/dashboard/DateRangePickerDashboard';
 import { useDashboardFilters, PeriodPreset, DateRange } from '@/hooks/useDashboardFilters';
+import { cn } from '@/lib/utils';
 import { isWithinInterval, format, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -172,13 +181,21 @@ export default function FinancePage() {
   return (
     <MainLayout>
       <div className="space-y-6 animate-fade-in">
-        <div className="flex justify-end">
-          <DateRangePickerDashboard
-            preset={preset}
-            dateRange={dateRange}
-            onPresetChange={setPreset}
-            onCustomRangeChange={setDateRange}
-          />
+        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+          {FINANCE_PERIOD_PILLS.map(p => (
+            <button
+              key={p.value}
+              onClick={() => setPreset(p.value)}
+              className={cn(
+                'px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors shrink-0',
+                preset === p.value
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
 
         {/* Action buttons */}

@@ -1,20 +1,29 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { RevenueExpenseChart } from '@/components/dashboard/RevenueExpenseChart';
-import { DateRangePickerDashboard } from '@/components/dashboard/DateRangePickerDashboard';
 import { DashboardSummaryAI } from '@/components/dashboard/DashboardSummaryAI';
 import { GoalsProgressCard } from '@/components/dashboard/GoalsProgressCard';
 import { PipelineFunnelCard } from '@/components/dashboard/PipelineFunnelCard';
 import { ExpiringContractsCard } from '@/components/dashboard/ExpiringContractsCard';
-import { useDashboardFilters } from '@/hooks/useDashboardFilters';
+import { useDashboardFilters, PeriodPreset } from '@/hooks/useDashboardFilters';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useContracts } from '@/hooks/useContracts';
 import { Users, CheckSquare, AlertTriangle, DollarSign, TrendingUp, Trophy, FileWarning, Repeat } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TeamAccessCard } from '@/components/dashboard/TeamAccessCard';
+
+const PERIOD_PILLS: { label: string; value: PeriodPreset }[] = [
+  { label: 'Total',       value: 'all' },
+  { label: 'Hoje',        value: 'today' },
+  { label: 'Ontem',       value: 'yesterday' },
+  { label: '7 dias',      value: 'last7days' },
+  { label: '30 dias',     value: 'last30days' },
+  { label: 'Este mês',    value: 'thisMonth' },
+  { label: 'Mês passado', value: 'lastMonth' },
+];
 
 
 export default function Dashboard() {
@@ -30,8 +39,8 @@ export default function Dashboard() {
     return (
       <MainLayout>
         <div className="space-y-4 md:space-y-6">
-          <div className="flex justify-end">
-            <Skeleton className="h-10 w-[180px]" />
+            <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+            {PERIOD_PILLS.map(p => <Skeleton key={p.value} className="h-8 w-16 rounded-full shrink-0" />)}
           </div>
           <Card className="border-primary/30 bg-card">
             <CardContent className="p-4 md:p-6">
@@ -53,14 +62,22 @@ export default function Dashboard() {
   return (
     <MainLayout>
       <div className="space-y-4 md:space-y-6 animate-fade-in">
-        {/* Header with Filter */}
-        <div className="flex justify-end">
-          <DateRangePickerDashboard
-            preset={preset}
-            dateRange={dateRange}
-            onPresetChange={setPreset}
-            onCustomRangeChange={setDateRange}
-          />
+        {/* Period pills — estilo Getfy */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+          {PERIOD_PILLS.map(p => (
+            <button
+              key={p.value}
+              onClick={() => setPreset(p.value)}
+              className={cn(
+                'px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors shrink-0',
+                preset === p.value
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
 
         {/* AI Summary */}

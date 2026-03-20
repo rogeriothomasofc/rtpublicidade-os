@@ -9,10 +9,10 @@
 @layer base {
   :root {
     --sidebar-current-width: 16rem;
-    --background: 150 15% 4%;
+    --background: 150 12% 6%;
     --foreground: 220 14% 91%;
 
-    --card: 150 15% 7%;
+    --card: 150 12% 9%;
     --card-foreground: 220 14% 91%;
 
     --popover: 150 18% 9%;
@@ -71,10 +71,10 @@
   }
 
   .dark {
-    --background: 150 15% 4%;
+    --background: 150 12% 6%;
     --foreground: 220 14% 91%;
 
-    --card: 150 15% 7%;
+    --card: 150 12% 9%;
     --card-foreground: 220 14% 91%;
 
     --popover: 150 18% 9%;
