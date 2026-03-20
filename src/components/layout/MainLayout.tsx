@@ -22,8 +22,8 @@ export function MainLayout({ children }: MainLayoutProps) {
         {/* TopBar — não fixo, rola com o conteúdo */}
         <TopBar />
 
-        {/* Container de conteúdo — bg-background (zinc-900), cards (zinc-800) se destacam */}
-        <div className="mx-8 mb-6 rounded-2xl bg-background min-h-[calc(100vh-6.5rem)] overflow-hidden">
+        {/* Container usa bg-card — mesma cor dos cards, ficam transparentes dentro */}
+        <div className="mx-8 mb-6 rounded-2xl bg-card min-h-[calc(100vh-6.5rem)] overflow-hidden">
           <div className="p-4 md:p-5">{children}</div>
         </div>
       </div>
