@@ -60,17 +60,25 @@ export function useUserAccessStats() {
   return useQuery({
     queryKey: ['user-access-stats'],
     queryFn: async () => {
-      // Try RPC first (resolves name via auth.users + profiles + team_members)
+      // Busca apenas usuários com role ativo (membros atuais da equipe)
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('user_id');
+      const activeUserIds = new Set((roles || []).map((r: any) => r.user_id));
+
+      // Try RPC first
       const { data: rpcData, error: rpcError } = await (supabase as any).rpc('get_user_access_stats');
       if (!rpcError && rpcData) {
-        return (rpcData as any[]).map(row => ({
-          userId: row.user_id,
-          userName: row.user_name || 'Usuário',
-          avatarUrl: row.avatar_url || null,
-          lastAccess: row.last_access,
-          totalSessions: Number(row.total_sessions),
-          totalTimeSeconds: Number(row.total_time_seconds),
-        })) as UserAccessStats[];
+        return (rpcData as any[])
+          .filter(row => activeUserIds.has(row.user_id))
+          .map(row => ({
+            userId: row.user_id,
+            userName: row.user_name || 'Usuário',
+            avatarUrl: row.avatar_url || null,
+            lastAccess: row.last_access,
+            totalSessions: Number(row.total_sessions),
+            totalTimeSeconds: Number(row.total_time_seconds),
+          })) as UserAccessStats[];
       }
 
       // Fallback: manual aggregation
@@ -85,16 +93,14 @@ export function useUserAccessStats() {
         .from('profiles')
         .select('user_id, name, avatar_url');
 
-      const { data: members } = await supabase
-        .from('team_members')
-        .select('name, avatar_url, email');
-
       const profileMap = new Map(
         (profiles || []).map(p => [p.user_id, { name: p.name, avatar_url: p.avatar_url }])
       );
 
       const userMap = new Map<string, { lastAccess: string | null; sessions: number; totalTime: number }>();
       for (const log of logs || []) {
+        // Ignora usuários que não têm mais role ativo
+        if (!activeUserIds.has(log.user_id)) continue;
         const existing = userMap.get(log.user_id) || { lastAccess: null, sessions: 0, totalTime: 0 };
         existing.sessions += 1;
         existing.totalTime += log.duration_seconds || 0;
@@ -107,10 +113,6 @@ export function useUserAccessStats() {
       const stats: UserAccessStats[] = [];
       for (const [userId, data] of userMap) {
         const profile = profileMap.get(userId);
-        // Try to find team_member by matching (best effort without email)
-        const member = (!profile?.name && members?.length)
-          ? members.find(m => !m.name) // can't link without email, leave for RPC
-          : null;
         stats.push({
           userId,
           userName: profile?.name?.trim() || 'Usuário',
