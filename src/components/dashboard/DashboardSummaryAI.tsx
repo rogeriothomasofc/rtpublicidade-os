@@ -111,7 +111,7 @@ export function DashboardSummaryAI({ stats, isLoading }: DashboardSummaryAIProps
 
   if (isLoading) {
     return (
-      <Card className="border-primary/30 bg-gradient-to-r from-slate-900 to-slate-800">
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/10 to-card">
         <CardContent className="p-6">
           <div className="flex items-center gap-3 mb-4">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -125,7 +125,7 @@ export function DashboardSummaryAI({ stats, isLoading }: DashboardSummaryAIProps
   }
 
   return (
-    <Card className="border-primary/30 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden relative">
+    <Card className="border-primary/20 bg-gradient-to-br from-primary/10 to-card overflow-hidden relative">
       <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent" />
       <CardContent className="p-4 md:p-6 relative">
         <div className="flex items-center justify-between gap-2 mb-3 md:mb-4">
