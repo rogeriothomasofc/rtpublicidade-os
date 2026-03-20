@@ -7,8 +7,72 @@
 /* Sinap Agency OS – Dark Green Command Theme */
 
 @layer base {
+  /* ── Light Mode ──────────────────────────────────────────── */
   :root {
     --sidebar-current-width: 16rem;
+    --background: 150 20% 97%;
+    --foreground: 220 20% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 12%;
+
+    --primary: 142 71% 38%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 148 25% 90%;
+    --secondary-foreground: 220 20% 12%;
+
+    --muted: 148 20% 92%;
+    --muted-foreground: 220 9% 44%;
+
+    --accent: 142 71% 38%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 38%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 148 20% 86%;
+    --input: 148 20% 86%;
+    --ring: 142 71% 38%;
+
+    --radius: 0.5rem;
+
+    /* Sidebar */
+    --sidebar-background: 150 25% 94%;
+    --sidebar-foreground: 220 20% 12%;
+    --sidebar-primary: 142 71% 38%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 148 25% 88%;
+    --sidebar-accent-foreground: 220 20% 12%;
+    --sidebar-border: 148 20% 84%;
+    --sidebar-ring: 142 71% 38%;
+    --sidebar-muted: 220 9% 50%;
+
+    /* Kanban */
+    --kanban-backlog: 148 20% 88%;
+    --kanban-planning: 199 89% 48%;
+    --kanban-progress: 38 92% 50%;
+    --kanban-done: 142 71% 38%;
+
+    /* Pipeline stages */
+    --stage-new: 220 9% 60%;
+    --stage-contacted: 199 89% 48%;
+    --stage-proposal: 38 92% 50%;
+    --stage-won: 142 71% 38%;
+    --stage-lost: 0 84% 55%;
+  }
+
+  /* ── Dark Mode ───────────────────────────────────────────── */
+  .dark {
     --background: 150 8% 11%;
     --foreground: 220 14% 91%;
 
@@ -43,9 +107,6 @@
     --input: 148 33% 18%;
     --ring: 142 71% 45%;
 
-    --radius: 0.5rem;
-
-    /* Sidebar */
     --sidebar-background: 150 10% 2%;
     --sidebar-foreground: 220 14% 91%;
     --sidebar-primary: 142 71% 45%;
@@ -68,52 +129,6 @@
     --stage-proposal: 38 92% 50%;
     --stage-won: 142 71% 45%;
     --stage-lost: 0 84% 60%;
-  }
-
-  .dark {
-    --background: 150 8% 11%;
-    --foreground: 220 14% 91%;
-
-    --card: 150 8% 15%;
-    --card-foreground: 220 14% 91%;
-
-    --popover: 150 8% 15%;
-    --popover-foreground: 220 14% 91%;
-
-    --primary: 142 71% 45%;
-    --primary-foreground: 150 15% 4%;
-
-    --secondary: 148 33% 18%;
-    --secondary-foreground: 220 14% 91%;
-
-    --muted: 148 33% 18%;
-    --muted-foreground: 220 9% 46%;
-
-    --accent: 150 100% 50%;
-    --accent-foreground: 150 15% 4%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 220 14% 91%;
-
-    --success: 142 71% 45%;
-    --success-foreground: 150 15% 4%;
-
-    --warning: 38 92% 50%;
-    --warning-foreground: 150 15% 4%;
-
-    --border: 148 33% 18%;
-    --input: 148 33% 18%;
-    --ring: 142 71% 45%;
-
-    --sidebar-background: 150 10% 2%;
-    --sidebar-foreground: 220 14% 91%;
-    --sidebar-primary: 142 71% 45%;
-    --sidebar-primary-foreground: 150 15% 4%;
-    --sidebar-accent: 148 25% 10%;
-    --sidebar-accent-foreground: 220 14% 91%;
-    --sidebar-border: 148 20% 10%;
-    --sidebar-ring: 142 71% 45%;
-    --sidebar-muted: 220 9% 42%;
   }
 }
 
