@@ -140,23 +140,16 @@ export function TopBar() {
             <TooltipContent>Assistente IA</TooltipContent>
           </Tooltip>
 
-          {/* Toggle de tema */}
-          <div className="hidden sm:flex items-center rounded-md border border-border overflow-hidden">
-            <button
-              onClick={() => setTheme('light')}
-              className={`p-2 transition-colors ${resolvedTheme === 'light' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
-              aria-label="Tema claro"
-            >
-              <Sun className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setTheme('dark')}
-              className={`p-2 transition-colors ${resolvedTheme === 'dark' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
-              aria-label="Tema escuro"
-            >
-              <Moon className="h-4 w-4" />
-            </button>
-          </div>
+          {/* Toggle de tema — ícone único */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 text-muted-foreground hover:text-foreground hidden sm:flex"
+            onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+            aria-label="Alternar tema"
+          >
+            {resolvedTheme === 'dark' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+          </Button>
 
           <NotificationBell />
 
