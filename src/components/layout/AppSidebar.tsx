@@ -134,7 +134,7 @@ export function AppSidebar() {
   // Desktop: fixed sidebar
   return (
     <aside className={cn('fixed top-0 left-0 h-screen flex flex-col bg-sidebar transition-all duration-300 z-30', collapsed ? 'w-16' : 'w-64')}>
-      <div className={cn('relative flex items-center h-16 border-b border-sidebar-border/40 shrink-0', collapsed ? 'justify-center px-2' : 'px-3')}>
+      <div className={cn('relative flex items-center h-16 border-b border-sidebar-border shrink-0', collapsed ? 'justify-center px-2' : 'px-3')}>
         <div
           className={cn('flex items-center gap-2 min-w-0', collapsed && 'cursor-pointer')}
           onClick={() => collapsed && setCollapsed(false)}

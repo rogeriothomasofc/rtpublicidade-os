@@ -164,7 +164,7 @@ export function TopBar() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 outline-none hover:bg-sidebar-accent/60 transition-colors ml-1">
-                <Avatar className="h-7 w-7 cursor-pointer">
+                <Avatar className="h-9 w-9 cursor-pointer">
                   <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.name || ''} />
                   <AvatarFallback className="text-xs bg-primary/10 text-primary font-medium">
                     {initials}
