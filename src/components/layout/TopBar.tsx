@@ -108,7 +108,7 @@ export function TopBar() {
         </div>
 
         {/* Right */}
-        <div className="flex items-center gap-1 md:gap-1.5">
+        <div className="flex items-center gap-1.5 md:gap-2">
 
           {/* Busca */}
           <Tooltip>
@@ -116,10 +116,10 @@ export function TopBar() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                className="h-9 w-9 text-muted-foreground hover:text-foreground"
                 onClick={() => setSearchOpen(true)}
               >
-                <Search className="h-4 w-4" />
+                <Search className="h-5 w-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Buscar <kbd className="ml-1 text-[10px] font-mono">⌘K</kbd></TooltipContent>
@@ -131,10 +131,10 @@ export function TopBar() {
               <Button
                 variant={aiOpen ? 'default' : 'ghost'}
                 size="icon"
-                className={`h-8 w-8 transition-all ${aiOpen ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-primary'}`}
+                className={`h-9 w-9 transition-all ${aiOpen ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-primary'}`}
                 onClick={() => setAiOpen(prev => !prev)}
               >
-                <Sparkles className="h-4 w-4" />
+                <Sparkles className="h-5 w-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Assistente IA</TooltipContent>
@@ -144,17 +144,17 @@ export function TopBar() {
           <div className="hidden sm:flex items-center rounded-md border border-border overflow-hidden">
             <button
               onClick={() => setTheme('light')}
-              className={`p-1.5 transition-colors ${resolvedTheme === 'light' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+              className={`p-2 transition-colors ${resolvedTheme === 'light' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
               aria-label="Tema claro"
             >
-              <Sun className="h-3.5 w-3.5" />
+              <Sun className="h-4 w-4" />
             </button>
             <button
               onClick={() => setTheme('dark')}
-              className={`p-1.5 transition-colors ${resolvedTheme === 'dark' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+              className={`p-2 transition-colors ${resolvedTheme === 'dark' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
               aria-label="Tema escuro"
             >
-              <Moon className="h-3.5 w-3.5" />
+              <Moon className="h-4 w-4" />
             </button>
           </div>
 

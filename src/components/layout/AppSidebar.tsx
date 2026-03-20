@@ -135,22 +135,15 @@ export function AppSidebar() {
   return (
     <aside className={cn('fixed top-0 left-0 h-screen flex flex-col bg-sidebar transition-all duration-300 z-30', collapsed ? 'w-16' : 'w-64')}>
       <div className={cn('relative flex items-center h-16 border-b border-sidebar-border/40 shrink-0', collapsed ? 'justify-center px-2' : 'px-3')}>
-        <Tooltip delayDuration={0}>
-          <TooltipTrigger asChild>
-            <div
-              className={cn('flex items-center gap-2 min-w-0', collapsed && 'cursor-pointer')}
-              onClick={() => collapsed && setCollapsed(false)}
-            >
-              {logo}
-              {!collapsed && (
-                <span className="font-semibold text-lg text-sidebar-foreground truncate">{APP_NAME}</span>
-              )}
-            </div>
-          </TooltipTrigger>
-          {collapsed && (
-            <TooltipContent side="right" className="font-medium">Expandir menu</TooltipContent>
+        <div
+          className={cn('flex items-center gap-2 min-w-0', collapsed && 'cursor-pointer')}
+          onClick={() => collapsed && setCollapsed(false)}
+        >
+          {logo}
+          {!collapsed && (
+            <span className="font-semibold text-lg text-sidebar-foreground truncate">{APP_NAME}</span>
           )}
-        </Tooltip>
+        </div>
 
         {!collapsed && (
           <Button
