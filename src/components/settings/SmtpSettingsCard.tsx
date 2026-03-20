@@ -92,46 +92,42 @@ export function SmtpSettingsCard() {
   return (
     <>
       <Card>
-        <CardContent className="p-5">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
-              <Mail className="w-6 h-6 text-blue-500" />
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+              <Mail className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="font-semibold">Email SMTP</span>
-                    <Badge variant={isConnected ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
-                      {isConnected ? 'Conectado' : 'Disponível'}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Envie emails de acesso ao portal do cliente automaticamente
-                  </p>
-                  {isConnected && smtp && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      Remetente: {smtp.from_name ? `${smtp.from_name} <${smtp.from_email}>` : smtp.from_email}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {isConnected ? (
-                    <>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpen}>
-                        <Settings className="w-4 h-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" className="gap-1.5" onClick={handleOpen}>
-                        Conectado
-                      </Button>
-                    </>
-                  ) : (
-                    <Button size="sm" className="gap-1.5" onClick={handleOpen}>
-                      Conectar
-                      <ExternalLink className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className="font-semibold">Email SMTP</span>
+                <Badge variant={isConnected ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                  {isConnected ? 'Conectado' : 'Disponível'}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">
+                Envie emails de acesso ao portal do cliente automaticamente
+              </p>
+              {isConnected && smtp && (
+                <p className="text-xs text-muted-foreground truncate mb-3">
+                  Remetente: {smtp.from_name ? `${smtp.from_name} <${smtp.from_email}>` : smtp.from_email}
+                </p>
+              )}
+              <div className="flex items-center gap-1.5">
+                {isConnected ? (
+                  <>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpen}>
+                      <Settings className="w-4 h-4" />
                     </Button>
-                  )}
-                </div>
+                    <Button variant="outline" size="sm" className="gap-1.5" onClick={handleOpen}>
+                      Conectado
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" className="gap-1.5" onClick={handleOpen}>
+                    Conectar
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -144,7 +140,7 @@ export function SmtpSettingsCard() {
             <DialogTitle>Configurar SMTP</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Servidor SMTP *</Label>
                 <Input
@@ -163,7 +159,7 @@ export function SmtpSettingsCard() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Usuário *</Label>
                 <Input
@@ -182,7 +178,7 @@ export function SmtpSettingsCard() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Email remetente *</Label>
                 <Input
@@ -200,7 +196,7 @@ export function SmtpSettingsCard() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Criptografia</Label>
                 <Select value={form.encryption} onValueChange={v => setForm(f => ({ ...f, encryption: v }))}>

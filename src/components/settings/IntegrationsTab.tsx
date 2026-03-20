@@ -306,11 +306,9 @@ export function IntegrationsTab() {
     <>
       <div className="space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">Integrações</h2>
-            <p className="text-muted-foreground">Conecte canais e ferramentas externas</p>
-          </div>
+        <div>
+          <h2 className="text-xl md:text-2xl font-bold tracking-tight">Integrações</h2>
+          <p className="text-sm text-muted-foreground">Conecte canais e ferramentas externas</p>
         </div>
 
         {/* Ferramentas */}
@@ -322,98 +320,91 @@ export function IntegrationsTab() {
 
             {/* Asaas */}
             <Card>
-              <CardContent className="p-5">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
-                    <KeyRound className="w-6 h-6 text-emerald-500" />
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <KeyRound className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-500" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="font-semibold">Asaas</span>
-                          <Badge variant={isAsaasConnected ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
-                            {isAsaasConnected ? 'Conectado' : 'Disponível'}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Cobranças automáticas via Pix para seus clientes
-                        </p>
-                        {isAsaasConnected && (
-                          <p className="text-xs text-muted-foreground">
-                            Ambiente: {((asaasIntegration?.config as any)?.environment === 'production') ? 'Produção' : 'Sandbox'}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {isAsaasConnected ? (
-                          <>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenAsaasDialog}>
-                              <Settings className="w-4 h-4" />
-                            </Button>
-                            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDisconnectAsaas}>
-                              <CheckIcon className="w-3.5 h-3.5" />
-                              Conectado
-                            </Button>
-                          </>
-                        ) : (
-                          <Button size="sm" className="gap-1.5" onClick={handleOpenAsaasDialog}>
-                            Conectar
-                            <ExternalLink className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-semibold">Asaas</span>
+                      <Badge variant={isAsaasConnected ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                        {isAsaasConnected ? 'Conectado' : 'Disponível'}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Cobranças automáticas via Pix para seus clientes
+                    </p>
+                    {isAsaasConnected && (
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Ambiente: {((asaasIntegration?.config as any)?.environment === 'production') ? 'Produção' : 'Sandbox'}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      {isAsaasConnected ? (
+                        <>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenAsaasDialog}>
+                            <Settings className="w-4 h-4" />
                           </Button>
-                        )}
-                      </div>
+                          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDisconnectAsaas}>
+                            <CheckIcon className="w-3.5 h-3.5" />
+                            Conectado
+                          </Button>
+                        </>
+                      ) : (
+                        <Button size="sm" className="gap-1.5" onClick={handleOpenAsaasDialog}>
+                          Conectar
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
+
             {/* Meta Ads */}
             <Card>
-              <CardContent className="p-5">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
-                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" fill="#1877F2"/>
                       <path d="M13.188 15.938h-1.5v-5.25h-.938v-1.313h.938V8.813c0-1.25.563-2 1.938-2h1.25v1.312h-.75c-.563 0-.625.188-.625.563v.688h1.438l-.188 1.312h-1.25v5.25h-.313z" fill="white"/>
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="font-semibold">Meta Ads</span>
-                          <Badge variant={isMetaConnected ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
-                            {isMetaConnected ? 'Conectado' : 'Disponível'}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Painel de performance das contas de anúncios dos clientes
-                        </p>
-                        {isMetaConnected && (
-                          <p className="text-xs text-muted-foreground">
-                            System User Access Token configurado
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {isMetaConnected ? (
-                          <>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenMetaDialog}>
-                              <Settings className="w-4 h-4" />
-                            </Button>
-                            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDisconnectMeta}>
-                              <CheckIcon className="w-3.5 h-3.5" />
-                              Conectado
-                            </Button>
-                          </>
-                        ) : (
-                          <Button size="sm" className="gap-1.5" onClick={handleOpenMetaDialog}>
-                            Conectar
-                            <ExternalLink className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-semibold">Meta Ads</span>
+                      <Badge variant={isMetaConnected ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                        {isMetaConnected ? 'Conectado' : 'Disponível'}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Painel de performance das contas de anúncios dos clientes
+                    </p>
+                    {isMetaConnected && (
+                      <p className="text-xs text-muted-foreground mb-3">
+                        System User Access Token configurado
+                      </p>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      {isMetaConnected ? (
+                        <>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenMetaDialog}>
+                            <Settings className="w-4 h-4" />
                           </Button>
-                        )}
-                      </div>
+                          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDisconnectMeta}>
+                            <CheckIcon className="w-3.5 h-3.5" />
+                            Conectado
+                          </Button>
+                        </>
+                      ) : (
+                        <Button size="sm" className="gap-1.5" onClick={handleOpenMetaDialog}>
+                          Conectar
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -716,8 +707,8 @@ function WebhookRow({
             </Badge>
           </div>
           {url && (
-            <div className="flex items-center gap-1.5">
-              <code className="text-xs text-muted-foreground truncate max-w-[350px]">{url}</code>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <code className="text-xs text-muted-foreground truncate max-w-[160px] sm:max-w-[300px]">{url}</code>
               <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={onCopyUrl}>
                 {copiedUrl ? <CheckIcon className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
               </Button>
