@@ -51,17 +51,9 @@ export function usePushNotifications() {
         return false;
       }
 
-      // Get VAPID public key from edge function
-      const { data: keyData, error: keyError } = await supabase.functions.invoke('send-push', {
-        body: { action: 'get-vapid-key' }
-      });
-
-      if (keyError || !keyData?.vapidPublicKey) {
-        throw new Error('Não foi possível obter a chave VAPID');
-      }
-
-      // Convert VAPID key to Uint8Array
-      const vapidPublicKey = urlBase64ToUint8Array(keyData.vapidPublicKey);
+      // Chave pública VAPID (pública por definição — pode ficar no frontend)
+      const VAPID_PUBLIC_KEY = 'BDs_ZMBSsde5Wbu2-sI_vDzEvrdIXWdlZdhrSrrzXuoFlf9IBW5wT-x8_ZOSt0ZwLKJHRNX0-Ql4rTU4zlzy_e0';
+      const vapidPublicKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
 
       // Subscribe to push
       const registration = await navigator.serviceWorker.ready;
