@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Sparkles, Send, Loader2, RotateCcw, ChevronDown, Bot } from 'lucide-react';
+import { Sparkles, Send, Loader2, RotateCcw, ArrowUpRight, PanelRightClose } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,7 @@ import { useFinance } from '@/hooks/useFinance';
 import { useContracts } from '@/hooks/useContracts';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useDashboardFilters } from '@/hooks/useDashboardFilters';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Message {
   id: string;
@@ -23,9 +24,7 @@ const SUGGESTED_PROMPTS = [
   'Quais clientes têm fatura vencida?',
   'Quais tarefas estão atrasadas?',
   'Qual é o valor total do pipeline?',
-  'Quantos leads tenho em proposta?',
   'Quais contratos vencem em breve?',
-  'Qual foi a receita deste mês?',
 ];
 
 interface AIChatProps {
@@ -37,9 +36,11 @@ export function AIChat({ open, onClose }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState<'chat' | 'history'>('chat');
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const { user } = useAuth();
   const { dateRange } = useDashboardFilters();
   const { data: clients } = useClients();
   const { data: tasks } = useTasks();
@@ -47,6 +48,10 @@ export function AIChat({ open, onClose }: AIChatProps) {
   const { data: finance } = useFinance();
   const { data: contracts } = useContracts();
   const { data: stats } = useDashboardStats(dateRange);
+
+  const firstName = (user?.user_metadata?.full_name as string)?.split(' ')[0]
+    || user?.email?.split('@')[0]
+    || '';
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -64,13 +69,6 @@ export function AIChat({ open, onClose }: AIChatProps) {
     const now = new Date();
 
     const activeClients = (clients || []).filter(c => c.status === 'Ativo');
-    const overdueClients = (clients || []).filter(c => {
-      const overdueTasks = (tasks || []).filter(t =>
-        t.client_id === c.id && t.status === 'Atrasado'
-      );
-      return overdueTasks.length > 0;
-    });
-
     const overdueTasks = (tasks || []).filter(t =>
       t.status !== 'Concluído' && t.due_date && new Date(t.due_date) < now
     );
@@ -194,136 +192,191 @@ Responda de forma clara e direta. Quando listar itens, use listas com marcadores
 
   if (!open) return null;
 
+  const isWelcome = messages.length === 0;
+
   return (
-    <div className="fixed right-0 top-0 h-screen w-[380px] max-w-[100vw] z-50 flex flex-col bg-background border-l border-border shadow-2xl animate-in slide-in-from-right duration-200">
-      {/* Header */}
+    <div className="fixed right-0 top-0 h-screen w-[400px] max-w-[100vw] z-50 flex flex-col bg-background border-l border-border shadow-2xl animate-in slide-in-from-right duration-200">
+
+      {/* Header — tabs + close */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-primary" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold leading-none">Assistente RT</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Com acesso aos dados da agência</p>
-          </div>
+        <div className="flex gap-0.5 bg-muted/50 rounded-lg p-0.5">
+          <button
+            onClick={() => setTab('chat')}
+            className={cn(
+              'px-3.5 py-1.5 text-sm rounded-md font-medium transition-colors',
+              tab === 'chat'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            Chat
+          </button>
+          <button
+            onClick={() => setTab('history')}
+            className={cn(
+              'px-3.5 py-1.5 text-sm rounded-md font-medium transition-colors',
+              tab === 'history'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            Histórico
+          </button>
         </div>
+
         <div className="flex items-center gap-1">
-          {messages.length > 0 && (
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={clearChat} title="Limpar conversa">
+          {messages.length > 0 && tab === 'chat' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={clearChat}
+              title="Limpar conversa"
+            >
               <RotateCcw className="w-3.5 h-3.5" />
             </Button>
           )}
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={onClose}>
-            <X className="w-4 h-4" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={onClose}
+          >
+            <PanelRightClose className="w-4 h-4" />
           </Button>
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full" ref={scrollRef as any}>
-          <div className="p-4 space-y-4">
-            {messages.length === 0 && (
-              <div className="space-y-4">
-                <div className="text-center py-4">
-                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                    <Bot className="w-6 h-6 text-primary" />
+      {/* History tab */}
+      {tab === 'history' && (
+        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-muted/60 flex items-center justify-center mb-3">
+            <Sparkles className="w-5 h-5 text-muted-foreground" />
+          </div>
+          <p className="text-sm font-medium text-foreground">Sem histórico salvo</p>
+          <p className="text-xs text-muted-foreground mt-1">As conversas não são salvas entre sessões.</p>
+        </div>
+      )}
+
+      {/* Chat tab */}
+      {tab === 'chat' && (
+        <>
+          {/* Messages / Welcome */}
+          <div className="flex-1 overflow-hidden">
+            {isWelcome ? (
+              <div className="flex flex-col h-full px-5 pt-10 pb-4">
+                {/* Greeting */}
+                <div className="flex flex-col items-center text-center mb-8">
+                  <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center mb-4">
+                    <Sparkles className="w-8 h-8 text-primary" />
                   </div>
-                  <p className="text-sm font-medium">Olá! Sou o assistente da RT Publicidade.</p>
-                  <p className="text-xs text-muted-foreground mt-1">Conheço os dados da agência em tempo real. Pergunte o que quiser.</p>
+                  <h2 className="text-xl font-semibold text-foreground">
+                    Olá{firstName ? `, ${firstName}` : ''}! 👋
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1.5">
+                    Como posso te ajudar hoje?
+                  </p>
                 </div>
 
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium">Sugestões:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {SUGGESTED_PROMPTS.map((prompt, i) => (
+                {/* Suggestions list */}
+                <div className="border border-border rounded-2xl overflow-hidden">
+                  {SUGGESTED_PROMPTS.map((prompt, i) => (
+                    <div key={i}>
+                      {i > 0 && <div className="border-t border-border" />}
                       <button
-                        key={i}
                         onClick={() => sendMessage(prompt)}
-                        className="text-xs px-3 py-1.5 rounded-full border border-border bg-muted/30 hover:bg-muted/60 hover:border-primary/30 transition-colors text-left"
+                        className="w-full flex items-center justify-between px-4 py-3.5 text-sm text-left hover:bg-muted/40 transition-colors group"
                       >
-                        {prompt}
+                        <span className="text-foreground/80 group-hover:text-foreground transition-colors">{prompt}</span>
+                        <ArrowUpRight className="w-4 h-4 text-muted-foreground shrink-0 ml-3 group-hover:text-primary transition-colors" />
                       </button>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            )}
+            ) : (
+              <ScrollArea className="h-full" ref={scrollRef as any}>
+                <div className="p-4 space-y-4">
+                  {messages.map(msg => (
+                    <div key={msg.id} className={cn('flex gap-2.5', msg.role === 'user' ? 'flex-row-reverse' : 'flex-row')}>
+                      {msg.role === 'assistant' && (
+                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                          <Sparkles className="w-3 h-3 text-primary" />
+                        </div>
+                      )}
+                      <div
+                        className={cn(
+                          'max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed',
+                          msg.role === 'user'
+                            ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                            : 'bg-muted/50 border border-border/50 rounded-tl-sm'
+                        )}
+                      >
+                        <MessageContent content={msg.content} />
+                      </div>
+                    </div>
+                  ))}
 
-            {messages.map(msg => (
-              <div key={msg.id} className={cn('flex gap-2.5', msg.role === 'user' ? 'flex-row-reverse' : 'flex-row')}>
-                {msg.role === 'assistant' && (
-                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <Sparkles className="w-3 h-3 text-primary" />
-                  </div>
-                )}
-                <div
-                  className={cn(
-                    'max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed',
-                    msg.role === 'user'
-                      ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                      : 'bg-muted/50 border border-border/50 rounded-tl-sm'
+                  {loading && (
+                    <div className="flex gap-2.5">
+                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <Sparkles className="w-3 h-3 text-primary" />
+                      </div>
+                      <div className="bg-muted/50 border border-border/50 rounded-2xl rounded-tl-sm px-3.5 py-3">
+                        <div className="flex gap-1 items-center">
+                          <span className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <span className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <span className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </div>
+                      </div>
+                    </div>
                   )}
-                >
-                  <MessageContent content={msg.content} />
                 </div>
-              </div>
-            ))}
-
-            {loading && (
-              <div className="flex gap-2.5">
-                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <Sparkles className="w-3 h-3 text-primary" />
-                </div>
-                <div className="bg-muted/50 border border-border/50 rounded-2xl rounded-tl-sm px-3.5 py-3">
-                  <div className="flex gap-1 items-center">
-                    <span className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                </div>
-              </div>
+              </ScrollArea>
             )}
           </div>
-        </ScrollArea>
-      </div>
 
-      {/* Input */}
-      <div className="shrink-0 border-t border-border p-3">
-        <div className="flex items-end gap-2 bg-muted/30 border border-border rounded-xl px-3 py-2 focus-within:border-primary/40 transition-colors">
-          <textarea
-            ref={inputRef}
-            rows={1}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Pergunte sobre clientes, tarefas, financeiro..."
-            disabled={loading}
-            className="flex-1 bg-transparent text-sm resize-none outline-none placeholder:text-muted-foreground max-h-32 min-h-[20px] leading-5 py-0.5 disabled:opacity-50"
-            style={{ height: 'auto' }}
-            onInput={e => {
-              const t = e.currentTarget;
-              t.style.height = 'auto';
-              t.style.height = Math.min(t.scrollHeight, 128) + 'px';
-            }}
-          />
-          <Button
-            size="icon"
-            className="h-7 w-7 shrink-0 rounded-lg"
-            onClick={() => sendMessage()}
-            disabled={!input.trim() || loading}
-          >
-            {loading ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Send className="w-3.5 h-3.5" />
-            )}
-          </Button>
-        </div>
-        <p className="text-[10px] text-muted-foreground text-center mt-2">
-          Enter para enviar · Shift+Enter para nova linha
-        </p>
-      </div>
+          {/* Input */}
+          <div className="shrink-0 px-4 pb-4 pt-3">
+            <div className="bg-muted/30 border border-border rounded-2xl px-4 pt-3 pb-2.5 focus-within:border-primary/50 transition-colors">
+              <textarea
+                ref={inputRef}
+                rows={1}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Pergunte qualquer coisa..."
+                disabled={loading}
+                className="w-full bg-transparent text-sm resize-none outline-none placeholder:text-muted-foreground max-h-32 min-h-[20px] leading-5 disabled:opacity-50"
+                style={{ height: 'auto' }}
+                onInput={e => {
+                  const t = e.currentTarget;
+                  t.style.height = 'auto';
+                  t.style.height = Math.min(t.scrollHeight, 128) + 'px';
+                }}
+              />
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-[10px] text-muted-foreground/70">Enter para enviar</span>
+                <Button
+                  size="icon"
+                  className="h-7 w-7 shrink-0 rounded-xl"
+                  onClick={() => sendMessage()}
+                  disabled={!input.trim() || loading}
+                >
+                  {loading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                </Button>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground/60 text-center mt-2">
+              O assistente pode cometer erros. Verifique informações importantes.
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 }
