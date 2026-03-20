@@ -1,9 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// @deno-types="npm:@types/web-push"
+import webpush from "npm:web-push";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface PushPayload {
@@ -15,41 +18,11 @@ interface PushPayload {
   tag?: string;
 }
 
-// Web Push utilities
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding)
-    .replace(/-/g, "+")
-    .replace(/_/g, "/");
-  const rawData = atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
-async function sendPushNotification(
-  subscription: { endpoint: string; keys_p256dh: string; keys_auth: string },
-  payload: PushPayload,
-  vapidPrivateKey: string,
-  vapidPublicKey: string
-): Promise<boolean> {
-  try {
-    // For simplicity, we'll use the web-push compatible format
-    // In production, you'd use a proper web-push library
-    console.log(`[Push] Sending to endpoint: ${subscription.endpoint.substring(0, 50)}...`);
-    console.log(`[Push] Payload:`, JSON.stringify(payload));
-    
-    // Note: Full Web Push implementation requires crypto operations
-    // For now, log the intent and return success for testing
-    // In production, use a web-push library or implement VAPID signing
-    
-    return true;
-  } catch (error) {
-    console.error("[Push] Error sending notification:", error);
-    return false;
-  }
+interface PushSubscriptionRow {
+  id: string;
+  endpoint: string;
+  keys_p256dh: string;
+  keys_auth: string;
 }
 
 serve(async (req) => {
@@ -58,204 +31,190 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
+    // Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-    const supabaseAuth = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Invalid token" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Invalid token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const vapidPublicKey  = Deno.env.get("VAPID_PUBLIC_KEY");
     const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
 
     if (!vapidPublicKey || !vapidPrivateKey) {
       throw new Error("VAPID keys not configured");
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    
+    // Configura web-push com as chaves VAPID
+    webpush.setVapidDetails(
+      "mailto:contato@rtpublicidade.com.br",
+      vapidPublicKey,
+      vapidPrivateKey
+    );
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
     const { action, ...data } = await req.json();
-    console.log(`[Push] Action: ${action}`);
+    console.log(`[Push] Action: ${action}, user: ${user.id}`);
 
     switch (action) {
+      // ── Retorna a chave pública VAPID para o browser se inscrever ──
       case "get-vapid-key": {
-        // Return public VAPID key for subscription
-        return new Response(
-          JSON.stringify({ vapidPublicKey }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ vapidPublicKey }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
+      // ── Salva a subscription no banco ──
       case "subscribe": {
-        // Save subscription to database
         const { subscription, deviceInfo } = data;
-        
-        const { error } = await supabase
-          .from("push_subscriptions")
-          .upsert({
-            endpoint: subscription.endpoint,
+        const { error } = await supabase.from("push_subscriptions").upsert(
+          {
+            user_id:     user.id,
+            endpoint:    subscription.endpoint,
             keys_p256dh: subscription.keys.p256dh,
-            keys_auth: subscription.keys.auth,
+            keys_auth:   subscription.keys.auth,
             device_info: deviceInfo,
-          }, { onConflict: "endpoint" });
-
-        if (error) {
-          console.error("[Push] Subscribe error:", error);
-          throw error;
-        }
-
-        console.log("[Push] Subscription saved successfully");
-        return new Response(
-          JSON.stringify({ success: true }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          },
+          { onConflict: "endpoint" }
         );
+        if (error) throw error;
+        console.log("[Push] Subscription saved");
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
+      // ── Remove a subscription ──
       case "unsubscribe": {
-        // Remove subscription from database
         const { endpoint } = data;
-        
         const { error } = await supabase
           .from("push_subscriptions")
           .delete()
           .eq("endpoint", endpoint);
-
-        if (error) {
-          console.error("[Push] Unsubscribe error:", error);
-          throw error;
-        }
-
+        if (error) throw error;
         console.log("[Push] Subscription removed");
-        return new Response(
-          JSON.stringify({ success: true }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
+      // ── Envia push para subscription(s) específica(s) ou todas ──
       case "send": {
-        // Send notification to all subscriptions or specific ones
-        const { payload, subscriptionIds } = data as { 
-          payload: PushPayload; 
-          subscriptionIds?: string[] 
+        const { payload, subscriptionIds } = data as {
+          payload: PushPayload;
+          subscriptionIds?: string[];
         };
 
         let query = supabase.from("push_subscriptions").select("*");
-        
-        if (subscriptionIds && subscriptionIds.length > 0) {
+        if (subscriptionIds?.length) {
           query = query.in("id", subscriptionIds);
         }
 
-        const { data: subscriptions, error } = await query;
+        const { data: subs, error } = await query;
+        if (error) throw error;
 
-        if (error) {
-          console.error("[Push] Fetch subscriptions error:", error);
-          throw error;
-        }
+        console.log(`[Push] Sending to ${subs?.length ?? 0} subscriptions`);
 
-        console.log(`[Push] Sending to ${subscriptions?.length || 0} subscriptions`);
-
-        const results = await Promise.all(
-          (subscriptions || []).map(async (sub) => {
-            const success = await sendPushNotification(
-              sub,
-              payload,
-              vapidPrivateKey,
-              vapidPublicKey
-            );
-            return { id: sub.id, success };
-          })
+        const results = await Promise.allSettled(
+          (subs || []).map((sub: PushSubscriptionRow) =>
+            webpush
+              .sendNotification(
+                { endpoint: sub.endpoint, keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth } },
+                JSON.stringify(payload)
+              )
+              .then(() => ({ id: sub.id, success: true }))
+              .catch((err: Error) => {
+                console.error(`[Push] Failed ${sub.id}:`, err.message);
+                return { id: sub.id, success: false };
+              })
+          )
         );
 
-        // Remove failed subscriptions (expired endpoints)
-        const failed = results.filter(r => !r.success);
+        const sent   = results.filter(r => r.status === "fulfilled" && (r as PromiseFulfilledResult<any>).value.success);
+        const failed = results.filter(r => r.status === "fulfilled" && !(r as PromiseFulfilledResult<any>).value.success);
+
+        // Remove endpoints expirados/inválidos
         if (failed.length > 0) {
-          console.log(`[Push] Removing ${failed.length} failed subscriptions`);
-          await supabase
-            .from("push_subscriptions")
-            .delete()
-            .in("id", failed.map(f => f.id));
+          const failedIds = failed.map(r => (r as PromiseFulfilledResult<any>).value.id);
+          await supabase.from("push_subscriptions").delete().in("id", failedIds);
         }
 
         return new Response(
-          JSON.stringify({ 
-            success: true, 
-            sent: results.filter(r => r.success).length,
-            failed: failed.length 
-          }),
+          JSON.stringify({ success: true, sent: sent.length, failed: failed.length }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
+      // ── Triggers de eventos internos (tarefas, contratos, etc.) ──
       case "send-notification-triggers": {
-        // Trigger notifications based on app events
         const { type, data: eventData } = data;
-        
-        let payload: PushPayload;
-        
-        switch (type) {
-          case "new_lead":
-            payload = {
-              title: "🎯 Novo Lead!",
-              body: `${eventData.lead_name} entrou no pipeline`,
-              tag: "new-lead",
-              url: "/pipeline"
-            };
-            break;
-          case "task_overdue":
-            payload = {
-              title: "⚠️ Tarefa Atrasada",
-              body: `"${eventData.title}" está atrasada`,
-              tag: "task-overdue",
-              url: "/tasks"
-            };
-            break;
-          case "contract_expiring":
-            payload = {
-              title: "📋 Contrato Expirando",
-              body: `Contrato de ${eventData.client_name} expira em breve`,
-              tag: "contract-expiring",
-              url: "/contracts"
-            };
-            break;
-          case "payment_due":
-            payload = {
-              title: "💰 Pagamento Pendente",
-              body: `Pagamento de R$ ${eventData.amount} vence hoje`,
-              tag: "payment-due",
-              url: "/finance"
-            };
-            break;
-          default:
-            payload = {
-              title: "Agency OS",
-              body: eventData.message || "Nova notificação",
-              tag: "general"
-            };
-        }
 
-        // Get all subscriptions and send
-        const { data: subscriptions } = await supabase
-          .from("push_subscriptions")
-          .select("*");
+        const payloads: Record<string, PushPayload> = {
+          new_lead: {
+            title: "🎯 Novo Lead!",
+            body:  `${eventData.lead_name} entrou no pipeline`,
+            tag:   "new-lead",
+            url:   "/pipeline",
+          },
+          task_overdue: {
+            title: "⚠️ Tarefa Atrasada",
+            body:  `"${eventData.title}" está atrasada`,
+            tag:   "task-overdue",
+            url:   "/tasks",
+          },
+          contract_expiring: {
+            title: "📋 Contrato Expirando",
+            body:  `Contrato de ${eventData.client_name} expira em breve`,
+            tag:   "contract-expiring",
+            url:   "/contracts",
+          },
+          payment_due: {
+            title: "💰 Pagamento Pendente",
+            body:  `Pagamento de R$ ${eventData.amount} vence hoje`,
+            tag:   "payment-due",
+            url:   "/finance",
+          },
+        };
 
-        if (subscriptions && subscriptions.length > 0) {
-          await Promise.all(
-            subscriptions.map(sub => 
-              sendPushNotification(sub, payload, vapidPrivateKey, vapidPublicKey)
+        const payload: PushPayload = payloads[type] ?? {
+          title: "Agency OS",
+          body:  eventData.message || "Nova notificação",
+          tag:   "general",
+        };
+
+        const { data: subs } = await supabase.from("push_subscriptions").select("*");
+
+        await Promise.allSettled(
+          (subs || []).map((sub: PushSubscriptionRow) =>
+            webpush.sendNotification(
+              { endpoint: sub.endpoint, keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth } },
+              JSON.stringify(payload)
             )
-          );
-        }
-
-        return new Response(
-          JSON.stringify({ success: true }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          )
         );
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       default:
