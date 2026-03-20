@@ -73,10 +73,10 @@
 
   /* ── Dark Mode (zinc-950/900/800 — igual Getfy) ──────────── */
   .dark {
-    --background: 240 6% 4%;       /* zinc-950 — #09090b */
+    --background: 240 4% 16%;      /* zinc-800 — container (#27272a) */
     --foreground: 240 5% 96%;      /* zinc-100 */
 
-    --card: 240 4% 16%;            /* zinc-800 — #27272a */
+    --card: 240 4% 11%;            /* um pouco mais escuro que o container (#181820) */
     --card-foreground: 240 5% 96%;
 
     --popover: 240 4% 16%;
