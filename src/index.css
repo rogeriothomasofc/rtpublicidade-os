@@ -76,22 +76,22 @@
     --background: 240 4% 10%;      /* zinc-900 */
     --foreground: 240 5% 96%;      /* zinc-100 */
 
-    --card: 240 4% 14%;            /* #222224 — Getfy card */
+    --card: 240 4% 18%;            /* #2a2a2f — visível sobre zinc-900 */
     --card-foreground: 240 5% 96%;
 
-    --popover: 240 4% 14%;
+    --popover: 240 4% 18%;
     --popover-foreground: 240 5% 96%;
 
     --primary: 142 71% 45%;
     --primary-foreground: 240 6% 4%;
 
-    --secondary: 240 4% 14%;
+    --secondary: 240 4% 18%;
     --secondary-foreground: 240 5% 96%;
 
-    --muted: 240 4% 14%;
+    --muted: 240 4% 18%;
     --muted-foreground: 240 4% 46%; /* zinc-500 */
 
-    --accent: 240 4% 20%;          /* hover — levemente mais claro */
+    --accent: 240 4% 24%;          /* hover — levemente mais claro */
     --accent-foreground: 240 5% 96%;
 
     --destructive: 0 84% 60%;
