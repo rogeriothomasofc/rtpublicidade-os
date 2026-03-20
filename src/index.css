@@ -76,22 +76,22 @@
     --background: 240 4% 10%;      /* zinc-900 */
     --foreground: 240 5% 96%;      /* zinc-100 */
 
-    --card: 240 4% 16%;            /* zinc-800 */
+    --card: 240 4% 14%;            /* #222224 — Getfy card */
     --card-foreground: 240 5% 96%;
 
-    --popover: 240 4% 16%;         /* zinc-800 */
+    --popover: 240 4% 14%;
     --popover-foreground: 240 5% 96%;
 
     --primary: 142 71% 45%;
     --primary-foreground: 240 6% 4%;
 
-    --secondary: 240 4% 16%;       /* zinc-800 */
+    --secondary: 240 4% 14%;
     --secondary-foreground: 240 5% 96%;
 
-    --muted: 240 4% 16%;           /* zinc-800 */
+    --muted: 240 4% 14%;
     --muted-foreground: 240 4% 46%; /* zinc-500 */
 
-    --accent: 240 4% 16%;          /* zinc-800 */
+    --accent: 240 4% 20%;          /* hover — levemente mais claro */
     --accent-foreground: 240 5% 96%;
 
     --destructive: 0 84% 60%;
@@ -103,8 +103,8 @@
     --warning: 38 92% 50%;
     --warning-foreground: 240 6% 4%;
 
-    --border: 240 5% 26%;          /* zinc-700 */
-    --input: 240 5% 26%;
+    --border: 240 4% 20%;          /* #2e2e33 — sutil, Getfy-like */
+    --input: 240 4% 20%;
     --ring: 142 71% 45%;
 
     /* Sidebar — zinc-950 */
