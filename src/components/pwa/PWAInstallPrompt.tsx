@@ -1,4 +1,4 @@
-import { Download, X } from 'lucide-react';
+import { X, MonitorSmartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePWAContext } from './PWAProvider';
 import { toast } from 'sonner';
@@ -9,13 +9,11 @@ export function PWAInstallPrompt() {
   const [dismissed, setDismissed] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
 
-  // Show prompt after a delay if can install
   useEffect(() => {
     if (canInstall && !isInstalled && !dismissed) {
       const timer = setTimeout(() => {
         setShowPrompt(true);
-      }, 5000); // Show after 5 seconds
-
+      }, 5000);
       return () => clearTimeout(timer);
     }
   }, [canInstall, isInstalled, dismissed]);
@@ -32,11 +30,9 @@ export function PWAInstallPrompt() {
   const handleDismiss = () => {
     setDismissed(true);
     setShowPrompt(false);
-    // Don't show again for 24 hours
     localStorage.setItem('pwa-install-dismissed', Date.now().toString());
   };
 
-  // Check if was recently dismissed
   useEffect(() => {
     const dismissedAt = localStorage.getItem('pwa-install-dismissed');
     if (dismissedAt) {
@@ -50,27 +46,35 @@ export function PWAInstallPrompt() {
   if (!showPrompt || isInstalled) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50 animate-fade-in">
-      <div className="bg-card border border-border rounded-lg shadow-lg p-4">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Download className="w-5 h-5 text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm">Instalar Agency OS</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Acesse mais rápido direto da sua tela inicial
-            </p>
-            <div className="flex gap-2 mt-3">
-              <Button size="sm" onClick={handleInstall} className="flex-1">
-                Instalar
-              </Button>
-              <Button size="sm" variant="ghost" onClick={handleDismiss}>
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
+    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-md animate-in slide-in-from-bottom-4 duration-300">
+      <div className="flex items-center gap-3 bg-[#1c1c1e] border border-white/10 rounded-2xl shadow-xl px-4 py-3">
+        {/* Icon */}
+        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+          <MonitorSmartphone className="w-5 h-5 text-white" />
         </div>
+
+        {/* Text */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-white leading-none">Instalar Agency OS</p>
+          <p className="text-xs text-white/50 mt-1 leading-none">Acesso rápido pela tela inicial</p>
+        </div>
+
+        {/* Install button */}
+        <Button
+          size="sm"
+          onClick={handleInstall}
+          className="shrink-0 h-8 px-4 rounded-xl bg-white text-black hover:bg-white/90 font-medium text-sm"
+        >
+          Instalar
+        </Button>
+
+        {/* Close */}
+        <button
+          onClick={handleDismiss}
+          className="shrink-0 text-white/40 hover:text-white/80 transition-colors p-0.5"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
