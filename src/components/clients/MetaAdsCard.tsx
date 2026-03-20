@@ -74,7 +74,8 @@ export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
   const [insights, setInsights] = useState<MetaInsights | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [resultType, setResultType] = useState<ResultTypeLabel>('Leads');
+  const [resultType, setResultType] = useState<ResultTypeLabel>('Conversas iniciadas');
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const fetchInsights = async (p: Period = period) => {
     setLoading(true);
@@ -114,6 +115,34 @@ export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
   const resultValue = getActionValue(insights?.actions, selectedResultConfig.types);
   const spend = Number(insights?.spend || 0);
   const costPerResult = resultValue > 0 ? spend / resultValue : 0;
+
+  const handleResultTypeChange = async (label: ResultTypeLabel) => {
+    setResultType(label);
+    if (!insights) return;
+
+    const config = RESULT_TYPES.find((r) => r.label === label)!;
+    const rv = getActionValue(insights.actions, config.types);
+    const sp = Number(insights.spend || 0);
+    const cpr = rv > 0 ? sp / rv : 0;
+
+    setSummaryLoading(true);
+    try {
+      const body: Record<string, unknown> = {
+        summary_only: true,
+        insights,
+        result_label: label,
+        result_value: rv,
+        cost_per_result: cpr,
+        period,
+      };
+      const { data } = await supabase.functions.invoke('meta-ads-insights', { body });
+      if (data?.summary) setSummary(data.summary);
+    } catch {
+      // keep old summary
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
 
   return (
     <Card className="border-border/50">
@@ -158,7 +187,7 @@ export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
               {RESULT_TYPES.map((r) => (
                 <DropdownMenuItem
                   key={r.label}
-                  onClick={() => setResultType(r.label)}
+                  onClick={() => handleResultTypeChange(r.label)}
                   className={resultType === r.label ? 'bg-muted' : ''}
                 >
                   {r.label}
@@ -213,10 +242,13 @@ export function MetaAdsCard({ accountId, clientId }: MetaAdsCardProps) {
             </div>
 
             {/* AI Summary */}
-            {summary && (
+            {(summary || summaryLoading) && (
               <div className="flex gap-2 rounded-lg border border-border bg-muted/30 p-3">
-                <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                <p className="text-xs text-muted-foreground leading-relaxed">{summary}</p>
+                <Sparkles className={`w-3.5 h-3.5 text-primary shrink-0 mt-0.5 ${summaryLoading ? 'animate-pulse' : ''}`} />
+                {summaryLoading
+                  ? <p className="text-xs text-muted-foreground italic">Analisando...</p>
+                  : <p className="text-xs text-muted-foreground leading-relaxed">{summary}</p>
+                }
               </div>
             )}
           </>

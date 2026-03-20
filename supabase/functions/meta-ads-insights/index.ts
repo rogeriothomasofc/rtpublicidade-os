@@ -6,6 +6,50 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+async function generateSummary(
+  insights: Record<string, unknown>,
+  resultLabel: string,
+  resultValue: number,
+  costPerResult: number,
+  period: string,
+  apiKey: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 150,
+        messages: [{
+          role: "user",
+          content: `Analise estas métricas de Meta Ads dos últimos ${period === "30d" ? "30" : "7"} dias e gere um resumo executivo em 2 frases curtas em português. Seja direto e destaque o ponto mais relevante (positivo ou negativo). Não use markdown.
+
+Métricas:
+- Investimento: R$ ${Number(insights.spend || 0).toFixed(2)}
+- Impressões: ${Number(insights.impressions || 0).toLocaleString("pt-BR")}
+- Cliques: ${Number(insights.clicks || 0).toLocaleString("pt-BR")}
+- CTR: ${Number(insights.ctr || 0).toFixed(2)}%
+- CPC: R$ ${Number(insights.cpc || 0).toFixed(2)}
+- Alcance: ${Number(insights.reach || 0).toLocaleString("pt-BR")}
+- Resultado (${resultLabel}): ${resultValue}
+- Custo por resultado: ${costPerResult > 0 ? `R$ ${costPerResult.toFixed(2)}` : "sem resultados"}`,
+        }],
+      }),
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.content?.[0]?.text || null;
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -34,8 +78,40 @@ serve(async (req) => {
       });
     }
 
-    const body = await req.json() as { account_id?: string; client_id?: string; period?: string };
+    const body = await req.json() as {
+      account_id?: string;
+      client_id?: string;
+      period?: string;
+      // Summary-only mode: skip Meta API, just regenerate summary
+      summary_only?: boolean;
+      insights?: Record<string, unknown>;
+      result_label?: string;
+      result_value?: number;
+      cost_per_result?: number;
+    };
+
     const { period = "7d" } = body;
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+
+    // Summary-only mode — no Meta API call needed
+    if (body.summary_only && body.insights) {
+      const summary = ANTHROPIC_API_KEY
+        ? await generateSummary(
+            body.insights,
+            body.result_label || "Resultado",
+            body.result_value || 0,
+            body.cost_per_result || 0,
+            period,
+            ANTHROPIC_API_KEY,
+          )
+        : null;
+
+      return new Response(JSON.stringify({ summary }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Full mode — fetch from Meta API
     let accountId = body.account_id;
 
     const supabaseAdmin = createClient(
@@ -43,7 +119,6 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // If client_id provided, look up meta_ads_account from clients table
     if (!accountId && body.client_id) {
       const { data: client } = await supabaseAdmin
         .from("clients")
@@ -61,7 +136,6 @@ serve(async (req) => {
       });
     }
 
-    // Read Meta access token from integrations table
     const { data: integration } = await supabaseAdmin
       .from("integrations")
       .select("config, status")
@@ -104,50 +178,30 @@ serve(async (req) => {
 
     const insights = metaData.data?.[0] || null;
 
-    // Generate AI summary if insights exist
+    // Generate initial summary with "Conversas iniciadas" as default result
     let summary: string | null = null;
-    if (insights) {
-      const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-      if (ANTHROPIC_API_KEY) {
-        try {
-          const leads = insights.actions?.find(
-            (a: { action_type: string }) => a.action_type === "lead" || a.action_type === "onsite_conversion.lead_grouped"
-          )?.value || "0";
-
-          const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              "x-api-key": ANTHROPIC_API_KEY,
-              "anthropic-version": "2023-06-01",
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "claude-haiku-4-5-20251001",
-              max_tokens: 150,
-              messages: [{
-                role: "user",
-                content: `Analise estas métricas de Meta Ads dos últimos ${period === "30d" ? "30" : "7"} dias e gere um resumo executivo em 2 frases curtas em português. Seja direto e destaque o ponto mais relevante (positivo ou negativo).
-
-Métricas:
-- Investimento: R$ ${Number(insights.spend || 0).toFixed(2)}
-- Impressões: ${Number(insights.impressions || 0).toLocaleString("pt-BR")}
-- Cliques: ${Number(insights.clicks || 0).toLocaleString("pt-BR")}
-- CTR: ${Number(insights.ctr || 0).toFixed(2)}%
-- CPC: R$ ${Number(insights.cpc || 0).toFixed(2)}
-- Alcance: ${Number(insights.reach || 0).toLocaleString("pt-BR")}
-- Leads: ${leads}`,
-              }],
-            }),
-          });
-
-          if (aiRes.ok) {
-            const aiData = await aiRes.json();
-            summary = aiData.content?.[0]?.text || null;
-          }
-        } catch (e) {
-          console.error("AI summary error:", e);
-        }
+    if (insights && ANTHROPIC_API_KEY) {
+      const defaultResultTypes = [
+        "onsite_conversion.messaging_conversation_started_7d",
+        "onsite_conversion.messaging_first_reply",
+      ];
+      const actions = insights.actions as { action_type: string; value: string }[] || [];
+      let defaultResultValue = 0;
+      for (const type of defaultResultTypes) {
+        const found = actions.find((a) => a.action_type === type);
+        if (found) { defaultResultValue = Number(found.value || 0); break; }
       }
+      const spend = Number(insights.spend || 0);
+      const costPerResult = defaultResultValue > 0 ? spend / defaultResultValue : 0;
+
+      summary = await generateSummary(
+        insights,
+        "Conversas iniciadas",
+        defaultResultValue,
+        costPerResult,
+        period,
+        ANTHROPIC_API_KEY,
+      );
     }
 
     return new Response(JSON.stringify({ insights, summary }), {
