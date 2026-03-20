@@ -149,10 +149,10 @@ export function AppSidebar() {
           <Button
             variant="ghost"
             size="icon"
-            className="absolute z-40 h-9 w-9 rounded-md text-sidebar-muted hover:text-primary hover:bg-sidebar-accent/50 top-1/2 -translate-y-1/2 right-2"
+            className="absolute z-40 h-7 w-7 rounded-md text-sidebar-muted hover:text-primary hover:bg-sidebar-accent/50 top-1/2 -translate-y-1/2 right-2"
             onClick={() => setCollapsed(true)}
           >
-            <PanelLeftClose className="w-5 h-5" />
+            <PanelLeftClose className="w-7 h-7" />
           </Button>
         )}
       </div>

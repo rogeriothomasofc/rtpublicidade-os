@@ -205,9 +205,9 @@ export function NotificationBell() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" size="icon" className="relative h-7 w-7">
           <Bell className={cn(
-            "h-5 w-5 transition-transform",
+            "h-7 w-7 transition-transform",
             unreadCount && unreadCount > 0 && "animate-pulse"
           )} />
           {unreadCount && unreadCount > 0 && (
