@@ -12,29 +12,29 @@ export default function SettingsPage() {
     <MainLayout>
       <div className="space-y-6">
         <Tabs defaultValue="integrations" className="space-y-6">
-          <div className="overflow-x-auto pb-1 -mx-1 px-1">
-          <TabsList className="w-full h-auto flex-wrap gap-1 justify-start">
-            <TabsTrigger value="integrations" className="gap-2">
-              <Plug className="w-4 h-4" />
-              Integrações
-            </TabsTrigger>
-            <TabsTrigger value="profile" className="gap-2">
-              <User className="w-4 h-4" />
-              Meu Perfil
-            </TabsTrigger>
-            <TabsTrigger value="agency" className="gap-2">
-              <Building2 className="w-4 h-4" />
-              Agência
-            </TabsTrigger>
-            <TabsTrigger value="goals" className="gap-2">
-              <Target className="w-4 h-4" />
-              Metas
-            </TabsTrigger>
-            <TabsTrigger value="announcements" className="gap-2">
-              <Megaphone className="w-4 h-4" />
-              Avisos
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto pb-1">
+            <TabsList className="h-auto gap-1 justify-start flex-nowrap min-w-max">
+              <TabsTrigger value="integrations" className="gap-1.5 shrink-0">
+                <Plug className="w-4 h-4" />
+                Integrações
+              </TabsTrigger>
+              <TabsTrigger value="profile" className="gap-1.5 shrink-0">
+                <User className="w-4 h-4" />
+                Meu Perfil
+              </TabsTrigger>
+              <TabsTrigger value="agency" className="gap-1.5 shrink-0">
+                <Building2 className="w-4 h-4" />
+                Agência
+              </TabsTrigger>
+              <TabsTrigger value="goals" className="gap-1.5 shrink-0">
+                <Target className="w-4 h-4" />
+                Metas
+              </TabsTrigger>
+              <TabsTrigger value="announcements" className="gap-1.5 shrink-0">
+                <Megaphone className="w-4 h-4" />
+                Avisos
+              </TabsTrigger>
+            </TabsList>
           </div>
 
           <TabsContent value="integrations">

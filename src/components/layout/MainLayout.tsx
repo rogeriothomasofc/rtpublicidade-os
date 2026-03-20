@@ -22,9 +22,9 @@ export function MainLayout({ children }: MainLayoutProps) {
         {/* TopBar — não fixo, rola com o conteúdo */}
         <TopBar />
 
-        {/* Container usa bg-background — levemente mais claro que os cards */}
-        <div className="mx-8 mb-6 rounded-2xl bg-background min-h-[calc(100vh-6.5rem)] overflow-hidden">
-          <div className="p-4 md:p-5">{children}</div>
+        {/* Container de conteúdo */}
+        <div className="mx-2 sm:mx-4 md:mx-8 mb-4 md:mb-6 rounded-xl md:rounded-2xl bg-background min-h-[calc(100vh-6.5rem)] overflow-hidden">
+          <div className="p-3 sm:p-4 md:p-5">{children}</div>
         </div>
       </div>
     </div>
