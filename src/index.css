@@ -46,15 +46,15 @@
     --radius: 0.5rem;
 
     /* Sidebar */
-    --sidebar-background: 150 15% 4%;
+    --sidebar-background: 150 10% 2%;
     --sidebar-foreground: 220 14% 91%;
     --sidebar-primary: 142 71% 45%;
     --sidebar-primary-foreground: 150 15% 4%;
-    --sidebar-accent: 148 33% 14%;
+    --sidebar-accent: 148 25% 10%;
     --sidebar-accent-foreground: 220 14% 91%;
-    --sidebar-border: 148 33% 18%;
+    --sidebar-border: 148 20% 10%;
     --sidebar-ring: 142 71% 45%;
-    --sidebar-muted: 220 9% 46%;
+    --sidebar-muted: 220 9% 42%;
 
     /* Kanban */
     --kanban-backlog: 148 33% 18%;
@@ -105,15 +105,15 @@
     --input: 148 33% 18%;
     --ring: 142 71% 45%;
 
-    --sidebar-background: 150 15% 4%;
+    --sidebar-background: 150 10% 2%;
     --sidebar-foreground: 220 14% 91%;
     --sidebar-primary: 142 71% 45%;
     --sidebar-primary-foreground: 150 15% 4%;
-    --sidebar-accent: 148 33% 14%;
+    --sidebar-accent: 148 25% 10%;
     --sidebar-accent-foreground: 220 14% 91%;
-    --sidebar-border: 148 33% 18%;
+    --sidebar-border: 148 20% 10%;
     --sidebar-ring: 142 71% 45%;
-    --sidebar-muted: 220 9% 46%;
+    --sidebar-muted: 220 9% 42%;
   }
 }
 

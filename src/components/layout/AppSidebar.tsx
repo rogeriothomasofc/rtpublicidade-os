@@ -107,11 +107,11 @@ export function AppSidebar() {
         )}
         <aside
           className={cn(
-            'fixed top-0 left-0 h-screen w-72 flex flex-col bg-sidebar border-r border-sidebar-border z-50 transition-transform duration-300',
+            'fixed top-0 left-0 h-screen w-72 flex flex-col bg-sidebar z-50 transition-transform duration-300',
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           )}
         >
-          <div className="flex items-center justify-between h-14 border-b border-sidebar-border px-3">
+          <div className="flex items-center justify-between h-14 border-b border-sidebar-border/40 px-3">
             <div className="flex items-center gap-2 min-w-0">
               {logo}
               <span className="font-semibold text-lg text-sidebar-foreground truncate">{APP_NAME}</span>
@@ -123,7 +123,7 @@ export function AppSidebar() {
           <nav className="flex-1 overflow-y-auto py-2 space-y-0.5">
             {visibleNavItems.map(renderNavItem)}
           </nav>
-          <div className="shrink-0 border-t border-sidebar-border py-2">
+          <div className="shrink-0 border-t border-sidebar-border/40 py-2">
             {showSettings && renderNavItem({ name: 'Configurações', href: '/settings', icon: Settings })}
           </div>
         </aside>
@@ -133,8 +133,8 @@ export function AppSidebar() {
 
   // Desktop: fixed sidebar
   return (
-    <aside className={cn('fixed top-0 left-0 h-screen flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 z-30', collapsed ? 'w-16' : 'w-64')}>
-      <div className={cn('relative flex items-center h-16 border-b border-sidebar-border shrink-0', collapsed ? 'justify-center px-2' : 'px-3')}>
+    <aside className={cn('fixed top-0 left-0 h-screen flex flex-col bg-sidebar transition-all duration-300 z-30', collapsed ? 'w-16' : 'w-64')}>
+      <div className={cn('relative flex items-center h-16 border-b border-sidebar-border/40 shrink-0', collapsed ? 'justify-center px-2' : 'px-3')}>
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
             <div
@@ -173,7 +173,7 @@ export function AppSidebar() {
         {visibleNavItems.map(renderNavItem)}
       </nav>
 
-      <div className="shrink-0 border-t border-sidebar-border py-2">
+      <div className="shrink-0 border-t border-sidebar-border/40 py-2">
         {showSettings && renderNavItem({ name: 'Configurações', href: '/settings', icon: Settings })}
       </div>
     </aside>

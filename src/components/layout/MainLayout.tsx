@@ -19,7 +19,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         className="flex-1 flex flex-col overflow-hidden transition-all duration-300"
         style={{ marginLeft: isMobile ? 0 : 'var(--sidebar-current-width, 4rem)' }}
       >
-        <div className="shrink-0 z-30 border-b border-border bg-background">
+        <div className="shrink-0 z-30 bg-background">
           <TopBar />
         </div>
         <main className="flex-1 overflow-auto">
