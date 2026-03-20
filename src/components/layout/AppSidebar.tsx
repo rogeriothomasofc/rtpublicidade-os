@@ -66,13 +66,13 @@ export function AppSidebar() {
         <Link
           to={item.href}
           className={cn(
-            'flex items-center gap-3 py-2.5 px-3 mx-2 rounded-lg transition-all text-sm',
+            'flex items-center gap-3 py-2.5 px-3 mx-2 rounded-lg transition-all text-sm font-medium',
             isActive
               ? 'bg-sidebar-accent text-primary font-semibold'
               : 'text-sidebar-muted hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
           )}
         >
-          <Icon className={cn('w-4 h-4 flex-shrink-0', isActive ? 'text-primary' : '')} />
+          <Icon className={cn('w-5 h-5 flex-shrink-0', isActive ? 'text-primary' : '')} />
           {showLabel && <span>{item.name}</span>}
         </Link>
       </div>
@@ -120,7 +120,7 @@ export function AppSidebar() {
               <X className="w-5 h-5" />
             </Button>
           </div>
-          <nav className="flex-1 overflow-y-auto py-2 space-y-0.5">
+          <nav className="flex-1 overflow-y-auto px-0 py-4 flex flex-col gap-1">
             {visibleNavItems.map(renderNavItem)}
           </nav>
           <div className="shrink-0 border-t border-sidebar-border/40 py-2">
