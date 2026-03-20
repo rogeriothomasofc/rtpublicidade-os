@@ -116,7 +116,7 @@ export function TopBar() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 hover:bg-muted"
+                className="h-7 w-7"
                 onClick={() => setSearchOpen(true)}
               >
                 <Search className="h-7 w-7" />
@@ -131,7 +131,7 @@ export function TopBar() {
               <Button
                 variant={aiOpen ? 'default' : 'ghost'}
                 size="icon"
-                className={`h-7 w-7 transition-all ${aiOpen ? 'bg-primary text-primary-foreground' : 'hover:bg-muted hover:text-primary'}`}
+                className={`h-7 w-7 transition-all ${aiOpen ? 'bg-primary text-primary-foreground' : ''}`}
                 onClick={() => setAiOpen(prev => !prev)}
               >
                 <Sparkles className="h-7 w-7" />
@@ -144,7 +144,7 @@ export function TopBar() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 hidden sm:flex hover:bg-muted"
+            className="h-7 w-7 hidden sm:flex"
             onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
             aria-label="Alternar tema"
           >
