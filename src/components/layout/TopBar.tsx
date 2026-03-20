@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -6,10 +7,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Menu, Settings, Search, Sparkles } from 'lucide-react';
+import { LogOut, Menu, Settings, Search, Sparkles, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useTheme } from 'next-themes';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
 import { AIChat } from '@/components/ai/AIChat';
 
@@ -20,14 +22,39 @@ export const onMobileSidebarToggle = (cb: () => void) => {
   return () => sidebarEvent.removeEventListener('toggle', cb);
 };
 
+const routeTitles = [
+  { path: '/',           title: 'Dashboard',      exact: true },
+  { path: '/clients',    title: 'Clientes' },
+  { path: '/contracts',  title: 'Contratos' },
+  { path: '/finance',    title: 'Financeiro' },
+  { path: '/team',       title: 'Equipe' },
+  { path: '/pipeline',   title: 'Pipeline' },
+  { path: '/proposals',  title: 'Propostas' },
+  { path: '/projects',   title: 'Projetos' },
+  { path: '/tasks',      title: 'Tarefas' },
+  { path: '/planning',   title: 'Planejamentos' },
+  { path: '/settings',   title: 'Configurações' },
+];
+
+function getPageTitle(pathname: string): string {
+  const exact = routeTitles.find(r => r.exact && r.path === pathname);
+  if (exact) return exact.title;
+  const sorted = [...routeTitles].filter(r => !r.exact).sort((a, b) => b.path.length - a.path.length);
+  const match = sorted.find(r => pathname.startsWith(r.path));
+  return match?.title ?? 'Agency OS';
+}
+
 export function TopBar() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const isMobile = useIsMobile();
+  const { resolvedTheme, setTheme } = useTheme();
   const [searchOpen, setSearchOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
 
-  // Atalho Cmd+K / Ctrl+K
+  const pageTitle = getPageTitle(location.pathname);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -56,49 +83,49 @@ export function TopBar() {
     enabled: !!user,
   });
 
+  const firstName = profile?.name?.split(' ')[0] || '';
   const initials = profile?.name
     ? profile.name.split(' ').filter(Boolean).map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.charAt(0).toUpperCase() || 'U';
 
   return (
     <>
-      <div className="flex items-center justify-between gap-2 px-4 md:px-8 py-2.5 md:py-[11.5px] bg-background">
-        {/* Left — hamburger mobile */}
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 px-4 md:px-6 py-2.5 bg-background">
+
+        {/* Left — hamburger mobile + título da página */}
+        <div className="flex items-center gap-3 min-w-0">
           {isMobile && (
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9"
+              className="h-9 w-9 shrink-0"
               onClick={() => window.dispatchEvent(new CustomEvent('open-mobile-sidebar'))}
             >
               <Menu className="h-5 w-5" />
             </Button>
           )}
-
-          {/* Busca — desktop: campo clicável, mobile: ícone */}
-          {!isMobile ? (
-            <button
-              onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-2 h-8 px-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 hover:border-primary/30 transition-all text-sm text-muted-foreground group"
-            >
-              <Search className="w-3.5 h-3.5 group-hover:text-primary transition-colors" />
-              <span className="min-w-[140px] text-left">Buscar...</span>
-              <div className="flex items-center gap-0.5 ml-2">
-                <kbd className="px-1 py-0.5 text-[10px] font-mono bg-muted rounded border border-border">⌘</kbd>
-                <kbd className="px-1 py-0.5 text-[10px] font-mono bg-muted rounded border border-border">K</kbd>
-              </div>
-            </button>
-          ) : (
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSearchOpen(true)}>
-              <Search className="h-4 w-4" />
-            </Button>
-          )}
+          <h1 className="text-lg font-semibold text-foreground truncate">{pageTitle}</h1>
         </div>
 
         {/* Right */}
-        <div className="flex items-center gap-1.5 md:gap-2">
-          {/* Botão IA */}
+        <div className="flex items-center gap-1 md:gap-1.5">
+
+          {/* Busca */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={() => setSearchOpen(true)}
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Buscar <kbd className="ml-1 text-[10px] font-mono">⌘K</kbd></TooltipContent>
+          </Tooltip>
+
+          {/* Assistente IA */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -113,11 +140,33 @@ export function TopBar() {
             <TooltipContent>Assistente IA</TooltipContent>
           </Tooltip>
 
+          {/* Toggle de tema */}
+          <div className="hidden sm:flex items-center rounded-md border border-border overflow-hidden">
+            <button
+              onClick={() => setTheme('light')}
+              className={`p-1.5 transition-colors ${resolvedTheme === 'light' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+              aria-label="Tema claro"
+            >
+              <Sun className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setTheme('dark')}
+              className={`p-1.5 transition-colors ${resolvedTheme === 'dark' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+              aria-label="Tema escuro"
+            >
+              <Moon className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
           <NotificationBell />
 
+          {/* Avatar + nome */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <button className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ml-1">
+                {firstName && !isMobile && (
+                  <span className="text-sm font-medium text-foreground hidden md:block">{firstName}</span>
+                )}
                 <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-border hover:ring-primary transition-colors">
                   <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.name || ''} />
                   <AvatarFallback className="text-xs bg-primary/10 text-primary font-medium">
@@ -146,7 +195,6 @@ export function TopBar() {
         </div>
       </div>
 
-      {/* Modais/Painéis */}
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
       <AIChat open={aiOpen} onClose={() => setAiOpen(false)} />
     </>

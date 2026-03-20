@@ -194,12 +194,6 @@ export default function ContractsPage() {
     return (
       <MainLayout>
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold">Contratos</h1>
-              <p className="text-muted-foreground">Gerencie os contratos dos clientes</p>
-            </div>
-          </div>
           <div className="space-y-2">
             {[1, 2, 3, 4, 5].map(i => (
               <Skeleton key={i} className="h-16 w-full" />
@@ -213,19 +207,6 @@ export default function ContractsPage() {
   return (
     <MainLayout>
       <div className="space-y-6 animate-fade-in">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <FileText className="w-6 h-6" />
-              Contratos
-            </h1>
-            <p className="text-muted-foreground">
-              Gerencie contratos e receita recorrente
-            </p>
-          </div>
-        </div>
-
         {/* Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <MetricCard

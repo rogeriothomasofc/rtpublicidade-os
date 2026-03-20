@@ -145,12 +145,6 @@ export default function TasksPage() {
     return (
       <MainLayout>
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold">Tarefas</h1>
-              <p className="text-muted-foreground">Gerenciamento de tarefas</p>
-            </div>
-          </div>
           <div className="flex gap-4">
             {viewMode === 'calendar' ? (
               <div className="w-full">
@@ -172,15 +166,7 @@ export default function TasksPage() {
   return (
     <MainLayout>
       <div className="space-y-6 animate-fade-in">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Tarefas</h1>
-            <p className="text-muted-foreground">
-              {filteredTasks.length} tarefa{filteredTasks.length !== 1 ? 's' : ''} 
-              {hasFilters ? ' (filtradas)' : ''}
-            </p>
-          </div>
-          
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <Tabs value={viewMode} onValueChange={handleViewChange}>
               <TabsList>

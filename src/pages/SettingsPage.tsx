@@ -11,11 +11,6 @@ export default function SettingsPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
-          <p className="text-muted-foreground">Gerencie integrações, perfil e dados da agência.</p>
-        </div>
-
         <Tabs defaultValue="integrations" className="space-y-6">
           <div className="overflow-x-auto pb-1 -mx-1 px-1">
           <TabsList className="w-full h-auto flex-wrap gap-1 justify-start">

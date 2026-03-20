@@ -80,11 +80,7 @@ export default function ProjectsPage() {
   return (
     <MainLayout>
       <div className="space-y-6 animate-fade-in">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Projetos</h1>
-            <p className="text-muted-foreground">Gestão de contas e campanhas</p>
-          </div>
+        <div className="flex justify-end">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2" onClick={() => resetForm()}>

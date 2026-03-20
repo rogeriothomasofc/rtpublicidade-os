@@ -74,13 +74,7 @@ export default function PlanningPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold">
-              Planejamentos
-            </h1>
-            <p className="text-muted-foreground text-sm">Planeje suas campanhas antes de subir</p>
-          </div>
+        <div className="flex justify-end">
           <Button onClick={handleCreate} className="w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" />
             Novo Planejamento

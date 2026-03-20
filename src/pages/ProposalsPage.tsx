@@ -153,10 +153,6 @@ export default function ProposalsPage() {
     return (
       <MainLayout>
         <div className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold">Propostas</h1>
-            <p className="text-muted-foreground">Gerencie suas propostas comerciais</p>
-          </div>
           <div className="space-y-2">
             {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-16 w-full" />)}
           </div>
@@ -169,16 +165,7 @@ export default function ProposalsPage() {
     <MainLayout>
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <FileText className="w-6 h-6" />
-              Propostas
-            </h1>
-            <p className="text-muted-foreground">
-              {proposals?.length || 0} propostas · {approvedCount} aprovadas · Total mensal: {formatCurrency(totalValue)}
-            </p>
-          </div>
+        <div className="flex justify-end">
           <Button className="gap-2" onClick={() => { setEditingProposal(null); setIsFormOpen(true); }}>
             <Plus className="w-4 h-4" />
             Nova Proposta

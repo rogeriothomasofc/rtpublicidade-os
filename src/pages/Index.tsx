@@ -30,11 +30,7 @@ export default function Dashboard() {
     return (
       <MainLayout>
         <div className="space-y-4 md:space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h1 className="text-xl md:text-2xl font-bold">Dashboard Operacional</h1>
-              <p className="text-sm text-muted-foreground">Visão geral da agência</p>
-            </div>
+          <div className="flex justify-end">
             <Skeleton className="h-10 w-[180px]" />
           </div>
           <Card className="border-primary/30 bg-card">
@@ -58,11 +54,7 @@ export default function Dashboard() {
     <MainLayout>
       <div className="space-y-4 md:space-y-6 animate-fade-in">
         {/* Header with Filter */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold">Dashboard Operacional</h1>
-            <p className="text-sm text-muted-foreground">Visão geral da agência</p>
-          </div>
+        <div className="flex justify-end">
           <DateRangePickerDashboard
             preset={preset}
             dateRange={dateRange}

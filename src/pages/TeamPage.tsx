@@ -286,12 +286,6 @@ export default function TeamPage() {
     return (
       <MainLayout>
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold">Equipe</h1>
-              <p className="text-muted-foreground">Gerenciamento de membros</p>
-            </div>
-          </div>
           <Card>
             <CardContent className="p-6">
               <Skeleton className="h-[300px] w-full" />
@@ -305,14 +299,7 @@ export default function TeamPage() {
   return (
     <MainLayout>
       <div className="space-y-6 animate-fade-in">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Equipe</h1>
-            <p className="text-muted-foreground">
-              {members?.length || 0} membro{members?.length !== 1 ? 's' : ''} ativo{members?.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-
+        <div className="flex justify-end">
           {isAdmin && (
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
