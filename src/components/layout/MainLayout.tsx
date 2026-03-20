@@ -23,7 +23,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         <TopBar />
 
         {/* Container de conteúdo — fundo destacado, cantos arredondados */}
-        <div className="mx-3 mb-3 rounded-2xl bg-background min-h-[calc(100vh-5rem)] overflow-hidden">
+        <div className="mx-3 mb-3 rounded-2xl bg-background min-h-[calc(100vh-6.5rem)] overflow-hidden">
           <div className="p-4 md:p-6">{children}</div>
         </div>
       </div>
