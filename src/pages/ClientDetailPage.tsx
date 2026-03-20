@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Building2, Mail, Phone, Calendar, DollarSign, Briefcase, FileText, TrendingUp, Plus, CheckSquare, Edit, MapPin, Pencil, UserPlus, Eye, Lightbulb, ExternalLink, FolderOpen, Megaphone } from 'lucide-react';
+import { ArrowLeft, Building2, Mail, Phone, Calendar, DollarSign, Briefcase, FileText, TrendingUp, Plus, CheckSquare, Edit, MapPin, Pencil, UserPlus, Eye, Lightbulb, ExternalLink, FolderOpen, Megaphone, Loader2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { ClientStatus, TaskStatus, TaskPriority, PersonType } from '@/types/database';
@@ -25,8 +25,9 @@ import { ContractFormDialog } from '@/components/clients/ContractFormDialog';
 import { ProjectFormDialog } from '@/components/clients/ProjectFormDialog';
 import { TaskFormDialog } from '@/components/clients/TaskFormDialog';
 import { ClientFinanceDialog } from '@/components/clients/ClientFinanceDialog';
-import { InviteClientDialog } from '@/components/clients/InviteClientDialog';
 import { PortalAccessCard } from '@/components/clients/PortalAccessCard';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { MetaAdsCard } from '@/components/clients/MetaAdsCard';
 
 const statusColors: Record<ClientStatus, string> = {
@@ -112,11 +113,34 @@ export default function ClientDetailPage() {
   const [contractDialogOpen, setContractDialogOpen] = useState(false);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const { toast } = useToast();
   const [financeDialogOpen, setFinanceDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [sendingAccess, setSendingAccess] = useState(false);
 
   const updateClient = useUpdateClient();
+
+  const handleSendAccess = async () => {
+    if (!client?.email) {
+      toast({ title: 'Cliente sem email', description: 'Cadastre um email para o cliente antes de enviar o acesso.', variant: 'destructive' });
+      return;
+    }
+    setSendingAccess(true);
+    try {
+      const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#';
+      const pwd = Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+      const { data, error } = await supabase.functions.invoke('invite-client', {
+        body: { client_id: client.id, email: client.email, password: pwd },
+      });
+      if (error || data?.error) throw new Error(data?.error || error?.message);
+      const emailNote = data?.email_sent ? 'Email enviado para ' + client.email : 'Senha temporária: ' + pwd;
+      toast({ title: 'Acesso enviado!', description: emailNote });
+    } catch (err: any) {
+      toast({ title: 'Erro ao enviar acesso', description: err.message, variant: 'destructive' });
+    } finally {
+      setSendingAccess(false);
+    }
+  };
 
   const [editForm, setEditForm] = useState({
     name: '', company: '', email: '', phone: '', status: 'Lead' as ClientStatus,
@@ -215,8 +239,8 @@ export default function ClientDetailPage() {
             <Button size="icon" variant="outline" onClick={() => navigate(`/portal?client_id=${client.id}`)} title="Ver Portal do Cliente">
               <Eye className="w-4 h-4" />
             </Button>
-            <Button size="icon" variant="outline" onClick={() => setInviteDialogOpen(true)} title="Convidar para o Portal">
-              <UserPlus className="w-4 h-4" />
+            <Button size="icon" variant="outline" onClick={handleSendAccess} disabled={sendingAccess} title="Enviar acesso ao portal">
+              {sendingAccess ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
             </Button>
             <Button size="icon" variant="outline" onClick={openEditDialog} title="Editar cliente">
               <Pencil className="w-4 h-4" />
@@ -819,13 +843,6 @@ export default function ClientDetailPage() {
         </DialogContent>
       </Dialog>
 
-      <InviteClientDialog
-        open={inviteDialogOpen}
-        onOpenChange={setInviteDialogOpen}
-        clientId={client.id}
-        clientName={client.name}
-        clientEmail={client.email}
-      />
     </MainLayout>
   );
 }
