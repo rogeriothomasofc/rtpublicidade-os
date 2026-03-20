@@ -19,6 +19,8 @@ import { Plus, Search, MoreHorizontal, Trash2, Edit, Eye, Users2 } from 'lucide-
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const statusColors: Record<ClientStatus, string> = {
   Lead: 'bg-muted text-muted-foreground',
@@ -27,8 +29,16 @@ const statusColors: Record<ClientStatus, string> = {
   Cancelado: 'bg-destructive/10 text-destructive',
 };
 
+function genPassword() {
+  const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#';
+  let pwd = '';
+  for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+  return pwd;
+}
+
 export default function ClientsPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { data: clients, isLoading } = useClients();
   const createClient = useCreateClient();
   const updateClient = useUpdateClient();
@@ -82,10 +92,24 @@ export default function ClientsPage() {
       if (newClient) {
         const parentTask = createOnboardingParentTask(newClient.id, newClient.name);
         const createdTask = await createTask.mutateAsync(parentTask);
-        await createSubtasks.mutateAsync({ 
-          taskId: createdTask.id, 
-          titles: ONBOARDING_SUBTASKS 
+        await createSubtasks.mutateAsync({
+          taskId: createdTask.id,
+          titles: ONBOARDING_SUBTASKS
         });
+
+        // Auto-send portal access if client has email
+        if (newClient.email) {
+          const pwd = genPassword();
+          const { data, error } = await supabase.functions.invoke('invite-client', {
+            body: { client_id: newClient.id, email: newClient.email, password: pwd },
+          });
+          if (error || data?.error) {
+            toast({ title: 'Cliente criado', description: 'Não foi possível enviar o acesso automaticamente. Envie manualmente na página do cliente.', variant: 'destructive' });
+          } else {
+            const emailNote = data?.email_sent ? 'Email de acesso enviado!' : `Senha temporária: ${pwd}`;
+            toast({ title: 'Cliente criado com acesso ao portal!', description: emailNote });
+          }
+        }
       }
     }
     resetForm();

@@ -121,7 +121,6 @@ export default function TeamPage() {
     avatar_url: '',
   });
 
-  const [grantAccess, setGrantAccess] = useState(false);
   const [tempPassword, setTempPassword] = useState('');
   const [accessLevel, setAccessLevel] = useState<'Gestor' | 'Analista' | 'Designer'>('Analista');
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(
@@ -130,7 +129,6 @@ export default function TeamPage() {
 
   const resetForm = () => {
     setFormData({ name: '', email: '', role: '', avatar_url: '' });
-    setGrantAccess(false);
     setTempPassword('');
     setAccessLevel('Analista');
     setSelectedPermissions(PERMISSION_PAGES.map((p) => p.slug));
@@ -161,30 +159,31 @@ export default function TeamPage() {
   };
 
   const handleCreateSubmit = async () => {
-    if (grantAccess) {
-      if (!formData.email.trim()) {
-        toast({ title: 'Email obrigatório', description: 'Informe o email para criar acesso ao sistema.', variant: 'destructive' });
-        return;
-      }
-      if (tempPassword.length < 6) {
-        toast({ title: 'Senha inválida', description: 'A senha temporária deve ter no mínimo 6 caracteres.', variant: 'destructive' });
-        return;
+    const hasEmail = formData.email.trim().length > 0;
+    const pwd = tempPassword || genPassword();
+
+    setCreatingAccess(true);
+    try {
+      const newMember = await createMember.mutateAsync({
+        name: formData.name,
+        email: hasEmail ? formData.email : null,
+        role: accessLevel,
+        avatar_url: formData.avatar_url || null,
+        is_active: true,
+      });
+
+      // Save permissions
+      const permErr = await saveMemberPermissions(newMember.id, selectedPermissions);
+      if (permErr) {
+        toast({ title: 'Erro ao salvar permissões', description: permErr, variant: 'destructive' });
       }
 
-      setCreatingAccess(true);
-      try {
-        const newMember = await createMember.mutateAsync({
-          name: formData.name,
-          email: formData.email,
-          role: accessLevel,
-          avatar_url: formData.avatar_url || null,
-          is_active: true,
-        });
-
+      // Auto-create system access if email provided
+      if (hasEmail) {
         const { data, error } = await supabase.functions.invoke('create-member-user', {
           body: {
             email: formData.email,
-            password: tempPassword,
+            password: pwd,
             name: formData.name,
             role: formData.role || null,
             access_level: accessLevel,
@@ -196,33 +195,20 @@ export default function TeamPage() {
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
 
-        // Save permissions
-        const permErr = await saveMemberPermissions(newMember.id, selectedPermissions);
-        if (permErr) {
-          toast({ title: 'Erro ao salvar permissões', description: permErr, variant: 'destructive' });
-        } else {
-          const emailNote = data?.email_sent ? ' Email de boas-vindas enviado!' : '';
-          toast({
-            title: 'Membro cadastrado com acesso!',
-            description: `Senha temporária: ${tempPassword} — o membro deve alterar no primeiro acesso.${emailNote}`,
-          });
-        }
-      } catch (err: any) {
-        toast({ title: 'Erro ao criar acesso', description: err.message, variant: 'destructive' });
-      } finally {
-        setCreatingAccess(false);
+        const emailNote = data?.email_sent
+          ? 'Email de boas-vindas enviado!'
+          : `Senha temporária: ${pwd}`;
+        toast({
+          title: 'Membro adicionado com acesso ao sistema!',
+          description: emailNote,
+        });
+      } else {
+        toast({ title: 'Membro adicionado!', description: 'Sem email informado — acesso ao sistema não criado.' });
       }
-    } else {
-      const newMember = await createMember.mutateAsync({
-        name: formData.name,
-        email: formData.email || null,
-        role: accessLevel,
-        avatar_url: formData.avatar_url || null,
-        is_active: true,
-      });
-      // Save permissions even without system access (for future use)
-      const permErr = await saveMemberPermissions(newMember.id, selectedPermissions);
-      if (permErr) toast({ title: 'Erro ao salvar permissões', description: permErr, variant: 'destructive' });
+    } catch (err: any) {
+      toast({ title: 'Erro ao criar membro', description: err.message, variant: 'destructive' });
+    } finally {
+      setCreatingAccess(false);
     }
 
     resetForm();
@@ -322,13 +308,14 @@ export default function TeamPage() {
                     />
                   </div>
                   <div>
-                    <Label>Email {grantAccess && '*'}</Label>
+                    <Label>Email</Label>
                     <Input
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       placeholder="email@exemplo.com"
                     />
+                    <p className="text-xs text-muted-foreground mt-1">Se informado, o acesso ao sistema será criado e o convite enviado automaticamente.</p>
                   </div>
                   <div className="space-y-2">
                     <Label>Nível de acesso</Label>
@@ -351,60 +338,6 @@ export default function TeamPage() {
                   />
 
                   <PermissionsChecklist selected={selectedPermissions} onChange={setSelectedPermissions} />
-
-                  {/* Grant system access */}
-                  <div className="border border-border rounded-lg p-4 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="grant-access"
-                        checked={grantAccess}
-                        onCheckedChange={(checked) => {
-                          setGrantAccess(checked === true);
-                          if (checked) setTempPassword(genPassword());
-                        }}
-                      />
-                      <Label htmlFor="grant-access" className="flex items-center gap-2 cursor-pointer">
-                        <KeyRound className="w-4 h-4 text-primary" />
-                        Criar acesso ao sistema
-                      </Label>
-                    </div>
-                    {grantAccess && (
-                      <div className="space-y-3 pl-6">
-                        <div className="space-y-2">
-                          <Label>Senha temporária gerada</Label>
-                          <div className="flex gap-2">
-                            <Input
-                              type="text"
-                              value={tempPassword}
-                              readOnly
-                              className="font-mono bg-muted/50"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              title="Regenerar senha"
-                              onClick={() => setTempPassword(genPassword())}
-                            >
-                              <RefreshCw className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              title="Copiar senha"
-                              onClick={() => { navigator.clipboard.writeText(tempPassword); toast({ title: 'Senha copiada!' }); }}
-                            >
-                              <Copy className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            Senha gerada automaticamente. Anote antes de salvar — o membro deve alterá-la no primeiro acesso.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
                 <DialogFooter>
                   <Button onClick={handleCreateSubmit} disabled={isSubmitting || !formData.name.trim()}>
