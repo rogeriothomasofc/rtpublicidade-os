@@ -553,13 +553,10 @@ export function IntegrationsTab() {
                         </Button>
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Endpoints Disponíveis</Label>
-                      <Button variant="outline" size="sm" className="gap-1.5 mt-1" onClick={() => setApiDocsOpen(true)}>
-                        <BookOpen className="w-3.5 h-3.5" />
-                        Ver documentação
-                      </Button>
-                    </div>
+                    <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setApiDocsOpen(true)}>
+                      <BookOpen className="w-3.5 h-3.5" />
+                      Ver documentação
+                    </Button>
                   </div>
                 </div>
               </div>
