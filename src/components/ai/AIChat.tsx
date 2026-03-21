@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Sparkles, Send, Loader2, RotateCcw, ArrowUpRight, PanelRightClose } from 'lucide-react';
+import { Sparkles, Send, Loader2, RotateCcw, ArrowUpRight, PanelRightClose, MessageSquare, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -12,12 +12,51 @@ import { useContracts } from '@/hooks/useContracts';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useDashboardFilters } from '@/hooks/useDashboardFilters';
 import { useAuth } from '@/hooks/useAuth';
+import { useQuery } from '@tanstack/react-query';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+}
+
+interface Conversation {
+  id: string;
+  title: string;
+  messages: Message[];
+  createdAt: Date;
+}
+
+const HISTORY_KEY = 'ai-chat-history';
+
+function loadHistory(): Conversation[] {
+  try {
+    const stored = localStorage.getItem(HISTORY_KEY);
+    if (!stored) return [];
+    return JSON.parse(stored).map((c: any) => ({
+      ...c,
+      createdAt: new Date(c.createdAt),
+      messages: c.messages.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) })),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function saveToHistory(msgs: Message[]) {
+  if (msgs.length === 0) return;
+  const history = loadHistory();
+  const firstUserMsg = msgs.find(m => m.role === 'user');
+  const conv: Conversation = {
+    id: Date.now().toString(),
+    title: firstUserMsg?.content.slice(0, 60) || 'Conversa',
+    messages: msgs,
+    createdAt: new Date(),
+  };
+  localStorage.setItem(HISTORY_KEY, JSON.stringify([conv, ...history].slice(0, 20)));
 }
 
 const SUGGESTED_PROMPTS = [
@@ -37,6 +76,8 @@ export function AIChat({ open, onClose }: AIChatProps) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<'chat' | 'history'>('chat');
+  const [history, setHistory] = useState<Conversation[]>([]);
+  const [viewingConv, setViewingConv] = useState<Conversation | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -49,9 +90,36 @@ export function AIChat({ open, onClose }: AIChatProps) {
   const { data: contracts } = useContracts();
   const { data: stats } = useDashboardStats(dateRange);
 
-  const firstName = (user?.user_metadata?.full_name as string)?.split(' ')[0]
+  const { data: profile } = useQuery({
+    queryKey: ['profile-aichat', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data } = await supabase.from('profiles').select('name').eq('user_id', user.id).single();
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const firstName = profile?.name?.split(' ')[0]
+    || (user?.user_metadata?.full_name as string)?.split(' ')[0]
     || user?.email?.split('@')[0]
     || '';
+
+  // Save to history when panel closes with messages
+  useEffect(() => {
+    if (!open && messages.length > 0) {
+      saveToHistory(messages);
+      setMessages([]);
+    }
+  }, [open]);
+
+  // Load history when switching to history tab
+  useEffect(() => {
+    if (tab === 'history') {
+      setHistory(loadHistory());
+      setViewingConv(null);
+    }
+  }, [tab]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -188,7 +256,10 @@ Responda de forma clara e direta. Quando listar itens, use listas com marcadores
     }
   };
 
-  const clearChat = () => setMessages([]);
+  const clearChat = () => {
+    if (messages.length > 0) saveToHistory(messages);
+    setMessages([]);
+  };
 
   if (!open) return null;
 
@@ -249,12 +320,72 @@ Responda de forma clara e direta. Quando listar itens, use listas com marcadores
 
       {/* History tab */}
       {tab === 'history' && (
-        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-muted/60 flex items-center justify-center mb-3">
-            <Sparkles className="w-5 h-5 text-muted-foreground" />
-          </div>
-          <p className="text-sm font-medium text-foreground">Sem histórico salvo</p>
-          <p className="text-xs text-muted-foreground mt-1">As conversas não são salvas entre sessões.</p>
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {viewingConv ? (
+            <>
+              <div className="flex items-center gap-2 px-4 py-2 border-b border-border shrink-0">
+                <button onClick={() => setViewingConv(null)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">← Voltar</button>
+                <span className="text-xs text-muted-foreground truncate flex-1">{viewingConv.title}</span>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="p-4 space-y-4">
+                  {viewingConv.messages.map(msg => (
+                    <div key={msg.id} className={cn('flex gap-2.5', msg.role === 'user' ? 'flex-row-reverse' : 'flex-row')}>
+                      {msg.role === 'assistant' && (
+                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                          <Sparkles className="w-3 h-3 text-primary" />
+                        </div>
+                      )}
+                      <div className={cn(
+                        'max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed',
+                        msg.role === 'user'
+                          ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                          : 'bg-muted/50 border border-border/50 rounded-tl-sm'
+                      )}>
+                        <MessageContent content={msg.content} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </>
+          ) : history.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-muted/60 flex items-center justify-center mb-3">
+                <MessageSquare className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium text-foreground">Sem histórico</p>
+              <p className="text-xs text-muted-foreground mt-1">As conversas são salvas ao fechar o chat.</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
+                <span className="text-xs text-muted-foreground">{history.length} conversa(s)</span>
+                <button
+                  className="text-xs text-destructive hover:text-destructive/80 transition-colors flex items-center gap-1"
+                  onClick={() => { localStorage.removeItem(HISTORY_KEY); setHistory([]); }}
+                >
+                  <Trash2 className="w-3 h-3" /> Limpar
+                </button>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="p-3 space-y-1.5">
+                  {history.map(conv => (
+                    <button
+                      key={conv.id}
+                      onClick={() => setViewingConv(conv)}
+                      className="w-full text-left px-3 py-3 rounded-xl hover:bg-muted/50 transition-colors border border-transparent hover:border-border"
+                    >
+                      <p className="text-sm font-medium truncate">{conv.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {formatDistanceToNow(conv.createdAt, { addSuffix: true, locale: ptBR })} · {conv.messages.length} msg
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </ScrollArea>
+            </>
+          )}
         </div>
       )}
 
