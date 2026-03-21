@@ -598,7 +598,12 @@ export function IntegrationsTab() {
               </p>
             </div>
           </div>
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 flex-wrap">
+            {isAsaasConnected && (
+              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive mr-auto h-9 w-9" title="Desconectar" onClick={() => { handleDisconnectAsaas(); setAsaasDialog(false); }}>
+                <Unplug className="w-4 h-4" />
+              </Button>
+            )}
             <Button variant="outline" onClick={handleTestAsaas} disabled={testingAsaas}>
               {testingAsaas ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Wifi className="w-4 h-4 mr-1" />}
               Testar conexão
@@ -641,7 +646,12 @@ export function IntegrationsTab() {
               </p>
             </div>
           </div>
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 flex-wrap">
+            {isMetaConnected && (
+              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive mr-auto h-9 w-9" title="Desconectar" onClick={() => { handleDisconnectMeta(); setMetaDialog(false); }}>
+                <Unplug className="w-4 h-4" />
+              </Button>
+            )}
             <Button variant="outline" onClick={handleTestMeta} disabled={testingMeta}>
               {testingMeta ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Wifi className="w-4 h-4 mr-1" />}
               Testar token
