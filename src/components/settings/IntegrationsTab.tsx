@@ -36,7 +36,63 @@ import {
   Settings,
   Plus,
   ExternalLink,
+  BookOpen,
 } from 'lucide-react';
+
+const apiEndpoints = [
+  {
+    endpoint: 'update-overdue-tasks',
+    method: 'POST',
+    description: 'Atualiza o status de todas as tarefas com prazo vencido para "overdue".',
+    params: [],
+  },
+  {
+    endpoint: 'update-overdue-finance',
+    method: 'POST',
+    description: 'Atualiza o status de cobranças financeiras com vencimento passado.',
+    params: [],
+  },
+  {
+    endpoint: 'send-push',
+    method: 'POST',
+    description: 'Envia uma notificação push para um ou mais usuários do sistema.',
+    params: [
+      { name: 'user_id', type: 'string', required: true, desc: 'ID do usuário destinatário' },
+      { name: 'title', type: 'string', required: true, desc: 'Título da notificação' },
+      { name: 'message', type: 'string', required: true, desc: 'Corpo da mensagem' },
+    ],
+  },
+  {
+    endpoint: 'send-client-email',
+    method: 'POST',
+    description: 'Envia um email para um cliente usando o SMTP configurado.',
+    params: [
+      { name: 'to_email', type: 'string', required: true, desc: 'Email do destinatário' },
+      { name: 'to_name', type: 'string', required: false, desc: 'Nome do destinatário' },
+      { name: 'subject', type: 'string', required: true, desc: 'Assunto do email' },
+      { name: 'html_body', type: 'string', required: true, desc: 'Corpo do email em HTML' },
+    ],
+  },
+  {
+    endpoint: 'invite-client',
+    method: 'POST',
+    description: 'Cria acesso ao portal do cliente e envia o convite por email.',
+    params: [
+      { name: 'client_id', type: 'string', required: true, desc: 'ID do cliente na plataforma' },
+      { name: 'email', type: 'string', required: true, desc: 'Email do cliente' },
+    ],
+  },
+  {
+    endpoint: 'create-member-user',
+    method: 'POST',
+    description: 'Cria um usuário de autenticação para um novo membro da equipe.',
+    params: [
+      { name: 'email', type: 'string', required: true, desc: 'Email do membro' },
+      { name: 'name', type: 'string', required: true, desc: 'Nome completo do membro' },
+      { name: 'role', type: 'string', required: false, desc: '"admin" ou "member" (padrão: "member")' },
+    ],
+  },
+];
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -52,6 +108,7 @@ export function IntegrationsTab() {
   const [testingWebhook, setTestingWebhook] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedApiUrl, setCopiedApiUrl] = useState(false);
+  const [apiDocsOpen, setApiDocsOpen] = useState(false);
 
   const [logsDialog, setLogsDialog] = useState<string | null>(null);
 
@@ -498,13 +555,10 @@ export function IntegrationsTab() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground">Endpoints Disponíveis</Label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {['update-overdue-tasks', 'update-overdue-finance', 'send-push', 'send-client-email', 'invite-client', 'create-member-user'].map((ep) => (
-                          <span key={ep} className="text-[11px] bg-muted px-2 py-0.5 rounded-full border border-border font-mono">
-                            {ep}
-                          </span>
-                        ))}
-                      </div>
+                      <Button variant="outline" size="sm" className="gap-1.5 mt-1" onClick={() => setApiDocsOpen(true)}>
+                        <BookOpen className="w-3.5 h-3.5" />
+                        Ver documentação
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -683,6 +737,54 @@ export function IntegrationsTab() {
               Salvar
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* API Docs Dialog */}
+      <Dialog open={apiDocsOpen} onOpenChange={setApiDocsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5" />
+              Documentação da API
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            <div className="space-y-4 pr-2">
+              <p className="text-sm text-muted-foreground">
+                Todos os endpoints usam autenticação via header <code className="text-xs bg-muted px-1.5 py-0.5 rounded">Authorization: Bearer &lt;SUPABASE_ANON_KEY&gt;</code>
+              </p>
+              {apiEndpoints.map((ep) => (
+                <div key={ep.endpoint} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge className="text-[10px] bg-blue-500/20 text-blue-500 border-blue-500/30 hover:bg-blue-500/20">{ep.method}</Badge>
+                    <code className="text-sm font-mono font-semibold">{ep.endpoint}</code>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{ep.description}</p>
+                  {ep.params.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Body (JSON)</p>
+                      <div className="space-y-1">
+                        {ep.params.map((p) => (
+                          <div key={p.name} className="flex items-start gap-2 text-xs">
+                            <code className="bg-muted px-1.5 py-0.5 rounded font-mono shrink-0">{p.name}</code>
+                            <span className="text-muted-foreground/70 shrink-0">{p.type}</span>
+                            <Badge variant={p.required ? 'default' : 'secondary'} className="text-[9px] px-1 py-0 shrink-0">
+                              {p.required ? 'obrigatório' : 'opcional'}
+                            </Badge>
+                            <span className="text-muted-foreground">{p.desc}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {ep.params.length === 0 && (
+                    <p className="text-xs text-muted-foreground italic">Nenhum parâmetro necessário no body.</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
