@@ -326,38 +326,33 @@ export function IntegrationsTab() {
                     <KeyRound className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-500" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="font-semibold">Asaas</span>
-                      <Badge variant={isAsaasConnected ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
-                        {isAsaasConnected ? 'Conectado' : 'Disponível'}
-                      </Badge>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold">Asaas</span>
+                        <Badge variant={isAsaasConnected ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                          {isAsaasConnected ? 'Conectado' : 'Disponível'}
+                        </Badge>
+                      </div>
+                      {isAsaasConnected && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handleOpenAsaasDialog}>
+                          <Settings className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground mb-3">
                       Cobranças automáticas via Pix para seus clientes
                     </p>
                     {isAsaasConnected && (
-                      <p className="text-xs text-muted-foreground mb-3">
+                      <p className="text-xs text-muted-foreground">
                         Ambiente: {((asaasIntegration?.config as any)?.environment === 'production') ? 'Produção' : 'Sandbox'}
                       </p>
                     )}
-                    <div className="flex items-center gap-1.5">
-                      {isAsaasConnected ? (
-                        <>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenAsaasDialog}>
-                            <Settings className="w-4 h-4" />
-                          </Button>
-                          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDisconnectAsaas}>
-                            <CheckIcon className="w-3.5 h-3.5" />
-                            Conectado
-                          </Button>
-                        </>
-                      ) : (
-                        <Button size="sm" className="gap-1.5" onClick={handleOpenAsaasDialog}>
-                          Conectar
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                    </div>
+                    {!isAsaasConnected && (
+                      <Button size="sm" className="gap-1.5" onClick={handleOpenAsaasDialog}>
+                        Conectar
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -374,38 +369,33 @@ export function IntegrationsTab() {
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="font-semibold">Meta Ads</span>
-                      <Badge variant={isMetaConnected ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
-                        {isMetaConnected ? 'Conectado' : 'Disponível'}
-                      </Badge>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold">Meta Ads</span>
+                        <Badge variant={isMetaConnected ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                          {isMetaConnected ? 'Conectado' : 'Disponível'}
+                        </Badge>
+                      </div>
+                      {isMetaConnected && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handleOpenMetaDialog}>
+                          <Settings className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground mb-3">
                       Painel de performance das contas de anúncios dos clientes
                     </p>
                     {isMetaConnected && (
-                      <p className="text-xs text-muted-foreground mb-3">
+                      <p className="text-xs text-muted-foreground">
                         System User Access Token configurado
                       </p>
                     )}
-                    <div className="flex items-center gap-1.5">
-                      {isMetaConnected ? (
-                        <>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenMetaDialog}>
-                            <Settings className="w-4 h-4" />
-                          </Button>
-                          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDisconnectMeta}>
-                            <CheckIcon className="w-3.5 h-3.5" />
-                            Conectado
-                          </Button>
-                        </>
-                      ) : (
-                        <Button size="sm" className="gap-1.5" onClick={handleOpenMetaDialog}>
-                          Conectar
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                    </div>
+                    {!isMetaConnected && (
+                      <Button size="sm" className="gap-1.5" onClick={handleOpenMetaDialog}>
+                        Conectar
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
