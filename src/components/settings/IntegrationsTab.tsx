@@ -51,6 +51,7 @@ export function IntegrationsTab() {
   const [webhookForm, setWebhookForm] = useState({ url: '', secret: '', name: '', events: '' });
   const [testingWebhook, setTestingWebhook] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copiedApiUrl, setCopiedApiUrl] = useState(false);
 
   const [logsDialog, setLogsDialog] = useState<string | null>(null);
 
@@ -418,8 +419,17 @@ export function IntegrationsTab() {
               <div className="flex items-center justify-between gap-2">
                 <h4 className="font-semibold text-sm md:text-base">Webhooks Configurados</h4>
                 <Button size="sm" className="gap-1.5 shrink-0" onClick={handleConnectWebhook}>
-                  <Plus className="w-3.5 h-3.5" />
-                  <span className="hidden xs:inline">Novo </span>Webhook
+                  {isWebhookConnected ? (
+                    <>
+                      <Settings className="w-3.5 h-3.5" />
+                      Editar
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span className="hidden xs:inline">Novo </span>Webhook
+                    </>
+                  )}
                 </Button>
               </div>
 
@@ -472,6 +482,18 @@ export function IntegrationsTab() {
                         <code className="text-xs bg-muted px-2.5 py-1.5 rounded border border-border break-all flex-1">
                           {import.meta.env.VITE_SUPABASE_URL}/functions/v1/
                         </code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/`);
+                            setCopiedApiUrl(true);
+                            setTimeout(() => setCopiedApiUrl(false), 2000);
+                          }}
+                        >
+                          {copiedApiUrl ? <CheckIcon className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                        </Button>
                       </div>
                     </div>
                     <div className="space-y-1">
