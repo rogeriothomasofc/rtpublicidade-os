@@ -363,9 +363,14 @@ export function IntegrationsTab() {
               <CardContent className="p-4 sm:p-5">
                 <div className="flex items-start gap-3 sm:gap-4">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
-                    <svg className="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" fill="#1877F2"/>
-                      <path d="M13.188 15.938h-1.5v-5.25h-.938v-1.313h.938V8.813c0-1.25.563-2 1.938-2h1.25v1.312h-.75c-.563 0-.625.188-.625.563v.688h1.438l-.188 1.312h-1.25v5.25h-.313z" fill="white"/>
+                    <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 60 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <defs>
+                        <linearGradient id="metaLogoGrad" x1="0" y1="28" x2="60" y2="0" gradientUnits="userSpaceOnUse">
+                          <stop offset="0%" stopColor="#0082FB"/>
+                          <stop offset="100%" stopColor="#00C8FF"/>
+                        </linearGradient>
+                      </defs>
+                      <path d="M30 10.5C27.8 7.2 24.8 5 21.5 5C15.7 5 11 10.4 11 16C11 21.6 14.8 23 17.5 23C20.8 23 22.8 21.2 25.5 17C26.5 15.3 27.8 13.2 30 10.5ZM30 10.5C32.2 7.2 35.2 5 38.5 5C44.3 5 49 10.4 49 16C49 21.6 45.2 23 42.5 23C39.2 23 37.2 21.2 34.5 17C33.5 15.3 32.2 13.2 30 10.5Z" fill="url(#metaLogoGrad)" fillRule="evenodd"/>
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
