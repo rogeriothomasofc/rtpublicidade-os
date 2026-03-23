@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, Check, CheckCheck, AlertTriangle, Clock, CreditCard, ListTodo, Volume2, VolumeX, BellRing, Loader2, UserRoundSearch } from 'lucide-react';
+import { Bell, Check, CheckCheck, AlertTriangle, Clock, CreditCard, ListTodo, Volume2, VolumeX, BellRing, Loader2, UserRoundSearch, Smartphone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -126,12 +126,17 @@ export function NotificationBell() {
   const checkNotifications = useCheckNotifications();
   
   // Web Push notifications hook
-  const { 
-    isSupported: isPushSupported, 
-    isSubscribed: isPushSubscribed, 
+  const {
+    isSupported: isPushSupported,
+    isSubscribed: isPushSubscribed,
     isLoading: isPushLoading,
-    toggleSubscription 
+    toggleSubscription
   } = usePushNotifications();
+
+  // Detect iOS not installed as PWA (push only works in standalone mode on iOS)
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || !!(window.navigator as any).standalone;
+  const showIOSInstallHint = isIOS && !isStandalone;
   
   // Track previous unread count to detect new notifications
   const prevUnreadCountRef = useRef<number | undefined>(undefined);
@@ -177,7 +182,7 @@ export function NotificationBell() {
       // Show browser notification if push is subscribed
       if (isPushSubscribed && notifications && notifications.length > 0) {
         const latestNotification = notifications[0];
-        showBrowserNotification(latestNotification.title, {
+        void showBrowserNotification(latestNotification.title, {
           body: latestNotification.message,
           tag: 'new-notification',
         });
@@ -254,7 +259,12 @@ export function NotificationBell() {
             />
           </div>
           
-          {isPushSupported && (
+          {showIOSInstallHint ? (
+            <div className="flex items-start gap-2 mt-2 text-xs text-muted-foreground">
+              <Smartphone className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>Para receber notificações push no iPhone, adicione este app à tela inicial primeiro.</span>
+            </div>
+          ) : isPushSupported && (
             <div className="flex items-center justify-between gap-4 mt-2">
               <div className="flex items-center gap-2">
                 {isPushLoading ? (

@@ -18,23 +18,35 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return false;
 }
 
-export function showBrowserNotification(title: string, options?: NotificationOptions): void {
-  if (Notification.permission === 'granted') {
-    const notification = new Notification(title, {
-      icon: '/favicon.ico',
-      badge: '/favicon.ico',
-      ...options,
-    });
+export async function showBrowserNotification(title: string, options?: NotificationOptions): Promise<void> {
+  if (Notification.permission !== 'granted') return;
 
-    // Auto-close after 5 seconds
-    setTimeout(() => notification.close(), 5000);
-
-    // Focus window on click
-    notification.onclick = () => {
-      window.focus();
-      notification.close();
-    };
+  // Mobile requires notifications via Service Worker
+  if ('serviceWorker' in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification(title, {
+        icon: '/pwa-192x192.png',
+        badge: '/pwa-192x192.png',
+        ...options,
+      });
+      return;
+    } catch {
+      // fall through to direct Notification API
+    }
   }
+
+  // Fallback: direct Notification API (desktop browsers without SW)
+  const notification = new Notification(title, {
+    icon: '/favicon.ico',
+    badge: '/favicon.ico',
+    ...options,
+  });
+  setTimeout(() => notification.close(), 5000);
+  notification.onclick = () => {
+    window.focus();
+    notification.close();
+  };
 }
 
 // Audio notification using Web Audio API for a pleasant WhatsApp-like chime
