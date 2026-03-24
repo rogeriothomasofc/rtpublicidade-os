@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, Search, MoreHorizontal, Trash2, Pencil, ArrowRight, ExternalLink, Lightbulb, Clapperboard, CheckCircle2, Send, ChevronLeft, ChevronRight, Images, CalendarDays } from 'lucide-react';
+import { Plus, MoreHorizontal, Trash2, Pencil, ArrowRight, ExternalLink, Lightbulb, Clapperboard, CheckCircle2, Send, ChevronLeft, ChevronRight, Images, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -27,8 +27,6 @@ import {
   startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth,
   isSameDay, addMonths, subMonths, isToday, parseISO,
 } from 'date-fns';
-import { useClients } from '@/hooks/useClients';
-
 const PLATFORMS: ContentPlatform[] = ['Instagram', 'Facebook', 'TikTok', 'YouTube', 'LinkedIn', 'Twitter', 'Outro'];
 const STATUSES = ['Briefing', 'Em Produção', 'Revisão', 'Aprovado', 'Postado'] as const;
 
@@ -457,24 +455,15 @@ function ContentCard({ item, onEdit, onPublish }: CardProps) {
 
 interface TabPanelProps {
   category: ContentCategory;
-  search: string;
-  platformFilter: string;
-  clientFilter: string;
   onAdd: () => void;
   onEdit: (item: ContentItem) => void;
   onPublish: (item: ContentItem) => void;
 }
 
-function TabPanel({ category, search, platformFilter, clientFilter, onAdd, onEdit, onPublish }: TabPanelProps) {
+function TabPanel({ category, onAdd, onEdit, onPublish }: TabPanelProps) {
   const { data: items = [], isLoading } = useContentItems(category);
 
-  const filtered = items.filter(i => {
-    const q = search.toLowerCase();
-    const matchSearch = !q || i.title.toLowerCase().includes(q) || (i.description ?? '').toLowerCase().includes(q);
-    const matchPlatform = platformFilter === 'all' || i.platform === platformFilter;
-    const matchClient = clientFilter === 'all' || i.client_id === clientFilter;
-    return matchSearch && matchPlatform && matchClient;
-  });
+  const filtered = items;
 
   if (isLoading) return <div className="text-center py-12 text-muted-foreground text-sm">Carregando...</div>;
 
@@ -647,11 +636,7 @@ function CalendarView({ onEdit, onPublish }: { onEdit: (i: ContentItem) => void;
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ContentPage() {
-  const { data: clients = [] } = useClients();
-  const [tab, setTab] = useState<ContentCategory | 'calendar'>('A Criar');
-  const [search, setSearch] = useState('');
-  const [platformFilter, setPlatformFilter] = useState('all');
-  const [clientFilter, setClientFilter] = useState('all');
+  const [tab, setTab] = useState<ContentCategory | 'calendar'>('Ideia');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ContentItem | null>(null);
   const [publishing, setPublishing] = useState<ContentItem | null>(null);
@@ -663,27 +648,7 @@ export default function ContentPage() {
   return (
     <MainLayout>
       <div className="space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
-            <div className="relative flex-1 sm:max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="Buscar conteúdo..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
-            </div>
-            <Select value={platformFilter} onValueChange={setPlatformFilter}>
-              <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Plataforma" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas plataformas</SelectItem>
-                {PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={clientFilter} onValueChange={setClientFilter}>
-              <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Cliente" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos clientes</SelectItem>
-                {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="flex justify-end">
           <Button onClick={openNew} className="w-full sm:w-auto shrink-0">
             <Plus className="w-4 h-4 mr-2" /> Novo conteúdo
           </Button>
@@ -694,9 +659,6 @@ export default function ContentPage() {
             <TabsTrigger value="Ideia" className="flex items-center gap-1.5 flex-1 sm:flex-none">
               <Lightbulb className="w-4 h-4" /> Ideias
             </TabsTrigger>
-            <TabsTrigger value="A Criar" className="flex items-center gap-1.5 flex-1 sm:flex-none">
-              <Clapperboard className="w-4 h-4" /> A Criar
-            </TabsTrigger>
             <TabsTrigger value="Postado" className="flex items-center gap-1.5 flex-1 sm:flex-none">
               <CheckCircle2 className="w-4 h-4" /> Postados
             </TabsTrigger>
@@ -706,13 +668,10 @@ export default function ContentPage() {
           </TabsList>
 
           <TabsContent value="Ideia" className="mt-4">
-            <TabPanel category="Ideia" search={search} platformFilter={platformFilter} clientFilter={clientFilter} onAdd={openNew} onEdit={openEdit} onPublish={setPublishing} />
-          </TabsContent>
-          <TabsContent value="A Criar" className="mt-4">
-            <TabPanel category="A Criar" search={search} platformFilter={platformFilter} clientFilter={clientFilter} onAdd={openNew} onEdit={openEdit} onPublish={setPublishing} />
+            <TabPanel category="Ideia" onAdd={openNew} onEdit={openEdit} onPublish={setPublishing} />
           </TabsContent>
           <TabsContent value="Postado" className="mt-4">
-            <TabPanel category="Postado" search={search} platformFilter={platformFilter} clientFilter={clientFilter} onAdd={openNew} onEdit={openEdit} onPublish={setPublishing} />
+            <TabPanel category="Postado" onAdd={openNew} onEdit={openEdit} onPublish={setPublishing} />
           </TabsContent>
           <TabsContent value="calendar" className="mt-4">
             <CalendarView onEdit={openEdit} onPublish={setPublishing} />
@@ -720,7 +679,7 @@ export default function ContentPage() {
         </Tabs>
       </div>
 
-      <ItemDialog open={dialogOpen} onClose={closeDialog} defaultCategory={tab === 'calendar' ? 'A Criar' : tab} editing={editing} />
+      <ItemDialog open={dialogOpen} onClose={closeDialog} defaultCategory={tab === 'calendar' ? 'Ideia' : tab as ContentCategory} editing={editing} />
       <PublishDialog item={publishing} onClose={() => setPublishing(null)} />
     </MainLayout>
   );
