@@ -176,7 +176,6 @@ export default function Dashboard() {
               <MetricCard
                 title="Leads Quentes"
                 value={stats?.hotLeads || 0}
-                description="Em Proposal"
                 icon={Flame}
                 variant={(stats?.hotLeads || 0) > 0 ? 'warning' : 'success'}
                 trend={stats?.trends?.hotLeads}

@@ -29,19 +29,18 @@ export interface DashboardStats {
   recentTasks: Task[];
   monthlyFinance: MonthlyFinanceData[];
   trends?: {
-    revenueInPeriod?: MetricTrend;
-    pipelineValue?: MetricTrend;
-    activeClients?: MetricTrend;
-    leadsWon?: MetricTrend;
-    hotLeads?: MetricTrend;
-    overdueInvoicesAmount?: MetricTrend;
-    pendingInvoices?: MetricTrend;
+    revenueInPeriod: MetricTrend;
+    pipelineValue: MetricTrend;
+    activeClients: MetricTrend;
+    leadsWon: MetricTrend;
+    hotLeads: MetricTrend;
+    overdueInvoicesAmount: MetricTrend;
+    pendingInvoices: MetricTrend;
   };
 }
 
-function calcTrend(current: number, previous: number): MetricTrend | undefined {
-  if (previous === 0 && current === 0) return undefined;
-  if (previous === 0) return { value: 100, isPositive: true };
+function calcTrend(current: number, previous: number): MetricTrend {
+  if (previous === 0) return { value: current > 0 ? 100 : 0, isPositive: current >= 0 };
   const pct = Math.round(((current - previous) / previous) * 100);
   return { value: Math.abs(pct), isPositive: pct >= 0 };
 }
