@@ -19,7 +19,7 @@ const navItems = [
   { name: 'Tarefas',       href: '/tasks',     icon: CheckSquare,     slug: 'tasks' },
   { name: 'Planejamentos', href: '/planning',  icon: Lightbulb,       slug: 'planning' },
   { name: 'Conteúdo',     href: '/content',   icon: Clapperboard,    slug: 'content' },
-  { name: 'Squad',        href: '/squad',     icon: Bot,             slug: 'dashboard' },
+  { name: 'Escritório',   href: '/office',    icon: Bot,             slug: 'dashboard' },
 ];
 
 const APP_NAME = 'Agency OS';
