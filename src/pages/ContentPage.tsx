@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, Search, MoreHorizontal, Trash2, Pencil, ArrowRight, ExternalLink, Lightbulb, Clapperboard, CheckCircle2, Send, ChevronLeft, ChevronRight, Images } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, Trash2, Pencil, ArrowRight, ExternalLink, Lightbulb, Clapperboard, CheckCircle2, Send, ChevronLeft, ChevronRight, Images, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -23,6 +23,10 @@ import {
   type ContentCategory,
   type ContentPlatform,
 } from '@/hooks/useContentItems';
+import {
+  startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth,
+  isSameDay, addMonths, subMonths, isToday, parseISO,
+} from 'date-fns';
 import { useClients } from '@/hooks/useClients';
 
 const PLATFORMS: ContentPlatform[] = ['Instagram', 'Facebook', 'TikTok', 'YouTube', 'LinkedIn', 'Twitter', 'Outro'];
@@ -393,7 +397,14 @@ function ContentCard({ item, onEdit, onPublish }: CardProps) {
 
         {item.category === 'A Criar' && (
           <div className="flex items-center justify-between gap-2">
-            <Select value={item.status} onValueChange={v => update.mutate({ id: item.id, status: v as any })}>
+            <Select value={item.status} onValueChange={v => {
+              const updates: Record<string, unknown> = { status: v };
+              if (v === 'Postado') {
+                updates.category = 'Postado';
+                updates.posted_date = new Date().toISOString().split('T')[0];
+              }
+              update.mutate({ id: item.id, ...updates } as any);
+            }}>
               <SelectTrigger className="h-7 border-none shadow-none px-0 text-xs hover:bg-muted/50 w-auto flex-1">
                 <Badge variant="secondary" className={`text-xs ${statusColors[item.status]}`}>{item.status}</Badge>
               </SelectTrigger>
@@ -503,11 +514,141 @@ function TabPanel({ category, search, platformFilter, clientFilter, onAdd, onEdi
   );
 }
 
+// ─── Calendar View ────────────────────────────────────────────────────────────
+
+const DAYS_LABEL = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+function CalendarView({ onEdit, onPublish }: { onEdit: (i: ContentItem) => void; onPublish: (i: ContentItem) => void }) {
+  const [current, setCurrent] = useState(new Date());
+  const [selected, setSelected] = useState<Date | null>(null);
+
+  const { data: aCriar = [] } = useContentItems('A Criar');
+  const { data: postados = [] } = useContentItems('Postado');
+  const allItems = [...aCriar, ...postados];
+
+  const monthStart = startOfMonth(current);
+  const monthEnd   = endOfMonth(current);
+  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+  // Padding para alinhar domingo=0
+  const startPad = monthStart.getDay();
+
+  function itemsForDay(day: Date) {
+    return allItems.filter(i => {
+      const dateStr = i.category === 'Postado' ? i.posted_date : i.scheduled_date;
+      if (!dateStr) return false;
+      return isSameDay(parseISO(dateStr), day);
+    });
+  }
+
+  const selectedItems = selected ? itemsForDay(selected) : [];
+
+  return (
+    <div className="space-y-4">
+      {/* Header do mês */}
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" size="icon" onClick={() => setCurrent(d => subMonths(d, 1))}>
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+        <h3 className="font-semibold text-base capitalize">
+          {format(current, "MMMM yyyy", { locale: ptBR })}
+        </h3>
+        <Button variant="ghost" size="icon" onClick={() => setCurrent(d => addMonths(d, 1))}>
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Grid */}
+      <div className="border rounded-lg overflow-hidden">
+        {/* Cabeçalho dias da semana */}
+        <div className="grid grid-cols-7 border-b bg-muted/30">
+          {DAYS_LABEL.map(d => (
+            <div key={d} className="py-2 text-center text-xs font-medium text-muted-foreground">{d}</div>
+          ))}
+        </div>
+
+        {/* Células */}
+        <div className="grid grid-cols-7">
+          {/* Padding inicial */}
+          {Array.from({ length: startPad }).map((_, i) => (
+            <div key={`pad-${i}`} className="min-h-[80px] border-b border-r bg-muted/10" />
+          ))}
+
+          {days.map(day => {
+            const items = itemsForDay(day);
+            const isSelected = selected && isSameDay(day, selected);
+            const today = isToday(day);
+
+            return (
+              <div
+                key={day.toISOString()}
+                onClick={() => setSelected(isSameDay(day, selected ?? new Date(0)) ? null : day)}
+                className={`min-h-[80px] border-b border-r p-1.5 cursor-pointer transition-colors
+                  ${isSelected ? 'bg-primary/10 ring-1 ring-inset ring-primary' : 'hover:bg-muted/40'}
+                  ${!isSameMonth(day, current) ? 'opacity-40' : ''}`}
+              >
+                <div className={`text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full
+                  ${today ? 'bg-primary text-primary-foreground' : 'text-foreground'}`}>
+                  {format(day, 'd')}
+                </div>
+                <div className="space-y-0.5">
+                  {items.slice(0, 3).map(item => (
+                    <div
+                      key={item.id}
+                      className={`text-[10px] leading-tight px-1 py-0.5 rounded truncate
+                        ${item.category === 'Postado'
+                          ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                          : 'bg-blue-500/20 text-blue-700 dark:text-blue-400'}`}
+                    >
+                      {item.title}
+                    </div>
+                  ))}
+                  {items.length > 3 && (
+                    <div className="text-[10px] text-muted-foreground pl-1">+{items.length - 3} mais</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Legenda */}
+      <div className="flex gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-sm bg-blue-500/40 inline-block" /> A Criar (previsto)
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/40 inline-block" /> Postado
+        </span>
+      </div>
+
+      {/* Painel do dia selecionado */}
+      {selected && (
+        <div className="border rounded-lg p-4 space-y-3">
+          <p className="font-medium text-sm">
+            {format(selected, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+          </p>
+          {selectedItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum conteúdo neste dia.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {selectedItems.map(item => (
+                <ContentCard key={item.id} item={item} onEdit={onEdit} onPublish={onPublish} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ContentPage() {
   const { data: clients = [] } = useClients();
-  const [tab, setTab] = useState<ContentCategory>('A Criar');
+  const [tab, setTab] = useState<ContentCategory | 'calendar'>('A Criar');
   const [search, setSearch] = useState('');
   const [platformFilter, setPlatformFilter] = useState('all');
   const [clientFilter, setClientFilter] = useState('all');
@@ -548,7 +689,7 @@ export default function ContentPage() {
           </Button>
         </div>
 
-        <Tabs value={tab} onValueChange={v => setTab(v as ContentCategory)}>
+        <Tabs value={tab} onValueChange={v => setTab(v as ContentCategory | 'calendar')}>
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="Ideia" className="flex items-center gap-1.5 flex-1 sm:flex-none">
               <Lightbulb className="w-4 h-4" /> Ideias
@@ -558,6 +699,9 @@ export default function ContentPage() {
             </TabsTrigger>
             <TabsTrigger value="Postado" className="flex items-center gap-1.5 flex-1 sm:flex-none">
               <CheckCircle2 className="w-4 h-4" /> Postados
+            </TabsTrigger>
+            <TabsTrigger value="calendar" className="flex items-center gap-1.5 flex-1 sm:flex-none">
+              <CalendarDays className="w-4 h-4" /> Calendário
             </TabsTrigger>
           </TabsList>
 
@@ -570,10 +714,13 @@ export default function ContentPage() {
           <TabsContent value="Postado" className="mt-4">
             <TabPanel category="Postado" search={search} platformFilter={platformFilter} clientFilter={clientFilter} onAdd={openNew} onEdit={openEdit} onPublish={setPublishing} />
           </TabsContent>
+          <TabsContent value="calendar" className="mt-4">
+            <CalendarView onEdit={openEdit} onPublish={setPublishing} />
+          </TabsContent>
         </Tabs>
       </div>
 
-      <ItemDialog open={dialogOpen} onClose={closeDialog} defaultCategory={tab} editing={editing} />
+      <ItemDialog open={dialogOpen} onClose={closeDialog} defaultCategory={tab === 'calendar' ? 'A Criar' : tab} editing={editing} />
       <PublishDialog item={publishing} onClose={() => setPublishing(null)} />
     </MainLayout>
   );
