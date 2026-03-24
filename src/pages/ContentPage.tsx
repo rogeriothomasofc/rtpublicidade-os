@@ -577,7 +577,7 @@ interface GeneratedIdea {
 
 function AIIdeasDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [platform, setPlatform] = useState('Instagram');
-  const [format, setFormat] = useState('Reels');
+  const [contentFormat, setContentFormat] = useState('Reels');
   const [context, setContext] = useState('');
   const [loading, setLoading] = useState(false);
   const [ideas, setIdeas] = useState<GeneratedIdea[]>([]);
@@ -592,7 +592,7 @@ function AIIdeasDialog({ open, onClose }: { open: boolean; onClose: () => void }
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke('generate-content-ideas', {
-        body: { platform, format, context },
+        body: { platform, format: contentFormat, context },
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
       if (res.error) throw res.error;
@@ -672,7 +672,7 @@ function AIIdeasDialog({ open, onClose }: { open: boolean; onClose: () => void }
             </div>
             <div className="space-y-1.5">
               <Label>Formato</Label>
-              <Select value={format} onValueChange={setFormat}>
+              <Select value={contentFormat} onValueChange={setContentFormat}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {CONTENT_FORMATS.map(f => (
