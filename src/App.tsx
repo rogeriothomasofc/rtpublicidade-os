@@ -28,7 +28,6 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const PlanningPage = lazy(() => import("./pages/PlanningPage"));
 const PlanningDetailPage = lazy(() => import("./pages/PlanningDetailPage"));
 const ContentPage = lazy(() => import("./pages/ContentPage"));
-const OfficePage = lazy(() => import("./pages/OfficePage"));
 
 const queryClient = new QueryClient();
 
@@ -75,7 +74,6 @@ const App = () => (
               <Route path="/planning" element={<ProtectedRoute><G slug="planning"><P><PlanningPage /></P></G></ProtectedRoute>} />
               <Route path="/planning/:id" element={<ProtectedRoute><G slug="planning"><P><PlanningDetailPage /></P></G></ProtectedRoute>} />
               <Route path="/content" element={<ProtectedRoute><G slug="content"><P><ContentPage /></P></G></ProtectedRoute>} />
-              <Route path="/office" element={<ProtectedRoute><P><OfficePage /></P></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><G slug="settings"><P><SettingsPage /></P></G></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
