@@ -573,6 +573,8 @@ interface GeneratedIdea {
   description: string;
   platform: string;
   format: string;
+  best_day?: string;
+  best_time?: string;
 }
 
 function AIIdeasDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -728,14 +730,19 @@ function AIIdeasDialog({ open, onClose }: { open: boolean; onClose: () => void }
                       <div className="min-w-0">
                         <p className="text-sm font-medium">{idea.title}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">{idea.description}</p>
-                        <div className="flex gap-1.5 mt-1 flex-wrap">
-                        {idea.format && (
-                          <Badge variant="outline" className="text-xs">{idea.format}</Badge>
-                        )}
-                        <Badge variant="secondary" className={`text-xs ${platformColors[idea.platform] ?? 'bg-muted text-muted-foreground'}`}>
-                          {idea.platform}
-                        </Badge>
-                      </div>
+                        <div className="flex gap-1.5 mt-1.5 flex-wrap items-center">
+                          {idea.format && (
+                            <Badge variant="outline" className="text-xs">{idea.format}</Badge>
+                          )}
+                          <Badge variant="secondary" className={`text-xs ${platformColors[idea.platform] ?? 'bg-muted text-muted-foreground'}`}>
+                            {idea.platform}
+                          </Badge>
+                          {(idea.best_day || idea.best_time) && (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              🕐 {[idea.best_day, idea.best_time].filter(Boolean).join(' · ')}
+                            </span>
+                          )}
+                        </div>
                     </div>
                   </div>
                 ))}
