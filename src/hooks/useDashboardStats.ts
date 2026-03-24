@@ -40,7 +40,8 @@ export interface DashboardStats {
 }
 
 function calcTrend(current: number, previous: number): MetricTrend | undefined {
-  if (previous === 0) return undefined;
+  if (previous === 0 && current === 0) return undefined;
+  if (previous === 0) return { value: 100, isPositive: true };
   const pct = Math.round(((current - previous) / previous) * 100);
   return { value: Math.abs(pct), isPositive: pct >= 0 };
 }
@@ -99,11 +100,11 @@ function buildStats(m: Record<string, unknown>, prev: Record<string, unknown> | 
     ? {
         revenueInPeriod: calcTrend(current.revenueInPeriod, Number(prev.revenue_in_period ?? 0)),
         pipelineValue: calcTrend(current.pipelineValue, Number(prev.pipeline_value ?? 0)),
-        activeClients: calcTrend(current.activeClients, (prev.active_clients as number) ?? 0),
-        leadsWon: calcTrend(current.leadsWon, (prev.leads_won as number) ?? 0),
-        hotLeads: calcTrend(current.hotLeads, (prev.hot_leads as number) ?? 0),
+        activeClients: calcTrend(current.activeClients, Number(prev.active_clients ?? 0)),
+        leadsWon: calcTrend(current.leadsWon, Number(prev.leads_won ?? 0)),
+        hotLeads: calcTrend(current.hotLeads, Number(prev.hot_leads ?? 0)),
         overdueInvoicesAmount: calcTrend(current.overdueInvoicesAmount, Number(prev.overdue_invoices_amount ?? 0)),
-        pendingInvoices: calcTrend(current.pendingInvoices, (prev.pending_invoices as number) ?? 0),
+        pendingInvoices: calcTrend(current.pendingInvoices, Number(prev.pending_invoices ?? 0)),
       }
     : undefined;
 
