@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { LayoutDashboard, Users, FolderKanban, CheckSquare, DollarSign, TrendingUp, PanelLeftClose, Zap, UsersRound, FileText, FileCheck, Settings, Lightbulb, X } from 'lucide-react';
+import { LayoutDashboard, Users, FolderKanban, CheckSquare, DollarSign, TrendingUp, PanelLeftClose, Zap, UsersRound, FileText, FileCheck, Settings, Lightbulb, X, Clapperboard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -18,6 +18,7 @@ const navItems = [
   { name: 'Projetos',      href: '/projects',  icon: FolderKanban,    slug: 'projects' },
   { name: 'Tarefas',       href: '/tasks',     icon: CheckSquare,     slug: 'tasks' },
   { name: 'Planejamentos', href: '/planning',  icon: Lightbulb,       slug: 'planning' },
+  { name: 'Conteúdo',     href: '/content',   icon: Clapperboard,    slug: 'content' },
 ];
 
 const APP_NAME = 'Agency OS';
