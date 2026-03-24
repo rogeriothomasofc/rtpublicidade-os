@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { RefreshCw, ExternalLink, Wifi, WifiOff, Maximize2 } from 'lucide-react';
 
 const CANDIDATE_PORTS = [5174, 5175, 5173, 5176, 5177];
-const PING_INTERVAL = 5000;
+const PING_INTERVAL = 6000;
 
 type Status = 'checking' | 'online' | 'offline';
 
@@ -21,19 +21,22 @@ async function findDashboard(): Promise<string | null> {
 
 export default function SquadPage() {
   const [status, setStatus] = useState<Status>('checking');
-  const [dashboardUrl, setDashboardUrl] = useState('http://localhost:5174');
+  const [dashboardUrl, setDashboardUrl] = useState('');
   const [fullscreen, setFullscreen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  // ref evita stale closure no setInterval
-  const currentUrlRef = useRef('http://localhost:5174');
+  const currentUrlRef = useRef('');
 
   const ping = useCallback(async () => {
     const url = await findDashboard();
     if (url) {
+      // Só atualiza o iframe se a URL mudou de porta
       if (url !== currentUrlRef.current) {
         currentUrlRef.current = url;
         setDashboardUrl(url);
-        if (iframeRef.current) iframeRef.current.src = url;
+        // Se já tem iframe renderizado, troca a src
+        if (iframeRef.current && iframeRef.current.src !== url) {
+          iframeRef.current.src = url;
+        }
       }
       setStatus('online');
     } else {
@@ -48,9 +51,11 @@ export default function SquadPage() {
   }, [ping]);
 
   const reload = () => {
-    if (iframeRef.current) {
+    if (iframeRef.current && currentUrlRef.current) {
       iframeRef.current.src = '';
-      setTimeout(() => { if (iframeRef.current) iframeRef.current.src = currentUrlRef.current; }, 50);
+      setTimeout(() => {
+        if (iframeRef.current) iframeRef.current.src = currentUrlRef.current;
+      }, 50);
     }
   };
 
@@ -81,22 +86,36 @@ export default function SquadPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={reload}>
-              <RefreshCw className="w-4 h-4 mr-1.5" /> Recarregar
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setFullscreen(f => !f)}>
-              <Maximize2 className="w-4 h-4 mr-1.5" /> {fullscreen ? 'Sair' : 'Tela cheia'}
-            </Button>
-            <a href={dashboardUrl} target="_blank" rel="noreferrer">
-              <Button variant="outline" size="sm">
-                <ExternalLink className="w-4 h-4 mr-1.5" /> Abrir
-              </Button>
-            </a>
+            {status === 'online' && (
+              <>
+                <Button variant="outline" size="sm" onClick={reload}>
+                  <RefreshCw className="w-4 h-4 mr-1.5" /> Recarregar
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setFullscreen(f => !f)}>
+                  <Maximize2 className="w-4 h-4 mr-1.5" /> {fullscreen ? 'Sair' : 'Tela cheia'}
+                </Button>
+                <a href={dashboardUrl} target="_blank" rel="noreferrer">
+                  <Button variant="outline" size="sm">
+                    <ExternalLink className="w-4 h-4 mr-1.5" /> Abrir
+                  </Button>
+                </a>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Conteúdo */}
-        {status === 'offline' ? (
+        {/* Verificando */}
+        {status === 'checking' && (
+          <div className="flex-1 flex items-center justify-center border rounded-lg bg-muted/20">
+            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+              <RefreshCw className="w-8 h-8 animate-spin opacity-40" />
+              <p className="text-sm">Procurando dashboard...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Offline */}
+        {status === 'offline' && (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 border rounded-lg bg-muted/20">
             <WifiOff className="w-12 h-12 text-muted-foreground opacity-40" />
             <div className="text-center space-y-1">
@@ -110,7 +129,10 @@ export default function SquadPage() {
               <RefreshCw className="w-4 h-4 mr-1.5" /> Tentar novamente
             </Button>
           </div>
-        ) : (
+        )}
+
+        {/* Online — iframe só renderiza UMA vez quando URL está definida */}
+        {status === 'online' && dashboardUrl && (
           <div className={`flex-1 border rounded-lg overflow-hidden ${fullscreen ? 'fixed inset-0 z-50 rounded-none border-0' : ''}`}>
             {fullscreen && (
               <button
