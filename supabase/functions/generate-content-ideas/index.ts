@@ -25,26 +25,30 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Invalid token" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { platform, context } = await req.json() as { platform?: string; context?: string };
+    const { platform, format, context } = await req.json() as { platform?: string; format?: string; context?: string };
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
 
     const platformText = platform && platform !== "all" ? `para ${platform}` : "para redes sociais";
-    const contextText = context?.trim() ? `\nContexto adicional fornecido: ${context}` : "";
+    const formatText = format ? ` no formato ${format}` : "";
+    const contextText = context?.trim() ? `\nContexto adicional: ${context}` : "";
+    const finalPlatform = platform && platform !== "all" ? platform : "Instagram";
+    const finalFormat = format ?? "Reels";
 
     const systemPrompt = `Você é um especialista em marketing digital e criação de conteúdo para agências de publicidade brasileiras.
 Sua tarefa é gerar ideias criativas e relevantes de conteúdo para uma agência de publicidade.
 Responda SOMENTE com um array JSON válido, sem markdown, sem explicações, apenas o JSON puro.`;
 
-    const userMessage = `Gere exatamente 8 ideias de conteúdo ${platformText} para uma agência de publicidade e tráfego pago no Brasil.${contextText}
+    const userMessage = `Gere exatamente 8 ideias de conteúdo ${platformText}${formatText} para uma agência de publicidade e tráfego pago no Brasil.${contextText}
 
 Retorne um array JSON com este formato exato:
 [
   {
     "title": "Título curto e chamativo do conteúdo",
     "description": "Breve descrição do que seria o conteúdo (1-2 frases)",
-    "platform": "${platform && platform !== "all" ? platform : "Instagram"}"
+    "platform": "${finalPlatform}",
+    "format": "${finalFormat}"
   }
 ]
 

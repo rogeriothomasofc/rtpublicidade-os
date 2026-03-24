@@ -457,14 +457,27 @@ function ContentCard({ item, onEdit, onPublish }: CardProps) {
 
 // ─── AI Ideas Dialog ──────────────────────────────────────────────────────────
 
+const CONTENT_FORMATS = [
+  'Reels',
+  'Carrossel',
+  'Post Estático',
+  'Stories',
+  'Live',
+  'Tutorial',
+  'Bastidores',
+  'Depoimento',
+];
+
 interface GeneratedIdea {
   title: string;
   description: string;
   platform: string;
+  format: string;
 }
 
 function AIIdeasDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [platform, setPlatform] = useState('Instagram');
+  const [format, setFormat] = useState('Reels');
   const [context, setContext] = useState('');
   const [loading, setLoading] = useState(false);
   const [ideas, setIdeas] = useState<GeneratedIdea[]>([]);
@@ -479,7 +492,7 @@ function AIIdeasDialog({ open, onClose }: { open: boolean; onClose: () => void }
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke('generate-content-ideas', {
-        body: { platform, context },
+        body: { platform, format, context },
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
       if (res.error) throw res.error;
@@ -545,7 +558,7 @@ function AIIdeasDialog({ open, onClose }: { open: boolean; onClose: () => void }
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>Plataforma</Label>
               <Select value={platform} onValueChange={setPlatform}>
@@ -558,11 +571,22 @@ function AIIdeasDialog({ open, onClose }: { open: boolean; onClose: () => void }
               </Select>
             </div>
             <div className="space-y-1.5">
+              <Label>Formato</Label>
+              <Select value={format} onValueChange={setFormat}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CONTENT_FORMATS.map(f => (
+                    <SelectItem key={f} value={f}>{f}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label>Contexto <span className="text-muted-foreground text-xs">(opcional)</span></Label>
               <Input
                 value={context}
                 onChange={e => setContext(e.target.value)}
-                placeholder="Ex: foco em e-commerce..."
+                placeholder="Ex: e-commerce..."
               />
             </div>
           </div>
@@ -604,7 +628,11 @@ function AIIdeasDialog({ open, onClose }: { open: boolean; onClose: () => void }
                       <div className="min-w-0">
                         <p className="text-sm font-medium">{idea.title}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">{idea.description}</p>
-                        <Badge variant="secondary" className={`text-xs mt-1 ${platformColors[idea.platform] ?? 'bg-muted text-muted-foreground'}`}>
+                        <div className="flex gap-1.5 mt-1 flex-wrap">
+                        {idea.format && (
+                          <Badge variant="outline" className="text-xs">{idea.format}</Badge>
+                        )}
+                        <Badge variant="secondary" className={`text-xs ${platformColors[idea.platform] ?? 'bg-muted text-muted-foreground'}`}>
                           {idea.platform}
                         </Badge>
                       </div>
