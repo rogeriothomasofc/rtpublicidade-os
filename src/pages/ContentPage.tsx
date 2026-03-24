@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, MoreHorizontal, Trash2, Pencil, ArrowRight, ExternalLink, Lightbulb, Clapperboard, CheckCircle2, Send, ChevronLeft, ChevronRight, Images, CalendarDays, Sparkles, Loader2 } from 'lucide-react';
+import { Plus, MoreHorizontal, Trash2, Pencil, ArrowRight, ExternalLink, Lightbulb, Clapperboard, CheckCircle2, Send, ChevronLeft, ChevronRight, Images, CalendarDays, Sparkles, Loader2, Copy, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -328,15 +328,97 @@ function ItemDialog({ open, onClose, defaultCategory, editing }: ItemDialogProps
   );
 }
 
+// ─── Content Detail Modal ─────────────────────────────────────────────────────
+
+function ContentDetailModal({ item, onClose, onEdit }: { item: ContentItem | null; onClose: () => void; onEdit: (item: ContentItem) => void }) {
+  const [copied, setCopied] = useState(false);
+
+  if (!item) return null;
+
+  const handleCopy = () => {
+    const text = item.description
+      ? `${item.title}\n\n${item.description}`
+      : item.title;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <Dialog open={!!item} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="pr-6 leading-snug">{item.title}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="secondary" className={`text-xs ${platformColors[item.platform] ?? 'bg-muted text-muted-foreground'}`}>
+              {item.platform}
+            </Badge>
+            <Badge variant="secondary" className={`text-xs ${statusColors[item.status] ?? ''}`}>
+              {item.status}
+            </Badge>
+            {item.client && (
+              <Badge variant="outline" className="text-xs">{item.client.name}</Badge>
+            )}
+          </div>
+
+          {item.description && (
+            <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+          )}
+
+          {item.category === 'Postado' && (item.posted_date || item.post_link) && (
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              {item.posted_date && (
+                <span>Postado em {format(new Date(item.posted_date + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}</span>
+              )}
+              {item.post_link && (
+                <a href={item.post_link} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+                  <ExternalLink className="w-3 h-3" /> Ver post
+                </a>
+              )}
+            </div>
+          )}
+
+          {item.image_urls?.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">
+              {item.image_urls.map((url, i) => (
+                <div key={i} className="aspect-square rounded-md overflow-hidden bg-black">
+                  <img src={url} alt={`Imagem ${i + 1}`} className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2 flex-wrap sm:flex-nowrap">
+          <Button variant="outline" onClick={handleCopy} className="flex-1 sm:flex-none">
+            {copied ? (
+              <><Check className="w-4 h-4 mr-2 text-success" /> Copiado!</>
+            ) : (
+              <><Copy className="w-4 h-4 mr-2" /> Copiar tema</>
+            )}
+          </Button>
+          <Button variant="outline" onClick={() => { onClose(); onEdit(item); }} className="flex-1 sm:flex-none">
+            <Pencil className="w-4 h-4 mr-2" /> Editar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Content Card ─────────────────────────────────────────────────────────────
 
 interface CardProps {
   item: ContentItem;
   onEdit: (item: ContentItem) => void;
   onPublish: (item: ContentItem) => void;
+  onOpen: (item: ContentItem) => void;
 }
 
-function ContentCard({ item, onEdit, onPublish }: CardProps) {
+function ContentCard({ item, onEdit, onPublish, onOpen }: CardProps) {
   const del = useDeleteContentItem();
   const move = useMoveContentItem();
   const update = useUpdateContentItem();
@@ -348,7 +430,10 @@ function ContentCard({ item, onEdit, onPublish }: CardProps) {
   const moveTarget: ContentCategory = item.category === 'Ideia' ? 'A Criar' : 'Postado';
 
   return (
-    <div className="border rounded-lg overflow-hidden bg-card hover:shadow-sm transition-shadow">
+    <div
+      className="border rounded-lg overflow-hidden bg-card hover:shadow-md transition-shadow cursor-pointer"
+      onClick={() => onOpen(item)}
+    >
       {/* Preview da primeira imagem */}
       {hasImages && (
         <div className="aspect-square bg-black relative overflow-hidden">
@@ -364,26 +449,28 @@ function ContentCard({ item, onEdit, onPublish }: CardProps) {
       <div className="p-3 space-y-2">
         <div className="flex items-start justify-between gap-2">
           <p className="font-medium text-sm leading-snug line-clamp-2">{item.title}</p>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 -mt-0.5">
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(item)}>
-                <Pencil className="w-4 h-4 mr-2" /> Editar
-              </DropdownMenuItem>
-              {canMoveForward && (
-                <DropdownMenuItem onClick={() => move.mutate({ id: item.id, category: moveTarget })}>
-                  <ArrowRight className="w-4 h-4 mr-2" /> {moveLabel}
+          <div onClick={e => e.stopPropagation()}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 -mt-0.5">
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onEdit(item)}>
+                  <Pencil className="w-4 h-4 mr-2" /> Editar
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuItem className="text-destructive" onClick={() => del.mutate(item.id)}>
-                <Trash2 className="w-4 h-4 mr-2" /> Excluir
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                {canMoveForward && (
+                  <DropdownMenuItem onClick={() => move.mutate({ id: item.id, category: moveTarget })}>
+                    <ArrowRight className="w-4 h-4 mr-2" /> {moveLabel}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem className="text-destructive" onClick={() => del.mutate(item.id)}>
+                  <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {item.description && !hasImages && (
@@ -664,9 +751,10 @@ interface TabPanelProps {
   onAdd: () => void;
   onEdit: (item: ContentItem) => void;
   onPublish: (item: ContentItem) => void;
+  onOpen: (item: ContentItem) => void;
 }
 
-function TabPanel({ category, onAdd, onEdit, onPublish }: TabPanelProps) {
+function TabPanel({ category, onAdd, onEdit, onPublish, onOpen }: TabPanelProps) {
   const { data: items = [], isLoading } = useContentItems(category);
 
   const filtered = items;
@@ -701,7 +789,7 @@ function TabPanel({ category, onAdd, onEdit, onPublish }: TabPanelProps) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {sorted.map(item => (
-            <ContentCard key={item.id} item={item} onEdit={onEdit} onPublish={onPublish} />
+            <ContentCard key={item.id} item={item} onEdit={onEdit} onPublish={onPublish} onOpen={onOpen} />
           ))}
         </div>
       )}
@@ -847,6 +935,7 @@ export default function ContentPage() {
   const [aiDialogOpen, setAIDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ContentItem | null>(null);
   const [publishing, setPublishing] = useState<ContentItem | null>(null);
+  const [viewing, setViewing] = useState<ContentItem | null>(null);
 
   const openEdit = (item: ContentItem) => { setEditing(item); setDialogOpen(true); };
   const closeDialog = () => { setDialogOpen(false); setEditing(null); };
@@ -875,10 +964,10 @@ export default function ContentPage() {
           </div>
 
           <TabsContent value="Ideia" className="mt-4">
-            <TabPanel category="Ideia" onAdd={() => setAIDialogOpen(true)} onEdit={openEdit} onPublish={setPublishing} />
+            <TabPanel category="Ideia" onAdd={() => setAIDialogOpen(true)} onEdit={openEdit} onPublish={setPublishing} onOpen={setViewing} />
           </TabsContent>
           <TabsContent value="Postado" className="mt-4">
-            <TabPanel category="Postado" onAdd={() => {}} onEdit={openEdit} onPublish={setPublishing} />
+            <TabPanel category="Postado" onAdd={() => {}} onEdit={openEdit} onPublish={setPublishing} onOpen={setViewing} />
           </TabsContent>
           <TabsContent value="calendar" className="mt-4">
             <CalendarView onEdit={openEdit} onPublish={setPublishing} />
@@ -887,6 +976,7 @@ export default function ContentPage() {
       </div>
 
       <AIIdeasDialog open={aiDialogOpen} onClose={() => setAIDialogOpen(false)} />
+      <ContentDetailModal item={viewing} onClose={() => setViewing(null)} onEdit={openEdit} />
       <ItemDialog open={dialogOpen} onClose={closeDialog} defaultCategory={tab === 'calendar' ? 'Ideia' : tab as ContentCategory} editing={editing} />
       <PublishDialog item={publishing} onClose={() => setPublishing(null)} />
     </MainLayout>
