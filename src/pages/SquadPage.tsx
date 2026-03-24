@@ -4,23 +4,39 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RefreshCw, ExternalLink, Wifi, WifiOff, Maximize2 } from 'lucide-react';
 
-const DASHBOARD_URL = 'http://localhost:5174';
+// Tenta essas portas em ordem até achar o dashboard rodando
+const CANDIDATE_PORTS = [5174, 5175, 5173, 5176, 5177];
 const PING_INTERVAL = 5000;
 
 type Status = 'checking' | 'online' | 'offline';
 
+async function findDashboard(): Promise<string | null> {
+  for (const port of CANDIDATE_PORTS) {
+    try {
+      await fetch(`http://localhost:${port}`, { mode: 'no-cors', cache: 'no-store' });
+      return `http://localhost:${port}`;
+    } catch {
+      // porta não respondeu, tenta a próxima
+    }
+  }
+  return null;
+}
+
 export default function SquadPage() {
   const [status, setStatus] = useState<Status>('checking');
-  const [fullscreen, setFullscreen] = useState(false);
+  const [dashboardUrl, setDashboardUrl] = useState<string>('http://localhost:5174');
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function ping() {
-    try {
-      const res = await fetch(DASHBOARD_URL, { mode: 'no-cors', cache: 'no-store' });
-      // no-cors sempre retorna opaque (tipo ""), mas sem lançar = está online
+    const url = await findDashboard();
+    if (url) {
+      if (url !== dashboardUrl) {
+        setDashboardUrl(url);
+        if (iframeRef.current) iframeRef.current.src = url;
+      }
       setStatus('online');
-    } catch {
+    } else {
       setStatus('offline');
     }
   }
@@ -31,9 +47,8 @@ export default function SquadPage() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
-  const reload = () => {
-    if (iframeRef.current) iframeRef.current.src = DASHBOARD_URL;
-  };
+  const [fullscreen, setFullscreen] = useState(false);
+  const reload = () => { if (iframeRef.current) iframeRef.current.src = dashboardUrl; };
 
   return (
     <MainLayout>
@@ -56,7 +71,9 @@ export default function SquadPage() {
                 <WifiOff className="w-3 h-3" /> Dashboard offline
               </Badge>
             )}
-            <span className="text-xs text-muted-foreground hidden sm:block">{DASHBOARD_URL}</span>
+            {status === 'online' && (
+              <span className="text-xs text-muted-foreground hidden sm:block">{dashboardUrl}</span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -66,7 +83,7 @@ export default function SquadPage() {
             <Button variant="outline" size="sm" onClick={() => setFullscreen(f => !f)}>
               <Maximize2 className="w-4 h-4 mr-1.5" /> {fullscreen ? 'Sair' : 'Tela cheia'}
             </Button>
-            <a href={DASHBOARD_URL} target="_blank" rel="noreferrer">
+            <a href={dashboardUrl} target="_blank" rel="noreferrer">
               <Button variant="outline" size="sm">
                 <ExternalLink className="w-4 h-4 mr-1.5" /> Abrir
               </Button>
@@ -103,7 +120,7 @@ export default function SquadPage() {
             )}
             <iframe
               ref={iframeRef}
-              src={DASHBOARD_URL}
+              src={dashboardUrl}
               className="w-full h-full border-0"
               title="Squad Dashboard"
               allow="*"
