@@ -18,6 +18,7 @@ import {
   useUpdateContentItem,
   useDeleteContentItem,
   useMoveContentItem,
+  useMarkContentUsed,
   usePublishToInstagram,
   type ContentItem,
   type ContentCategory,
@@ -422,18 +423,26 @@ function ContentCard({ item, onEdit, onPublish, onOpen }: CardProps) {
   const del = useDeleteContentItem();
   const move = useMoveContentItem();
   const update = useUpdateContentItem();
+  const markUsed = useMarkContentUsed();
 
   const hasImages = item.image_urls?.length > 0;
   const canPublish = item.status === 'Aprovado' && item.platform === 'Instagram' && hasImages;
-  const canMoveForward = item.category === 'Ideia' || item.category === 'A Criar';
-  const moveLabel = item.category === 'Ideia' ? 'Mover para A Criar' : 'Marcar como Postado';
-  const moveTarget: ContentCategory = item.category === 'Ideia' ? 'A Criar' : 'Postado';
+  const canMoveToPostado = item.category === 'A Criar';
 
   return (
     <div
-      className="border rounded-lg overflow-hidden bg-card hover:shadow-md transition-shadow cursor-pointer"
+      className={`border rounded-lg overflow-hidden bg-card transition-shadow cursor-pointer relative ${
+        item.is_used ? 'opacity-50 grayscale' : 'hover:shadow-md'
+      }`}
       onClick={() => onOpen(item)}
     >
+      {item.is_used && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+          <span className="bg-background/80 text-xs font-semibold text-muted-foreground px-3 py-1 rounded-full border border-border">
+            Já usado
+          </span>
+        </div>
+      )}
       {/* Preview da primeira imagem */}
       {hasImages && (
         <div className="aspect-square bg-black relative overflow-hidden">
@@ -460,11 +469,15 @@ function ContentCard({ item, onEdit, onPublish, onOpen }: CardProps) {
                 <DropdownMenuItem onClick={() => onEdit(item)}>
                   <Pencil className="w-4 h-4 mr-2" /> Editar
                 </DropdownMenuItem>
-                {canMoveForward && (
-                  <DropdownMenuItem onClick={() => move.mutate({ id: item.id, category: moveTarget })}>
-                    <ArrowRight className="w-4 h-4 mr-2" /> {moveLabel}
+                {canMoveToPostado && (
+                  <DropdownMenuItem onClick={() => move.mutate({ id: item.id, category: 'Postado' })}>
+                    <ArrowRight className="w-4 h-4 mr-2" /> Marcar como Postado
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem onClick={() => markUsed.mutate({ id: item.id, is_used: !item.is_used })}>
+                  <Check className="w-4 h-4 mr-2" />
+                  {item.is_used ? 'Desmarcar como usado' : 'Marcar como usado'}
+                </DropdownMenuItem>
                 <DropdownMenuItem className="text-destructive" onClick={() => del.mutate(item.id)}>
                   <Trash2 className="w-4 h-4 mr-2" /> Excluir
                 </DropdownMenuItem>

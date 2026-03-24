@@ -20,6 +20,7 @@ export interface ContentItem {
   image_urls: string[];
   run_id: string | null;
   tags: string[];
+  is_used: boolean;
   created_at: string;
   updated_at: string;
   client?: { id: string; name: string; company: string } | null;
@@ -178,6 +179,24 @@ export function usePublishToInstagram() {
       toast.success('Publicado no Instagram!');
     },
     onError: (e: Error) => toast.error(`Erro: ${e.message}`),
+  });
+}
+
+export function useMarkContentUsed() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, is_used }: { id: string; is_used: boolean }) => {
+      const { error } = await supabase
+        .from('content_items' as any)
+        .update({ is_used })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEY });
+      toast.success(vars.is_used ? 'Conteúdo marcado como usado!' : 'Marcação removida!');
+    },
+    onError: () => toast.error('Erro ao atualizar conteúdo'),
   });
 }
 
