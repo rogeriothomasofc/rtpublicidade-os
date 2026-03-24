@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RefreshCw, ExternalLink, Wifi, WifiOff, Maximize2 } from 'lucide-react';
 
-// Tenta essas portas em ordem até achar o dashboard rodando
 const CANDIDATE_PORTS = [5174, 5175, 5173, 5176, 5177];
 const PING_INTERVAL = 5000;
 
@@ -15,23 +14,24 @@ async function findDashboard(): Promise<string | null> {
     try {
       await fetch(`http://localhost:${port}`, { mode: 'no-cors', cache: 'no-store' });
       return `http://localhost:${port}`;
-    } catch {
-      // porta não respondeu, tenta a próxima
-    }
+    } catch { /* tenta próxima */ }
   }
   return null;
 }
 
 export default function SquadPage() {
   const [status, setStatus] = useState<Status>('checking');
-  const [dashboardUrl, setDashboardUrl] = useState<string>('http://localhost:5174');
+  const [dashboardUrl, setDashboardUrl] = useState('http://localhost:5174');
+  const [fullscreen, setFullscreen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // ref evita stale closure no setInterval
+  const currentUrlRef = useRef('http://localhost:5174');
 
-  async function ping() {
+  const ping = useCallback(async () => {
     const url = await findDashboard();
     if (url) {
-      if (url !== dashboardUrl) {
+      if (url !== currentUrlRef.current) {
+        currentUrlRef.current = url;
         setDashboardUrl(url);
         if (iframeRef.current) iframeRef.current.src = url;
       }
@@ -39,21 +39,25 @@ export default function SquadPage() {
     } else {
       setStatus('offline');
     }
-  }
+  }, []);
 
   useEffect(() => {
     ping();
-    intervalRef.current = setInterval(ping, PING_INTERVAL);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, []);
+    const id = setInterval(ping, PING_INTERVAL);
+    return () => clearInterval(id);
+  }, [ping]);
 
-  const [fullscreen, setFullscreen] = useState(false);
-  const reload = () => { if (iframeRef.current) iframeRef.current.src = dashboardUrl; };
+  const reload = () => {
+    if (iframeRef.current) {
+      iframeRef.current.src = '';
+      setTimeout(() => { if (iframeRef.current) iframeRef.current.src = currentUrlRef.current; }, 50);
+    }
+  };
 
   return (
     <MainLayout>
       <div className="flex flex-col gap-3 h-[calc(100vh-8rem)]">
-        {/* Barra de controle */}
+        {/* Barra */}
         <div className="flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2">
             {status === 'checking' && (
@@ -97,9 +101,7 @@ export default function SquadPage() {
             <WifiOff className="w-12 h-12 text-muted-foreground opacity-40" />
             <div className="text-center space-y-1">
               <p className="font-medium">Dashboard do Squad offline</p>
-              <p className="text-sm text-muted-foreground">
-                Inicie o dashboard para visualizar os agentes trabalhando.
-              </p>
+              <p className="text-sm text-muted-foreground">Inicie o dashboard para visualizar os agentes trabalhando.</p>
             </div>
             <div className="bg-muted rounded-md px-4 py-2 text-xs font-mono text-muted-foreground">
               cd opensquad-master/dashboard && npm run dev
