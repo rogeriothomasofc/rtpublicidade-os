@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, MoreHorizontal, Trash2, Pencil, ArrowRight, ExternalLink, Lightbulb, Clapperboard, CheckCircle2, Send, ChevronLeft, ChevronRight, Images, CalendarDays } from 'lucide-react';
+import { Plus, MoreHorizontal, Trash2, Pencil, ArrowRight, ExternalLink, Lightbulb, Clapperboard, CheckCircle2, Send, ChevronLeft, ChevronRight, Images, CalendarDays, Sparkles, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -28,6 +28,8 @@ import {
   isSameDay, addMonths, subMonths, isToday, parseISO,
 } from 'date-fns';
 import { useClients } from '@/hooks/useClients';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const PLATFORMS: ContentPlatform[] = ['Instagram', 'Facebook', 'TikTok', 'YouTube', 'LinkedIn', 'Twitter', 'Outro'];
 const STATUSES = ['Briefing', 'Em Produção', 'Revisão', 'Aprovado', 'Postado'] as const;
@@ -453,6 +455,180 @@ function ContentCard({ item, onEdit, onPublish }: CardProps) {
   );
 }
 
+// ─── AI Ideas Dialog ──────────────────────────────────────────────────────────
+
+interface GeneratedIdea {
+  title: string;
+  description: string;
+  platform: string;
+}
+
+function AIIdeasDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [platform, setPlatform] = useState('Instagram');
+  const [context, setContext] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [ideas, setIdeas] = useState<GeneratedIdea[]>([]);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [saving, setSaving] = useState(false);
+  const create = useCreateContentItem();
+
+  const handleGenerate = async () => {
+    setLoading(true);
+    setIdeas([]);
+    setSelected(new Set());
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke('generate-content-ideas', {
+        body: { platform, context },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (res.error) throw res.error;
+      setIdeas(res.data?.ideas ?? []);
+      setSelected(new Set((res.data?.ideas ?? []).map((_: any, i: number) => i)));
+    } catch (e) {
+      toast.error('Erro ao gerar ideias. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleIdea = (i: number) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(i) ? next.delete(i) : next.add(i);
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
+    const toSave = ideas.filter((_, i) => selected.has(i));
+    if (toSave.length === 0) return;
+    setSaving(true);
+    try {
+      await Promise.all(toSave.map(idea =>
+        create.mutateAsync({
+          title: idea.title,
+          description: idea.description,
+          category: 'Ideia',
+          platform: idea.platform as any,
+          client_id: null,
+          status: 'Briefing',
+          scheduled_date: null,
+          posted_date: null,
+          post_link: null,
+        })
+      ));
+      toast.success(`${toSave.length} ideia(s) salva(s) com sucesso!`);
+      onClose();
+    } catch {
+      toast.error('Erro ao salvar ideias.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleClose = () => {
+    setIdeas([]);
+    setContext('');
+    setSelected(new Set());
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={v => !v && handleClose()}>
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            Gerar ideias de conteúdo com IA
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Plataforma</Label>
+              <Select value={platform} onValueChange={setPlatform}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PLATFORMS.filter(p => p !== 'Outro').map(p => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Contexto <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+              <Input
+                value={context}
+                onChange={e => setContext(e.target.value)}
+                placeholder="Ex: foco em e-commerce..."
+              />
+            </div>
+          </div>
+
+          <Button onClick={handleGenerate} disabled={loading} className="w-full">
+            {loading ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Gerando ideias...</>
+            ) : (
+              <><Sparkles className="w-4 h-4 mr-2" /> Gerar ideias</>
+            )}
+          </Button>
+
+          {ideas.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">{ideas.length} ideias geradas</p>
+                <button
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setSelected(selected.size === ideas.length ? new Set() : new Set(ideas.map((_, i) => i)))}
+                >
+                  {selected.size === ideas.length ? 'Desmarcar todas' : 'Selecionar todas'}
+                </button>
+              </div>
+              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                {ideas.map((idea, i) => (
+                  <div
+                    key={i}
+                    onClick={() => toggleIdea(i)}
+                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                      selected.has(i) ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className={`w-4 h-4 rounded border mt-0.5 shrink-0 flex items-center justify-center ${
+                        selected.has(i) ? 'bg-primary border-primary' : 'border-muted-foreground'
+                      }`}>
+                        {selected.has(i) && <CheckCircle2 className="w-3 h-3 text-primary-foreground" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">{idea.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{idea.description}</p>
+                        <Badge variant="secondary" className={`text-xs mt-1 ${platformColors[idea.platform] ?? 'bg-muted text-muted-foreground'}`}>
+                          {idea.platform}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {ideas.length > 0 && (
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={handleClose}>Cancelar</Button>
+            <Button onClick={handleSave} disabled={saving || selected.size === 0}>
+              {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...</> : `Salvar ${selected.size} ideia(s)`}
+            </Button>
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Tab Panel ────────────────────────────────────────────────────────────────
 
 interface TabPanelProps {
@@ -640,40 +816,41 @@ function CalendarView({ onEdit, onPublish }: { onEdit: (i: ContentItem) => void;
 export default function ContentPage() {
   const [tab, setTab] = useState<ContentCategory | 'calendar'>('Ideia');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [aiDialogOpen, setAIDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ContentItem | null>(null);
   const [publishing, setPublishing] = useState<ContentItem | null>(null);
 
-  const openNew = () => { setEditing(null); setDialogOpen(true); };
   const openEdit = (item: ContentItem) => { setEditing(item); setDialogOpen(true); };
   const closeDialog = () => { setDialogOpen(false); setEditing(null); };
 
   return (
     <MainLayout>
       <div className="space-y-5">
-        <div className="flex justify-end">
-          <Button onClick={openNew} className="w-full sm:w-auto shrink-0">
-            <Plus className="w-4 h-4 mr-2" /> Novo conteúdo
-          </Button>
-        </div>
-
         <Tabs value={tab} onValueChange={v => setTab(v as ContentCategory | 'calendar')}>
-          <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="Ideia" className="flex items-center gap-1.5 flex-1 sm:flex-none">
-              <Lightbulb className="w-4 h-4" /> Ideias
-            </TabsTrigger>
-            <TabsTrigger value="Postado" className="flex items-center gap-1.5 flex-1 sm:flex-none">
-              <CheckCircle2 className="w-4 h-4" /> Postados
-            </TabsTrigger>
-            <TabsTrigger value="calendar" className="flex items-center gap-1.5 flex-1 sm:flex-none">
-              <CalendarDays className="w-4 h-4" /> Calendário
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between gap-3">
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="Ideia" className="flex items-center gap-1.5 flex-1 sm:flex-none">
+                <Lightbulb className="w-4 h-4" /> Ideias
+              </TabsTrigger>
+              <TabsTrigger value="Postado" className="flex items-center gap-1.5 flex-1 sm:flex-none">
+                <CheckCircle2 className="w-4 h-4" /> Postados
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className="flex items-center gap-1.5 flex-1 sm:flex-none">
+                <CalendarDays className="w-4 h-4" /> Calendário
+              </TabsTrigger>
+            </TabsList>
+            {tab === 'Ideia' && (
+              <Button onClick={() => setAIDialogOpen(true)} className="shrink-0">
+                <Sparkles className="w-4 h-4 mr-2" /> Gerar ideias com IA
+              </Button>
+            )}
+          </div>
 
           <TabsContent value="Ideia" className="mt-4">
-            <TabPanel category="Ideia" onAdd={openNew} onEdit={openEdit} onPublish={setPublishing} />
+            <TabPanel category="Ideia" onAdd={() => setAIDialogOpen(true)} onEdit={openEdit} onPublish={setPublishing} />
           </TabsContent>
           <TabsContent value="Postado" className="mt-4">
-            <TabPanel category="Postado" onAdd={openNew} onEdit={openEdit} onPublish={setPublishing} />
+            <TabPanel category="Postado" onAdd={() => {}} onEdit={openEdit} onPublish={setPublishing} />
           </TabsContent>
           <TabsContent value="calendar" className="mt-4">
             <CalendarView onEdit={openEdit} onPublish={setPublishing} />
@@ -681,6 +858,7 @@ export default function ContentPage() {
         </Tabs>
       </div>
 
+      <AIIdeasDialog open={aiDialogOpen} onClose={() => setAIDialogOpen(false)} />
       <ItemDialog open={dialogOpen} onClose={closeDialog} defaultCategory={tab === 'calendar' ? 'Ideia' : tab as ContentCategory} editing={editing} />
       <PublishDialog item={publishing} onClose={() => setPublishing(null)} />
     </MainLayout>
