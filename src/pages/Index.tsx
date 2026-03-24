@@ -5,10 +5,11 @@ import { DashboardSummaryAI } from '@/components/dashboard/DashboardSummaryAI';
 import { GoalsProgressCard } from '@/components/dashboard/GoalsProgressCard';
 import { PipelineFunnelCard } from '@/components/dashboard/PipelineFunnelCard';
 import { ExpiringContractsCard } from '@/components/dashboard/ExpiringContractsCard';
+import { TaskWorkloadBar } from '@/components/dashboard/TaskWorkloadBar';
 import { useDashboardFilters, PeriodPreset } from '@/hooks/useDashboardFilters';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useContracts } from '@/hooks/useContracts';
-import { Users, CheckSquare, AlertTriangle, DollarSign, TrendingUp, Trophy, FileWarning, Repeat, Rocket } from 'lucide-react';
+import { Users, DollarSign, TrendingUp, Trophy, FileWarning, Repeat, Rocket, Flame } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -112,117 +113,139 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* AI Summary */}
-        <DashboardSummaryAI stats={stats} isLoading={isLoading} />
-
         {/* Empty state */}
-        {isEmpty && <EmptyState />}
-
-        {/* Métricas — grid unificado */}
-        {!isEmpty && (
-          <div className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-4">
-            <MetricCard
-              title="Clientes Ativos"
-              value={stats?.activeClients || 0}
-              icon={Users}
-              variant="primary"
-            />
-            <MetricCard
-              title="MRR (Mensal)"
-              value={formatCurrency(mrr)}
-              icon={Repeat}
-              variant="primary"
-            />
-            <MetricCard
-              title="Receita no Período"
-              value={formatCurrency(stats?.revenueInPeriod || 0)}
-              icon={DollarSign}
-              variant="primary"
-            />
-            <MetricCard
-              title="Leads Ganhos"
-              value={stats?.leadsWon || 0}
-              icon={Trophy}
-              variant="success"
-            />
-            <MetricCard
-              title="Faturas Vencidas"
-              value={formatCurrency(stats?.overdueInvoicesAmount || 0)}
-              icon={FileWarning}
-              variant={(stats?.overdueInvoicesAmount || 0) > 0 ? 'destructive' : 'success'}
-            />
-            <MetricCard
-              title="Pipeline Ativo"
-              value={formatCurrency(stats?.pipelineValue || 0)}
-              icon={TrendingUp}
-              variant="primary"
-            />
-            <MetricCard
-              title="Leads Quentes"
-              value={stats?.hotLeads || 0}
-              description="Em Proposal"
-              icon={CheckSquare}
-              variant={(stats?.hotLeads || 0) > 0 ? 'warning' : 'success'}
-            />
-            <MetricCard
-              title="Faturas Pendentes"
-              value={stats?.pendingInvoices || 0}
-              icon={DollarSign}
-              variant={(stats?.pendingInvoices || 0) > 0 ? 'warning' : 'success'}
-            />
-          </div>
+        {isEmpty && (
+          <>
+            <DashboardSummaryAI stats={stats} isLoading={isLoading} />
+            <EmptyState />
+          </>
         )}
 
-        {/* Gráficos + Metas */}
-        <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-2">
-          <RevenueExpenseChart data={stats?.monthlyFinance || []} />
-          <GoalsProgressCard />
-        </div>
+        {!isEmpty && (
+          <>
+            {/* Linha 1: IA + 4 KPIs principais */}
+            <div className="grid gap-4 md:gap-5 grid-cols-1 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <DashboardSummaryAI stats={stats} isLoading={isLoading} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <MetricCard
+                  title="MRR"
+                  value={formatCurrency(mrr)}
+                  icon={Repeat}
+                  variant="primary"
+                />
+                <MetricCard
+                  title="Receita"
+                  value={formatCurrency(stats?.revenueInPeriod || 0)}
+                  icon={DollarSign}
+                  variant="primary"
+                />
+                <MetricCard
+                  title="Pipeline"
+                  value={formatCurrency(stats?.pipelineValue || 0)}
+                  icon={TrendingUp}
+                  variant="primary"
+                />
+                <MetricCard
+                  title="Clientes"
+                  value={stats?.activeClients || 0}
+                  icon={Users}
+                  variant="primary"
+                />
+              </div>
+            </div>
 
-        {/* Tarefas + Equipe */}
-        <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-2">
-          <Card className="border-border/50">
-            <CardHeader className="p-4 md:p-6 pb-2 md:pb-2">
-              <CardTitle className="text-base md:text-lg">Tarefas do Dia & Atrasadas</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 md:p-6 pt-2 md:pt-0">
-              {stats?.recentTasks && stats.recentTasks.length > 0 ? (
-                <div className="space-y-2 md:space-y-3">
-                  {stats.recentTasks.map((task: any) => {
-                    const isOverdue = task.is_overdue || task.status === 'Atrasado';
-                    return (
-                      <div key={task.id} className="flex items-center justify-between gap-2 p-2.5 md:p-3 bg-secondary/50 rounded-lg">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs md:text-sm font-medium truncate">{task.title}</p>
-                          <p className="text-[10px] md:text-xs text-muted-foreground">
-                            {isOverdue ? '⚠️ Atrasada' : '📅 Hoje'}
-                            {task.due_date && ` · ${new Date(task.due_date).toLocaleDateString('pt-BR')}`}
-                          </p>
+            {/* Linha 2: Barra de workload */}
+            {stats?.tasksByStatus && stats.tasksByStatus.length > 0 && (
+              <TaskWorkloadBar tasksByStatus={stats.tasksByStatus} />
+            )}
+
+            {/* Linha 3: Métricas de alerta */}
+            <div className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-4">
+              <MetricCard
+                title="Leads Ganhos"
+                value={stats?.leadsWon || 0}
+                icon={Trophy}
+                variant="success"
+              />
+              <MetricCard
+                title="Leads Quentes"
+                value={stats?.hotLeads || 0}
+                description="Em Proposal"
+                icon={Flame}
+                variant={(stats?.hotLeads || 0) > 0 ? 'warning' : 'success'}
+              />
+              <MetricCard
+                title="Faturas Vencidas"
+                value={formatCurrency(stats?.overdueInvoicesAmount || 0)}
+                icon={FileWarning}
+                variant={(stats?.overdueInvoicesAmount || 0) > 0 ? 'destructive' : 'success'}
+              />
+              <MetricCard
+                title="Faturas Pendentes"
+                value={stats?.pendingInvoices || 0}
+                icon={DollarSign}
+                variant={(stats?.pendingInvoices || 0) > 0 ? 'warning' : 'success'}
+              />
+            </div>
+
+            {/* Linha 4: Gráficos */}
+            <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-2">
+              <RevenueExpenseChart data={stats?.monthlyFinance || []} />
+              <PipelineFunnelCard />
+            </div>
+
+            {/* Linha 5: Tarefas atrasadas (tabela expandida) */}
+            <Card className="border-border/50">
+              <CardHeader className="p-4 md:p-5 pb-2">
+                <CardTitle className="text-base md:text-lg">Tarefas do Dia & Atrasadas</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 md:p-5 pt-2">
+                {stats?.recentTasks && stats.recentTasks.length > 0 ? (
+                  <div className="divide-y divide-border/50">
+                    {stats.recentTasks.map((task: any) => {
+                      const isOverdue = task.is_overdue || task.status === 'Atrasado';
+                      return (
+                        <div key={task.id} className="flex items-center justify-between gap-3 py-2.5">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className={cn(
+                              'w-1.5 h-1.5 rounded-full shrink-0',
+                              isOverdue ? 'bg-destructive' : 'bg-primary'
+                            )} />
+                            <p className="text-sm font-medium truncate">{task.title}</p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {task.due_date && (
+                              <span className="text-xs text-muted-foreground hidden sm:block">
+                                {new Date(task.due_date).toLocaleDateString('pt-BR')}
+                              </span>
+                            )}
+                            <Badge
+                              variant={isOverdue || task.priority === 'Alta' || task.priority === 'Urgente' ? 'destructive' : 'secondary'}
+                              className="text-[10px] md:text-xs"
+                            >
+                              {isOverdue ? 'Atrasada' : task.priority}
+                            </Badge>
+                          </div>
                         </div>
-                        <Badge
-                          variant={isOverdue || task.priority === 'Alta' || task.priority === 'Urgente' ? 'destructive' : 'secondary'}
-                          className="text-[10px] md:text-xs shrink-0"
-                        >
-                          {isOverdue ? 'Atrasada' : task.priority}
-                        </Badge>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">Nenhuma tarefa para hoje 🎉</p>
-              )}
-            </CardContent>
-          </Card>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-6">Nenhuma tarefa para hoje</p>
+                )}
+              </CardContent>
+            </Card>
 
-          <TeamAccessCard />
-        </div>
-
-        {/* Pipeline + Contratos */}
-        <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-2">
-          <PipelineFunnelCard />
-          <ExpiringContractsCard />
-        </div>
+            {/* Linha 6: Metas + Contratos + Equipe */}
+            <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-3">
+              <GoalsProgressCard />
+              <ExpiringContractsCard />
+              <TeamAccessCard />
+            </div>
+          </>
+        )}
 
       </div>
     </MainLayout>
