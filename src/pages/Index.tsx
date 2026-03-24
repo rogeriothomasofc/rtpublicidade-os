@@ -140,18 +140,21 @@ export default function Dashboard() {
                   value={formatCurrency(stats?.revenueInPeriod || 0)}
                   icon={DollarSign}
                   variant="primary"
+                  trend={stats?.trends?.revenueInPeriod}
                 />
                 <MetricCard
                   title="Pipeline"
                   value={formatCurrency(stats?.pipelineValue || 0)}
                   icon={TrendingUp}
                   variant="primary"
+                  trend={stats?.trends?.pipelineValue}
                 />
                 <MetricCard
                   title="Clientes"
                   value={stats?.activeClients || 0}
                   icon={Users}
                   variant="primary"
+                  trend={stats?.trends?.activeClients}
                 />
               </div>
             </div>
@@ -168,6 +171,7 @@ export default function Dashboard() {
                 value={stats?.leadsWon || 0}
                 icon={Trophy}
                 variant="success"
+                trend={stats?.trends?.leadsWon}
               />
               <MetricCard
                 title="Leads Quentes"
@@ -175,18 +179,21 @@ export default function Dashboard() {
                 description="Em Proposal"
                 icon={Flame}
                 variant={(stats?.hotLeads || 0) > 0 ? 'warning' : 'success'}
+                trend={stats?.trends?.hotLeads}
               />
               <MetricCard
                 title="Faturas Vencidas"
                 value={formatCurrency(stats?.overdueInvoicesAmount || 0)}
                 icon={FileWarning}
                 variant={(stats?.overdueInvoicesAmount || 0) > 0 ? 'destructive' : 'success'}
+                trend={stats?.trends?.overdueInvoicesAmount}
               />
               <MetricCard
                 title="Faturas Pendentes"
                 value={stats?.pendingInvoices || 0}
                 icon={DollarSign}
                 variant={(stats?.pendingInvoices || 0) > 0 ? 'warning' : 'success'}
+                trend={stats?.trends?.pendingInvoices}
               />
             </div>
 
