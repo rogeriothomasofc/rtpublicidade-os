@@ -27,6 +27,8 @@ import {
   startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth,
   isSameDay, addMonths, subMonths, isToday, parseISO,
 } from 'date-fns';
+import { useClients } from '@/hooks/useClients';
+
 const PLATFORMS: ContentPlatform[] = ['Instagram', 'Facebook', 'TikTok', 'YouTube', 'LinkedIn', 'Twitter', 'Outro'];
 const STATUSES = ['Briefing', 'Em Produção', 'Revisão', 'Aprovado', 'Postado'] as const;
 
