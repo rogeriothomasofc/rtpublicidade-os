@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { TaskStatusInline } from './TaskStatusInline';
 import { TaskAssigneeSelector } from './TaskAssigneeSelector';
 import { TaskRowSubtasks } from './TaskRowSubtasks';
-import { Edit, Check, ArrowUpDown, ArrowUp, ArrowDown, Repeat, ListChecks, ChevronRight, Trash2, CheckSquare } from 'lucide-react';
+import { Edit, Check, ArrowUpDown, ArrowUp, ArrowDown, Repeat, ListChecks, Trash2, CheckSquare } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { format, parseISO, isBefore, startOfDay } from 'date-fns';
@@ -245,14 +245,6 @@ export function TaskTable({ tasks, isLoading, teamMembers, onStatusChange, onAss
                     <TableCell className="font-medium">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                          {hasSubtasks && (
-                            <ChevronRight 
-                              className={cn(
-                                "h-4 w-4 text-muted-foreground transition-transform shrink-0",
-                                isExpanded && "rotate-90"
-                              )} 
-                            />
-                          )}
                           <span className={cn(overdue && 'text-destructive')}>
                             {task.title}
                           </span>
