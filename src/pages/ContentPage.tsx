@@ -739,10 +739,11 @@ function AIIdeasDialog({ open, onClose }: { open: boolean; onClose: () => void }
                           </Badge>
                           {(idea.best_day || idea.best_time) && (
                             <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              🕐 {[idea.best_day, idea.best_time].filter(Boolean).join(' · ')}
+                              {[idea.best_day, idea.best_time].filter(Boolean).join(' · ')}
                             </span>
                           )}
                         </div>
+                      </div>
                     </div>
                   </div>
                 ))}
