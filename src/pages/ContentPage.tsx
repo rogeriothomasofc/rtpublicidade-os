@@ -516,9 +516,9 @@ function ContentCard({ item, onEdit, onPublish, onOpen }: CardProps) {
           {item.client && <span className="text-xs text-muted-foreground truncate">{item.client.name}</span>}
         </div>
 
-        {(item.best_day || item.best_time) && (
+        {(item.scheduled_date || item.best_time) && item.category === 'Ideia' && (
           <p className="text-xs text-muted-foreground">
-            {[item.best_day, item.best_time].filter(Boolean).join(' · ')}
+            {[item.scheduled_date ? format(new Date(item.scheduled_date + 'T00:00:00'), 'dd/MM', { locale: ptBR }) : null, item.best_time].filter(Boolean).join(' · ')}
           </p>
         )}
 
@@ -957,9 +957,6 @@ function CalendarView({ onEdit, onPublish }: { onEdit: (i: ContentItem) => void;
       <div className="flex gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <span className="w-2.5 h-2.5 rounded-sm bg-purple-500/40 inline-block" /> Ideia (sugerido pela IA)
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-sm bg-blue-500/40 inline-block" /> A Criar (previsto)
         </span>
         <span className="flex items-center gap-1">
           <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/40 inline-block" /> Postado
