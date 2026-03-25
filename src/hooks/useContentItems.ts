@@ -21,6 +21,8 @@ export interface ContentItem {
   run_id: string | null;
   tags: string[];
   is_used: boolean;
+  best_day: string | null;
+  best_time: string | null;
   created_at: string;
   updated_at: string;
   client?: { id: string; name: string; company: string } | null;
@@ -37,6 +39,8 @@ export interface CreateContentItem {
   posted_date?: string | null;
   post_link?: string | null;
   tags?: string[];
+  best_day?: string | null;
+  best_time?: string | null;
 }
 
 const QUERY_KEY = ['content_items'];

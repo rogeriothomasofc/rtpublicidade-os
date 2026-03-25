@@ -497,6 +497,12 @@ function ContentCard({ item, onEdit, onPublish, onOpen }: CardProps) {
           {item.client && <span className="text-xs text-muted-foreground truncate">{item.client.name}</span>}
         </div>
 
+        {(item.best_day || item.best_time) && (
+          <p className="text-xs text-muted-foreground">
+            {[item.best_day, item.best_time].filter(Boolean).join(' · ')}
+          </p>
+        )}
+
         {item.category === 'A Criar' && (
           <div className="flex items-center justify-between gap-2">
             <Select value={item.status} onValueChange={v => {
@@ -631,6 +637,8 @@ function AIIdeasDialog({ open, onClose }: { open: boolean; onClose: () => void }
           scheduled_date: null,
           posted_date: null,
           post_link: null,
+          best_day: idea.best_day ?? null,
+          best_time: idea.best_time ?? null,
         })
       ));
       toast.success(`${toSave.length} ideia(s) salva(s) com sucesso!`);
