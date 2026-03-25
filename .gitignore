@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# N8N — arquivo com chaves secretas
+n8n/n8n-variaveis-secretas.txt
+
 # Logs
 logs
 *.log

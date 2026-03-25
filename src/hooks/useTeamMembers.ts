@@ -9,6 +9,7 @@ export interface TeamMember {
   role: string | null;
   avatar_url: string | null;
   is_active: boolean;
+  whatsapp_number: string | null;
   created_at: string;
   updated_at: string;
 }

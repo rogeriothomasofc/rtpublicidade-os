@@ -119,6 +119,7 @@ export default function TeamPage() {
     email: '',
     role: '',
     avatar_url: '',
+    whatsapp_number: '',
   });
 
   const [tempPassword, setTempPassword] = useState('');
@@ -128,7 +129,7 @@ export default function TeamPage() {
   );
 
   const resetForm = () => {
-    setFormData({ name: '', email: '', role: '', avatar_url: '' });
+    setFormData({ name: '', email: '', role: '', avatar_url: '', whatsapp_number: '' });
     setTempPassword('');
     setAccessLevel('Analista');
     setSelectedPermissions(PERMISSION_PAGES.map((p) => p.slug));
@@ -145,6 +146,7 @@ export default function TeamPage() {
       email: member.email || '',
       role: member.role || '',
       avatar_url: member.avatar_url || '',
+      whatsapp_number: member.whatsapp_number || '',
     });
     const validLevels = ['Gestor', 'Analista', 'Designer'] as const;
     const level = validLevels.find((l) => l === member.role) ?? 'Analista';
@@ -170,6 +172,7 @@ export default function TeamPage() {
         role: accessLevel,
         avatar_url: formData.avatar_url || null,
         is_active: true,
+        whatsapp_number: formData.whatsapp_number.replace(/\D/g, '') || null,
       });
 
       // Save permissions
@@ -223,6 +226,7 @@ export default function TeamPage() {
       email: formData.email || null,
       role: accessLevel,
       avatar_url: formData.avatar_url || null,
+      whatsapp_number: formData.whatsapp_number.replace(/\D/g, '') || null,
     });
     // Save updated permissions
     const permErr = await saveMemberPermissions(editingMember.id, selectedPermissions);
@@ -316,6 +320,15 @@ export default function TeamPage() {
                       placeholder="email@exemplo.com"
                     />
                     <p className="text-xs text-muted-foreground mt-1">Se informado, o acesso ao sistema será criado e o convite enviado automaticamente.</p>
+                  </div>
+                  <div>
+                    <Label>WhatsApp</Label>
+                    <Input
+                      value={formData.whatsapp_number}
+                      onChange={(e) => setFormData({ ...formData, whatsapp_number: e.target.value })}
+                      placeholder="5511999999999"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Usado para identificar o membro ao criar tarefas via WhatsApp.</p>
                   </div>
                   <div className="space-y-2">
                     <Label>Nível de acesso</Label>
@@ -482,6 +495,15 @@ export default function TeamPage() {
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="email@exemplo.com"
                   />
+                </div>
+                <div>
+                  <Label>WhatsApp</Label>
+                  <Input
+                    value={formData.whatsapp_number}
+                    onChange={(e) => setFormData({ ...formData, whatsapp_number: e.target.value })}
+                    placeholder="5511999999999"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Usado para identificar o membro ao criar tarefas via WhatsApp.</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Nível de acesso</Label>
