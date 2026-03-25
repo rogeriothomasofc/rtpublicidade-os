@@ -33,6 +33,25 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const PLATFORMS: ContentPlatform[] = ['Instagram', 'Facebook', 'TikTok', 'YouTube', 'LinkedIn', 'Twitter', 'Outro'];
+
+const PT_WEEKDAYS: Record<string, number> = {
+  'domingo': 0, 'segunda': 1, 'segunda-feira': 1,
+  'terça': 2, 'terça-feira': 2, 'terca': 2, 'terca-feira': 2,
+  'quarta': 3, 'quarta-feira': 3,
+  'quinta': 4, 'quinta-feira': 4,
+  'sexta': 5, 'sexta-feira': 5,
+  'sábado': 6, 'sabado': 6,
+};
+
+function nextWeekdayDate(dayName: string): string | null {
+  const target = PT_WEEKDAYS[dayName.toLowerCase().trim()];
+  if (target === undefined) return null;
+  const today = new Date();
+  const diff = (target - today.getDay() + 7) % 7 || 7;
+  const next = new Date(today);
+  next.setDate(today.getDate() + diff);
+  return next.toISOString().split('T')[0];
+}
 const STATUSES = ['Briefing', 'Em Produção', 'Revisão', 'Aprovado', 'Postado'] as const;
 
 const statusColors: Record<string, string> = {
@@ -634,7 +653,7 @@ function AIIdeasDialog({ open, onClose }: { open: boolean; onClose: () => void }
           platform: idea.platform as any,
           client_id: null,
           status: 'Briefing',
-          scheduled_date: null,
+          scheduled_date: idea.best_day ? nextWeekdayDate(idea.best_day) : null,
           posted_date: null,
           post_link: null,
           best_day: idea.best_day ?? null,
@@ -834,9 +853,10 @@ function CalendarView({ onEdit, onPublish }: { onEdit: (i: ContentItem) => void;
   const [current, setCurrent] = useState(new Date());
   const [selected, setSelected] = useState<Date | null>(null);
 
+  const { data: ideias = [] } = useContentItems('Ideia');
   const { data: aCriar = [] } = useContentItems('A Criar');
   const { data: postados = [] } = useContentItems('Postado');
-  const allItems = [...aCriar, ...postados];
+  const allItems = [...ideias, ...aCriar, ...postados];
 
   const monthStart = startOfMonth(current);
   const monthEnd   = endOfMonth(current);
@@ -852,6 +872,12 @@ function CalendarView({ onEdit, onPublish }: { onEdit: (i: ContentItem) => void;
       return isSameDay(parseISO(dateStr), day);
     });
   }
+
+  const categoryDot: Record<string, string> = {
+    Ideia: 'bg-purple-500',
+    'A Criar': 'bg-blue-500',
+    Postado: 'bg-emerald-500',
+  };
 
   const selectedItems = selected ? itemsForDay(selected) : [];
 
@@ -910,6 +936,8 @@ function CalendarView({ onEdit, onPublish }: { onEdit: (i: ContentItem) => void;
                       className={`text-[10px] leading-tight px-1 py-0.5 rounded truncate
                         ${item.category === 'Postado'
                           ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                          : item.category === 'Ideia'
+                          ? 'bg-purple-500/20 text-purple-700 dark:text-purple-400'
                           : 'bg-blue-500/20 text-blue-700 dark:text-blue-400'}`}
                     >
                       {item.title}
@@ -927,6 +955,9 @@ function CalendarView({ onEdit, onPublish }: { onEdit: (i: ContentItem) => void;
 
       {/* Legenda */}
       <div className="flex gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-sm bg-purple-500/40 inline-block" /> Ideia (sugerido pela IA)
+        </span>
         <span className="flex items-center gap-1">
           <span className="w-2.5 h-2.5 rounded-sm bg-blue-500/40 inline-block" /> A Criar (previsto)
         </span>
