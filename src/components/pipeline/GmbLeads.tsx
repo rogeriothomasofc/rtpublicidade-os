@@ -3,11 +3,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   MapPin, Phone, Globe, Star, Trash2, MessageCircle,
-  Search, Loader2, Users, ChevronDown, ChevronUp, Copy,
-  Building2, Briefcase,
+  Search, Loader2, Users, Copy, Building2, Briefcase,
+  ExternalLink, ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -17,19 +18,16 @@ import {
 } from '@/hooks/useGmbLeads';
 
 const STATUS_LABELS: Record<GmbLeadStatus, string> = {
-  'Novo': 'Novo',
-  'Contatado': 'Contatado',
-  'Respondeu': 'Respondeu',
-  'Reunião Marcada': 'Reunião',
-  'Proposta Enviada': 'Proposta',
-  'Ganho': 'Ganho',
-  'Perdido': 'Perdido',
+  'Novo': 'Novo', 'Contatado': 'Contatado', 'Respondeu': 'Respondeu',
+  'Reunião Marcada': 'Reunião', 'Proposta Enviada': 'Proposta',
+  'Ganho': 'Ganho', 'Perdido': 'Perdido',
 };
 
+// ─── Evolution API ─────────────────────────────────────────────────────────────
+
 function formatWhatsAppNumber(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.startsWith('55')) return digits;
-  return `55${digits}`;
+  const digits = phone.replace('@s.whatsapp.net', '').replace(/\D/g, '');
+  return digits.startsWith('55') ? digits : `55${digits}`;
 }
 
 async function sendViaEvolution(number: string, text: string): Promise<void> {
@@ -41,46 +39,198 @@ async function sendViaEvolution(number: string, text: string): Promise<void> {
     headers: { apikey: apiKey, 'Content-Type': 'application/json' },
     body: JSON.stringify({ number, text, delay: 1200 }),
   });
-  if (!res.ok) throw new Error(`Evolution API error: ${res.status}`);
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err);
+  }
 }
 
-// ─── Card do lead ─────────────────────────────────────────────────────────────
+// ─── Gerar mensagem de prospecção ─────────────────────────────────────────────
 
-function GmbLeadCard({ lead }: { lead: GmbLead }) {
-  const [expanded, setExpanded] = useState(false);
+function buildProspectingMessage(lead: GmbLead): string {
+  const rating = lead.rating ? `⭐ ${lead.rating}/5 (${lead.reviews?.toLocaleString('pt-BR') ?? 0} avaliações no Google)` : '';
+  const site = lead.website ? `🌐 ${lead.website}` : '';
+
+  return `Olá! Tudo bem? 😊
+
+Vi o *${lead.nome_empresa}* no Google${lead.endereco ? ` — ${lead.endereco}` : ''} e queria te fazer uma proposta rápida.
+${rating ? `\n${rating}` : ''}${site ? `\n${site}` : ''}
+
+Sou da *RT Publicidade* e identificamos algumas oportunidades para aumentar sua captação de clientes online:
+
+✅ Anúncios segmentados no Google e Instagram
+✅ Gestão profissional das redes sociais
+✅ Site otimizado para converter visitantes em clientes
+
+Podemos te mostrar resultados reais em 30 dias. Que tal uma conversa rápida sem compromisso?
+
+— *RT Publicidade* 🚀`;
+}
+
+// ─── Modal do lead ────────────────────────────────────────────────────────────
+
+function LeadModal({ lead, onClose }: { lead: GmbLead; onClose: () => void }) {
   const [sending, setSending] = useState(false);
+  const [activeTab, setActiveTab] = useState<'info' | 'mensagem'>('info');
   const updateLead = useUpdateGmbLead();
-  const deleteLead = useDeleteGmbLead();
+  const message = buildProspectingMessage(lead);
+  const phone = lead.whatsapp_jid || lead.telefone;
 
-  const handleStatusChange = (status: GmbLeadStatus) =>
-    updateLead.mutate({ id: lead.id, status });
-
-  const handleSendWhatsApp = async () => {
-    const phone = lead.whatsapp_jid || lead.telefone;
+  const handleSend = async () => {
     if (!phone) { toast.error('Sem número de WhatsApp para este lead'); return; }
     setSending(true);
     try {
-      const number = formatWhatsAppNumber(phone.replace('@s.whatsapp.net', ''));
-      const greeting = `Olá! Tudo bem? 😊\n\nVi o seu negócio *${lead.nome_empresa}* no Google e fiquei impressionado!\n\nSou da *RT Publicidade* e gostaria de apresentar algumas estratégias que podem aumentar seus resultados online. Podemos conversar rapidinho?`;
-      await sendViaEvolution(number, greeting);
-      await new Promise(r => setTimeout(r, 2500));
-      const details = `📍 *${lead.nome_empresa}*\n${lead.endereco ? `📌 ${lead.endereco}\n` : ''}${lead.rating ? `⭐ Google: ${lead.rating}/5 (${lead.reviews?.toLocaleString('pt-BR') ?? 0} avaliações)\n` : ''}\nIdentificamos oportunidades de crescimento para o seu negócio. Que tal uma análise gratuita da sua presença digital?\n\n✅ Site otimizado\n✅ Anúncios segmentados\n✅ Gestão de redes sociais\n\nResponda aqui e marcamos uma conversa! 🚀\n\n— *RT Publicidade*`;
-      await sendViaEvolution(number, details);
+      const number = formatWhatsAppNumber(phone);
+      await sendViaEvolution(number, message);
       updateLead.mutate({ id: lead.id, status: 'Contatado' });
-      toast.success('Mensagem enviada!');
-    } catch {
+      toast.success('Mensagem enviada no WhatsApp!');
+      onClose();
+    } catch (e) {
+      console.error(e);
       toast.error('Erro ao enviar. Verifique a instância Evolution.');
     } finally {
       setSending(false);
     }
   };
 
-  const phone = lead.whatsapp_jid
-    ? lead.whatsapp_jid.replace('@s.whatsapp.net', '')
-    : lead.telefone;
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-green-500 flex items-center justify-center flex-shrink-0">
+              <Building2 className="w-4 h-4 text-white" />
+            </div>
+            {lead.nome_empresa}
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Métricas rápidas */}
+        <div className="flex flex-wrap gap-2 -mt-1">
+          {lead.rating && (
+            <span className="flex items-center gap-1 text-xs bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 rounded-full px-2.5 py-1 font-medium">
+              <Star className="w-3 h-3 fill-current" /> {lead.rating}/5
+              {lead.reviews && <span className="opacity-70">({lead.reviews.toLocaleString('pt-BR')})</span>}
+            </span>
+          )}
+          <Badge className={`${GMB_STATUS_COLORS[lead.status]} text-white text-xs`}>
+            {lead.status}
+          </Badge>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 border-b border-border">
+          {([
+            { key: 'info', label: 'Informações' },
+            { key: 'mensagem', label: 'Mensagem de Prospecção' },
+          ] as const).map(tab => (
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+              className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors -mb-px ${activeTab === tab.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'info' && (
+          <div className="space-y-3 text-sm">
+            {lead.endereco && (
+              <div className="flex items-start gap-2">
+                <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <span>{lead.endereco}</span>
+              </div>
+            )}
+            {(lead.whatsapp_jid || lead.telefone) && (
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <span className="text-green-600 font-medium">
+                  {formatWhatsAppNumber(lead.whatsapp_jid || lead.telefone || '')}
+                </span>
+              </div>
+            )}
+            {lead.website && (
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <a href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-primary hover:underline truncate flex items-center gap-1">
+                  {lead.website} <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                </a>
+              </div>
+            )}
+            {lead.especialidades && (
+              <div className="flex items-start gap-2">
+                <Briefcase className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <span className="text-muted-foreground">{lead.especialidades}</span>
+              </div>
+            )}
+
+            {/* Status */}
+            <div className="pt-2 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-1.5">Alterar status</p>
+              <Select value={lead.status} onValueChange={s => updateLead.mutate({ id: lead.id, status: s as GmbLeadStatus })}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {GMB_STATUSES.map(s => (
+                    <SelectItem key={s} value={s}>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${GMB_STATUS_COLORS[s]}`} />
+                        {s}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'mensagem' && (
+          <div className="space-y-3">
+            <div className="relative">
+              <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">
+                {message}
+              </pre>
+              <Button size="sm" variant="ghost" className="absolute top-2 right-2 h-6 w-6 p-0"
+                onClick={() => { navigator.clipboard.writeText(message); toast.success('Mensagem copiada!'); }}>
+                <Copy className="w-3 h-3" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Ações */}
+        <div className="flex gap-2 pt-1 border-t border-border">
+          {phone && (
+            <Button className="flex-1 gap-2 bg-green-600 hover:bg-green-700" onClick={handleSend} disabled={sending}>
+              {sending
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
+                : <><MessageCircle className="w-4 h-4" /> Enviar WhatsApp</>}
+            </Button>
+          )}
+          {lead.website && (
+            <Button variant="outline" className="gap-1.5"
+              onClick={() => window.open(lead.website!.startsWith('http') ? lead.website! : `https://${lead.website}`, '_blank')}>
+              <Globe className="w-4 h-4" /> Site
+            </Button>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Card do lead ─────────────────────────────────────────────────────────────
+
+function GmbLeadCard({ lead, onClick }: { lead: GmbLead; onClick: () => void }) {
+  const updateLead = useUpdateGmbLead();
+  const deleteLead = useDeleteGmbLead();
+  const phone = lead.whatsapp_jid || lead.telefone;
 
   return (
-    <Card className="border border-border/60">
+    <Card className="border border-border/60 hover:border-primary/40 transition-colors cursor-pointer"
+      onClick={onClick}>
       <CardHeader className="pb-2 pt-3 px-4">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
@@ -96,8 +246,11 @@ function GmbLeadCard({ lead }: { lead: GmbLead }) {
               )}
             </div>
           </div>
-          <Select value={lead.status} onValueChange={handleStatusChange}>
-            <SelectTrigger className="h-6 text-xs px-2 w-auto border-none shadow-none">
+          <Select value={lead.status}
+            onValueChange={s => { updateLead.mutate({ id: lead.id, status: s as GmbLeadStatus }); }}
+            onOpenChange={e => e && event?.stopPropagation?.()}>
+            <SelectTrigger className="h-6 text-xs px-2 w-auto border-none shadow-none"
+              onClick={e => e.stopPropagation()}>
               <SelectValue>
                 <Badge className={`${GMB_STATUS_COLORS[lead.status]} text-white text-xs px-1.5 py-0`}>
                   {STATUS_LABELS[lead.status]}
@@ -117,7 +270,6 @@ function GmbLeadCard({ lead }: { lead: GmbLead }) {
           </Select>
         </div>
 
-        {/* Métricas */}
         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
           {lead.rating && (
             <span className="flex items-center gap-1 text-yellow-500">
@@ -126,57 +278,25 @@ function GmbLeadCard({ lead }: { lead: GmbLead }) {
             </span>
           )}
           {lead.especialidades && (
-            <span className="flex items-center gap-1">
-              <Briefcase className="w-3 h-3" />{lead.especialidades.split(',')[0]}
+            <span className="flex items-center gap-1 truncate max-w-[140px]">
+              <Briefcase className="w-3 h-3 flex-shrink-0" />{lead.especialidades.split(',')[0]}
             </span>
           )}
-          {phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />WhatsApp</span>}
-          {lead.website && <span className="flex items-center gap-1"><Globe className="w-3 h-3" />Site</span>}
+          {phone && <span className="flex items-center gap-1 text-green-600"><Phone className="w-3 h-3" />WhatsApp</span>}
         </div>
       </CardHeader>
 
-      <CardContent className="px-4 pb-3 space-y-2">
-        {/* Ações */}
-        <div className="flex gap-1.5">
-          {phone && (
-            <Button size="sm" variant="outline"
-              className="flex-1 h-7 text-xs gap-1 text-green-600 border-green-200 hover:bg-green-50 dark:hover:bg-green-900/20"
-              onClick={handleSendWhatsApp} disabled={sending}>
-              {sending ? <Loader2 className="w-3 h-3 animate-spin" /> : <MessageCircle className="w-3 h-3" />}
-              {sending ? 'Enviando...' : 'Enviar WhatsApp'}
-            </Button>
-          )}
-          {lead.website && (
-            <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
-              onClick={() => window.open(lead.website!.startsWith('http') ? lead.website! : `https://${lead.website}`, '_blank')}>
-              <Globe className="w-3 h-3" /> Site
-            </Button>
-          )}
+      <CardContent className="px-4 pb-3">
+        <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
+          <Button size="sm" variant="outline" className="flex-1 h-7 text-xs gap-1 text-muted-foreground"
+            onClick={onClick}>
+            <ChevronRight className="w-3 h-3" /> Ver detalhes
+          </Button>
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-            onClick={() => deleteLead.mutate(lead.id)}>
+            onClick={e => { e.stopPropagation(); deleteLead.mutate(lead.id); }}>
             <Trash2 className="w-3 h-3" />
           </Button>
         </div>
-
-        {/* Toggle detalhes */}
-        {lead.especialidades && (
-          <Button variant="ghost" size="sm" className="w-full h-6 text-xs text-muted-foreground"
-            onClick={() => setExpanded(!expanded)}>
-            {expanded
-              ? <><ChevronUp className="w-3 h-3 mr-1" />Ocultar detalhes</>
-              : <><ChevronDown className="w-3 h-3 mr-1" />Ver especialidades</>}
-          </Button>
-        )}
-
-        {expanded && lead.especialidades && (
-          <div className="relative">
-            <p className="text-xs bg-secondary/50 rounded p-2 pr-8 whitespace-pre-wrap">{lead.especialidades}</p>
-            <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
-              onClick={() => { navigator.clipboard.writeText(lead.especialidades!); toast.success('Copiado!'); }}>
-              <Copy className="w-3 h-3" />
-            </Button>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
@@ -186,6 +306,7 @@ function GmbLeadCard({ lead }: { lead: GmbLead }) {
 
 export function GmbLeads() {
   const { data: leads, isLoading } = useGmbLeads();
+  const [selectedLead, setSelectedLead] = useState<GmbLead | null>(null);
   const [filterStatus, setFilterStatus] = useState<GmbLeadStatus | 'Todos'>('Todos');
   const [search, setSearch] = useState('');
 
@@ -205,7 +326,6 @@ export function GmbLeads() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -224,7 +344,6 @@ export function GmbLeads() {
         </div>
       </div>
 
-      {/* Filtros de status */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {(['Todos', ...GMB_STATUSES] as const).map(s => (
           <button key={s} onClick={() => setFilterStatus(s)}
@@ -237,29 +356,12 @@ export function GmbLeads() {
         ))}
       </div>
 
-      {/* Busca */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input className="pl-9 h-8 text-sm" placeholder="Buscar por empresa, endereço ou especialidade..."
           value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      {/* Instrução n8n */}
-      {(!leads || leads.length === 0) && !isLoading && (
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 text-xs space-y-2">
-          <p className="font-semibold text-blue-700 dark:text-blue-400">Como importar leads do Google Maps:</p>
-          <p className="text-muted-foreground">No n8n, troque o nó <strong>"Append row in sheet"</strong> por um <strong>HTTP Request</strong> com:</p>
-          <div className="bg-background rounded p-2 font-mono text-xs space-y-0.5">
-            <p><span className="text-green-600">POST</span> https://nbzxofrllagqwwrwfskv.supabase.co/rest/v1/gmb_leads</p>
-            <p><span className="text-yellow-600">apikey:</span> eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</p>
-            <p><span className="text-yellow-600">Authorization:</span> Bearer eyJhbGci...</p>
-            <p><span className="text-yellow-600">Content-Type:</span> application/json</p>
-            <p><span className="text-yellow-600">Prefer:</span> return=minimal</p>
-          </div>
-        </div>
-      )}
-
-      {/* Lista */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
@@ -268,9 +370,23 @@ export function GmbLeads() {
         <p className="text-center text-sm text-muted-foreground py-8">Nenhum lead encontrado para este filtro</p>
       ) : filtered.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map(l => <GmbLeadCard key={l.id} lead={l} />)}
+          {filtered.map(l => (
+            <GmbLeadCard key={l.id} lead={l} onClick={() => setSelectedLead(l)} />
+          ))}
         </div>
-      ) : null}
+      ) : (
+        <div className="text-center py-16 text-muted-foreground">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500/20 to-green-500/20 flex items-center justify-center mx-auto mb-3">
+            <MapPin className="w-6 h-6 text-blue-500" />
+          </div>
+          <p className="font-medium text-sm">Nenhum lead ainda</p>
+          <p className="text-xs mt-1">Importe o fluxo n8n para começar a receber leads do Google Maps</p>
+        </div>
+      )}
+
+      {selectedLead && (
+        <LeadModal lead={selectedLead} onClose={() => setSelectedLead(null)} />
+      )}
     </div>
   );
 }
