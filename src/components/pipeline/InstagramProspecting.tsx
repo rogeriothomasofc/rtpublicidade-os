@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -69,65 +70,114 @@ interface AddProspectFormProps {
 
 function AddProspectForm({ onClose }: AddProspectFormProps) {
   const createProspect = useCreateProspect();
-  const [analyzing, setAnalyzing] = useState(false);
-  const [step, setStep] = useState<'idle' | 'fetching' | 'analyzing'>('idle');
+  const [step, setStep] = useState<'idle' | 'fetching' | 'analyzing' | 'needs_bio'>('idle');
   const [username, setUsername] = useState('');
+  const [manualBio, setManualBio] = useState('');
+  const [cleanUsername, setCleanUsername] = useState('');
 
-  const handleAnalyzeAndSave = async () => {
-    const clean = username
-      .replace('@', '')
-      .replace(/https?:\/\/(www\.)?instagram\.com\/?/, '')
-      .replace(/\/$/, '')
-      .trim();
-    if (!clean) {
-      toast.error('Informe o @username ou URL do perfil');
-      return;
-    }
-    setAnalyzing(true);
+  const parseUsername = (raw: string) =>
+    raw.replace('@', '').replace(/https?:\/\/(www\.)?instagram\.com\/?/, '').replace(/\/$/, '').trim();
+
+  const doSave = async (result: Awaited<ReturnType<typeof analyzeInstagramProspect>>, uname: string) => {
+    await createProspect.mutateAsync({
+      username: uname,
+      full_name: result.profile?.full_name ?? null,
+      bio: result.profile?.bio ?? null,
+      followers_count: result.profile?.followers_count ?? null,
+      following_count: result.profile?.following_count ?? null,
+      posts_count: result.profile?.posts_count ?? null,
+      niche: result.profile?.niche ?? null,
+      website: result.profile?.website ?? null,
+      whatsapp: result.extracted_whatsapp ?? null,
+      email: result.extracted_email ?? null,
+      ai_analysis: result.analysis ?? null,
+      ai_dm_message: result.dm_message ?? null,
+      ai_proposal_brief: result.proposal_brief ?? null,
+      ai_creative_concept: result.creative_concept ?? null,
+      status: 'Identificado',
+      meeting_date: null,
+      loss_reason: null,
+      notes: null,
+      pipeline_lead_id: null,
+      engagement_rate: null,
+    });
+    onClose();
+  };
+
+  const handleStart = async () => {
+    const clean = parseUsername(username);
+    if (!clean) { toast.error('Informe o @username ou URL do perfil'); return; }
+    setCleanUsername(clean);
     setStep('fetching');
     try {
       setStep('analyzing');
       const result = await analyzeInstagramProspect(clean);
-
-      await createProspect.mutateAsync({
-        username: clean,
-        full_name: result.profile?.full_name ?? null,
-        bio: result.profile?.bio ?? null,
-        followers_count: result.profile?.followers_count ?? null,
-        following_count: result.profile?.following_count ?? null,
-        posts_count: result.profile?.posts_count ?? null,
-        niche: result.profile?.niche ?? null,
-        website: result.profile?.website ?? null,
-        whatsapp: result.extracted_whatsapp ?? null,
-        email: result.extracted_email ?? null,
-        ai_analysis: result.analysis,
-        ai_dm_message: result.dm_message,
-        ai_proposal_brief: result.proposal_brief,
-        ai_creative_concept: result.creative_concept,
-        status: 'Identificado',
-        meeting_date: null,
-        loss_reason: null,
-        notes: null,
-        pipeline_lead_id: null,
-        engagement_rate: null,
-      });
-
-      onClose();
+      if (result.needs_manual_bio) {
+        setStep('needs_bio');
+        return;
+      }
+      await doSave(result, clean);
     } catch (err) {
       console.error(err);
       toast.error('Erro ao analisar perfil. Tente novamente.');
-    } finally {
-      setAnalyzing(false);
       setStep('idle');
     }
   };
 
-  const stepLabel = step === 'fetching'
-    ? 'Buscando perfil...'
-    : step === 'analyzing'
-    ? 'Analisando com IA...'
-    : '';
+  const handleAnalyzeWithBio = async () => {
+    if (!manualBio.trim()) { toast.error('Cole a bio do perfil para continuar'); return; }
+    setStep('analyzing');
+    try {
+      const result = await analyzeInstagramProspect(cleanUsername, manualBio.trim());
+      await doSave(result, cleanUsername);
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao analisar perfil. Tente novamente.');
+      setStep('needs_bio');
+    }
+  };
 
+  const isLoading = step === 'fetching' || step === 'analyzing';
+  const stepLabel = step === 'fetching' ? 'Buscando perfil...' : 'Analisando com IA...';
+
+  // Etapa 2: Instagram bloqueou o fetch — pedir bio manualmente
+  if (step === 'needs_bio') {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-start gap-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2.5">
+          <span className="text-yellow-500 text-base mt-0.5">⚠️</span>
+          <div className="text-xs text-yellow-700 dark:text-yellow-400">
+            <p className="font-medium">Instagram bloqueou o acesso automático para <span className="font-bold">@{cleanUsername}</span></p>
+            <p className="mt-0.5 opacity-80">Cole a bio do perfil abaixo para gerar uma análise real.</p>
+          </div>
+        </div>
+        <div>
+          <Label>Bio do perfil <span className="text-muted-foreground font-normal">(copie do Instagram)</span></Label>
+          <Textarea
+            className="mt-1.5 text-sm"
+            placeholder="Cole aqui a bio do perfil... (nome, descrição, contatos, link)"
+            rows={5}
+            value={manualBio}
+            onChange={e => setManualBio(e.target.value)}
+            autoFocus
+            disabled={step === 'analyzing'}
+          />
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" className="flex-1" onClick={() => setStep('idle')} disabled={step === 'analyzing'}>
+            Voltar
+          </Button>
+          <Button className="flex-1 gap-2" onClick={handleAnalyzeWithBio} disabled={step === 'analyzing'}>
+            {step === 'analyzing'
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Analisando...</>
+              : <><Sparkles className="w-4 h-4" /> Analisar com Bio</>}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Etapa 1: entrada do username
   return (
     <div className="space-y-5">
       <div>
@@ -139,17 +189,17 @@ function AddProspectForm({ onClose }: AddProspectFormProps) {
             placeholder="@perfil  ou  instagram.com/perfil"
             value={username}
             onChange={e => setUsername(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !analyzing && handleAnalyzeAndSave()}
+            onKeyDown={e => e.key === 'Enter' && !isLoading && handleStart()}
             autoFocus
-            disabled={analyzing}
+            disabled={isLoading}
           />
         </div>
         <p className="text-xs text-muted-foreground mt-1.5">
-          A IA vai buscar automaticamente: bio, seguidores, site, WhatsApp e email do perfil.
+          A IA busca automaticamente bio, seguidores, site e contatos do perfil.
         </p>
       </div>
 
-      {analyzing && (
+      {isLoading && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2.5">
           <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
           {stepLabel}
@@ -157,15 +207,13 @@ function AddProspectForm({ onClose }: AddProspectFormProps) {
       )}
 
       <div className="flex gap-2">
-        <Button variant="outline" className="flex-1" onClick={onClose} disabled={analyzing}>
+        <Button variant="outline" className="flex-1" onClick={onClose} disabled={isLoading}>
           Cancelar
         </Button>
-        <Button className="flex-1 gap-2" onClick={handleAnalyzeAndSave} disabled={analyzing}>
-          {analyzing ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> {stepLabel}</>
-          ) : (
-            <><Sparkles className="w-4 h-4" /> Analisar Perfil</>
-          )}
+        <Button className="flex-1 gap-2" onClick={handleStart} disabled={isLoading}>
+          {isLoading
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> {stepLabel}</>
+            : <><Sparkles className="w-4 h-4" /> Analisar Perfil</>}
         </Button>
       </div>
     </div>

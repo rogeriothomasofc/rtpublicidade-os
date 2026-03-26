@@ -125,18 +125,20 @@ export interface AnalyzeResult {
     is_business: boolean;
     avatar_url: string | null;
   } | null;
-  analysis: string;
-  dm_message: string;
-  whatsapp_message: string;
-  proposal_brief: string;
-  creative_concept: string;
-  extracted_whatsapp: string | null;
-  extracted_email: string | null;
+  profile_fetched: boolean;
+  needs_manual_bio: boolean;
+  analysis?: string;
+  dm_message?: string;
+  whatsapp_message?: string;
+  proposal_brief?: string;
+  creative_concept?: string;
+  extracted_whatsapp?: string | null;
+  extracted_email?: string | null;
 }
 
-export async function analyzeInstagramProspect(username: string): Promise<AnalyzeResult> {
+export async function analyzeInstagramProspect(username: string, manual_bio?: string): Promise<AnalyzeResult> {
   const res = await supabase.functions.invoke('analyze-instagram-prospect', {
-    body: { username },
+    body: { username, manual_bio },
   });
 
   if (res.error) throw res.error;
