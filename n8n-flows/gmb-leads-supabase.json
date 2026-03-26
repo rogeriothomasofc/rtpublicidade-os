@@ -247,8 +247,8 @@
             { "fieldId": "whatsapp_jid", "fieldValue": "={{ $('JID 12 existe?').first().json.jid }}" },
             { "fieldId": "endereco",     "fieldValue": "={{ $('Loop Over Items').item.json.endereco }}" },
             { "fieldId": "website",      "fieldValue": "={{ $('Loop Over Items').item.json.website }}" },
-            { "fieldId": "rating",       "fieldValue": "={{ $('Loop Over Items').item.json.rating }}" },
-            { "fieldId": "reviews",      "fieldValue": "={{ $('Loop Over Items').item.json.reviews }}" },
+            { "fieldId": "rating",       "fieldValue": "={{ $('Loop Over Items').item.json.rating ? parseFloat(String($('Loop Over Items').item.json.rating).replace(',', '.')) : null }}" },
+            { "fieldId": "reviews",      "fieldValue": "={{ $('Loop Over Items').item.json.reviews ? parseInt(String($('Loop Over Items').item.json.reviews).replace(/\\D/g, '')) : null }}" },
             { "fieldId": "especialidades","fieldValue": "={{ $('Loop Over Items').item.json.especialidades }}" }
           ]
         }
