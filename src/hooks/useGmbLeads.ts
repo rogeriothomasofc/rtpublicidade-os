@@ -26,6 +26,7 @@ export interface GmbLead {
   mensagem_enviada: string | null;
   ai_diagnosis: string | null;
   ai_message: string | null;
+  ai_messages: Array<{ part: number; message: string }> | null;
   website_issues: { critical: string[]; warnings: string[]; positives: string[]; score: number } | null;
   created_at: string;
   updated_at: string;
@@ -34,13 +35,19 @@ export interface GmbLead {
 export interface GmbAnalyzeResult {
   diagnosis: string;
   website_issues: { critical: string[]; warnings: string[]; positives: string[]; score: number } | null;
-  message: string;
+  messages: Array<{ part: number; message: string }>;
 }
 
 export async function analyzeGmbLead(lead: Pick<GmbLead, 'id' | 'nome_empresa' | 'endereco' | 'website' | 'rating' | 'reviews' | 'especialidades' | 'telefone'>): Promise<GmbAnalyzeResult> {
   const res = await supabase.functions.invoke('analyze-gmb-lead', { body: { lead } });
   if (res.error) throw res.error;
   return res.data as GmbAnalyzeResult;
+}
+
+export async function sendWhatsAppMessages(phone: string, messages: Array<{ message: string; delay?: number }>): Promise<void> {
+  const res = await supabase.functions.invoke('send-whatsapp', { body: { phone, messages } });
+  if (res.error) throw res.error;
+  if (res.data?.error) throw new Error(res.data.error);
 }
 
 export type InsertGmbLead = Omit<GmbLead, 'id' | 'created_at' | 'updated_at'>;

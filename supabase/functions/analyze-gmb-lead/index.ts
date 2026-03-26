@@ -24,15 +24,22 @@ async function fetchWebsiteSnippet(url: string): Promise<string | null> {
     const hasForm = /<form/i.test(html);
     const hasSchema = /application\/ld\+json/i.test(html);
     const hasViewport = /name=["']viewport["']/i.test(html);
+    const hasPrices = /r\$\s*[\d.,]+/i.test(html);
+    const hasTestimonials = /depoimento|avalia[çc][ãa]o|testimon/i.test(html);
+    const hasBlog = /blog|artigo|post/i.test(html);
+
     return `URL: ${url}
 Title: ${titleMatch?.[1] ?? 'AUSENTE'}
 Meta description: ${metaDesc?.[1] ?? metaDesc2?.[1] ?? 'AUSENTE'}
-Lorem ipsum: ${hasLoremIpsum ? 'SIM ⚠️' : 'não'}
-Telefone no HTML: ${hasPhone ? 'sim' : 'não'}
+Lorem ipsum detectado: ${hasLoremIpsum ? 'SIM ⚠️' : 'não'}
+Telefone/contato: ${hasPhone ? 'sim' : 'não detectado'}
 WhatsApp: ${hasWhatsApp ? 'sim' : 'não'}
-Formulário: ${hasForm ? 'sim' : 'não'}
-Schema.org: ${hasSchema ? 'sim' : 'não'}
+Formulário de contato: ${hasForm ? 'sim' : 'não'}
+Schema.org (SEO): ${hasSchema ? 'sim' : 'não'}
 Viewport mobile: ${hasViewport ? 'ok' : 'AUSENTE ⚠️'}
+Preços expostos: ${hasPrices ? 'sim' : 'não'}
+Depoimentos/provas sociais: ${hasTestimonials ? 'sim' : 'não'}
+Blog/conteúdo: ${hasBlog ? 'sim' : 'não'}
 
 --- HTML (8KB) ---
 ${html.slice(0, 8000)}`;
@@ -80,53 +87,94 @@ serve(async (req) => {
     // Buscar site se disponível
     const websiteSnippet = lead.website ? await fetchWebsiteSnippet(lead.website) : null;
 
-    // Montar contexto
-    const context = `
-🏢 EMPRESA: ${lead.nome_empresa}
-📍 Endereço: ${lead.endereco ?? 'não informado'}
-🔧 Especialidades: ${lead.especialidades ?? 'não informado'}
-⭐ Google: ${lead.rating ? `${lead.rating}/5 (${lead.reviews?.toLocaleString('pt-BR') ?? 0} avaliações)` : 'não encontrado'}
-🌐 Site: ${lead.website ?? 'não tem'}
+    // Contexto do lead
+    const leadContext = `
+Empresa: ${lead.nome_empresa}
+Segmento/nicho: ${lead.especialidades ?? 'a identificar pelo site'}
+Localização: ${lead.endereco ?? 'não informada'}
+Google Meu Negócio:
+  - Avaliação: ${lead.rating ? `${lead.rating}/5` : 'não encontrado'}
+  - Número de avaliações: ${lead.reviews?.toLocaleString('pt-BR') ?? 'não encontrado'}
+Site: ${lead.website ?? 'não possui'}
 
-${websiteSnippet ? `--- ANÁLISE DO SITE ---\n${websiteSnippet}` : '--- SEM SITE PARA ANALISAR ---'}
+${websiteSnippet ? `Dados coletados do site:\n${websiteSnippet}` : 'Site não disponível para análise.'}
 `.trim();
 
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    // PASSO 1: Diagnóstico do site
+    const diagRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
+      headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 2000,
-        system: `Você é especialista em marketing digital e prospecção comercial da agência RT Publicidade.
-Analise os dados reais do lead e gere um diagnóstico personalizado e uma mensagem de WhatsApp altamente personalizada.
-Seja ESPECÍFICO — cite dados reais: nome do negócio, avaliação exata do Google, problemas reais encontrados no site.
-JAMAIS use mensagem genérica. Responda SOMENTE com JSON válido, sem markdown.`,
+        max_tokens: 800,
+        system: "Você é especialista em auditoria de presença digital e marketing de performance. Analise os dados do lead e gere um diagnóstico conciso. Responda SOMENTE com JSON válido.",
         messages: [{
           role: "user",
-          content: `Dados do lead:\n\n${context}\n\nRetorne exatamente este JSON:\n{\n  "diagnosis": "Diagnóstico em 3-5 linhas citando dados reais: avaliação Google, problemas do site, oportunidades específicas para este tipo de negócio.",\n  "website_issues": {\n    "critical": ["problema crítico 1"],\n    "warnings": ["alerta 1"],\n    "positives": ["ponto positivo 1"],\n    "score": 45\n  },\n  "message": "Mensagem WhatsApp personalizada (máx 8 linhas) que:\\n- Cita o nome real do negócio\\n- Menciona dado específico do Google (avaliação, nº de reviews)\\n- Cita 1-2 problema real encontrado no site OU oportunidade específica do segmento\\n- CTA para marcar reunião rápida\\n- Tom amigável com emojis\\n- Assinar como RT Publicidade"\n}`,
+          content: `Analise esta empresa e retorne diagnóstico em JSON:\n\n${leadContext}\n\nRetorne:\n{\n  "diagnosis": "3-4 linhas descrevendo pontos críticos reais da presença digital desta empresa específica, citando dados concretos",\n  "website_issues": {\n    "critical": ["problema crítico real 1"],\n    "warnings": ["alerta real 1"],\n    "positives": ["ponto positivo real 1"],\n    "score": 0\n  }\n}`,
+        }],
+      }),
+    });
+    if (!diagRes.ok) throw new Error(`Anthropic error: ${diagRes.status}`);
+    const diagData = await diagRes.json();
+    const diagRaw = diagData.content?.[0]?.text ?? '{}';
+    let diagResult: { diagnosis: string; website_issues: { critical: string[]; warnings: string[]; positives: string[]; score: number } };
+    try { diagResult = JSON.parse(diagRaw); }
+    catch { const m = diagRaw.match(/\{[\s\S]*\}/); diagResult = m ? JSON.parse(m[0]) : { diagnosis: '', website_issues: { critical: [], warnings: [], positives: [], score: 0 } }; }
+
+    // PASSO 2: Sequência de 3 mensagens WhatsApp personalizadas
+    const msgRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1000,
+        system: `Você é um estrategista sênior em marketing digital e tráfego pago, com mais de 10 anos de experiência em aquisição de clientes, performance e crescimento previsível. Sua personalidade combina visão analítica com comunicação consultiva — você pensa como um gestor de negócios, analisa como um media buyer experiente e se comunica de forma clara, humana e persuasiva.
+
+Crie sequências de mensagens WhatsApp altamente personalizadas que:
+- Estabeleçam conexão imediata com empresas qualificadas
+- Despertem curiosidade sobre melhoria de resultados com tráfego pago
+- Gerem alta taxa de resposta através de personalização estratégica
+- Posicionem a gestão de tráfego como alavanca de crescimento previsível
+- Iniciem conversas consultivas focadas em diagnóstico, não em venda agressiva
+
+Aplique a fórmula PAS:
+- Problem: Identifique um desafio real de aquisição ou conversão
+- Agitation: Conecte com desperdício de verba, leads desqualificados ou estagnação
+- Solution: Apresente a gestão estratégica de tráfego pago como solução natural
+
+Critérios de Rating:
+- Rating ≥ 4.0: Valorize a reputação como indicativo de potencial de escala
+- Rating < 4.0: Sugira otimização de aquisição para melhorar qualidade de clientes
+
+PROIBIDO:
+❌ Pressão, urgência artificial ou escassez falsa
+❌ Promessas irreais de faturamento ou ROI garantido
+❌ Linguagem genérica ou claramente automatizada
+❌ Mais de uma pergunta por mensagem
+❌ Jargões técnicos desnecessários
+❌ Pitch de venda direta
+❌ Emojis em excesso ou no início de frases
+
+Responda SOMENTE com JSON válido, sem markdown.`,
+        messages: [{
+          role: "user",
+          content: `Dados da empresa para prospecção:\n\n${leadContext}\n\nDiagnóstico identificado: ${diagResult.diagnosis}\n\nProblemas críticos: ${diagResult.website_issues?.critical?.join(', ') || 'nenhum identificado'}\n\nCrie uma sequência de exatamente 3 mensagens WhatsApp (40-70 tokens cada) para prospecção consultiva. Retorne SOMENTE este JSON:\n[\n  {\n    "part": 1,\n    "message": "Mensagem 1 — Conexão + Autoridade: cumprimento personalizado, menção específica ao negócio, reconhecimento sutil de oportunidade"\n  },\n  {\n    "part": 2,\n    "message": "Mensagem 2 — Problema + Contexto: desafio real de aquisição de forma empática, conectar com perdas potenciais, introduzir tráfego pago estratégico"\n  },\n  {\n    "part": 3,\n    "message": "Mensagem 3 — Benefício + Engajamento: benefício central, pergunta aberta consultiva, tom de parceria estratégica"\n  }\n]`,
         }],
       }),
     });
 
-    if (!res.ok) throw new Error(`Anthropic error: ${res.status}`);
-    const data = await res.json();
-    const raw = data.content?.[0]?.text ?? '{}';
+    if (!msgRes.ok) throw new Error(`Anthropic messages error: ${msgRes.status}`);
+    const msgData = await msgRes.json();
+    const msgRaw = msgData.content?.[0]?.text ?? '[]';
+    let messages: Array<{ part: number; message: string }>;
+    try { messages = JSON.parse(msgRaw); }
+    catch { const m = msgRaw.match(/\[[\s\S]*\]/); messages = m ? JSON.parse(m[0]) : []; }
 
-    let result: { diagnosis: string; website_issues: object; message: string };
-    try { result = JSON.parse(raw); }
-    catch {
-      const m = raw.match(/\{[\s\S]*\}/);
-      if (m) result = JSON.parse(m[0]);
-      else throw new Error('Parse error');
-    }
-
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({
+      diagnosis: diagResult.diagnosis,
+      website_issues: diagResult.website_issues,
+      messages,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (error) {
     console.error("analyze-gmb-lead error:", error);

@@ -14,7 +14,7 @@ import {
 import { toast } from 'sonner';
 import {
   useGmbLeads, useUpdateGmbLead, useDeleteGmbLead,
-  analyzeGmbLead, GMB_STATUSES, GMB_STATUS_COLORS,
+  analyzeGmbLead, sendWhatsAppMessages, GMB_STATUSES, GMB_STATUS_COLORS,
   type GmbLead, type GmbLeadStatus,
 } from '@/hooks/useGmbLeads';
 
@@ -24,26 +24,9 @@ const STATUS_LABELS: Record<GmbLeadStatus, string> = {
   'Ganho': 'Ganho', 'Perdido': 'Perdido',
 };
 
-// ─── Evolution API ─────────────────────────────────────────────────────────────
-
 function formatWhatsAppNumber(phone: string): string {
   const digits = phone.replace('@s.whatsapp.net', '').replace(/\D/g, '');
   return digits.startsWith('55') ? digits : `55${digits}`;
-}
-
-async function sendViaEvolution(number: string, text: string): Promise<void> {
-  const url = import.meta.env.VITE_EVOLUTION_API_URL;
-  const apiKey = import.meta.env.VITE_EVOLUTION_API_KEY;
-  const instance = import.meta.env.VITE_EVOLUTION_INSTANCE;
-  const res = await fetch(`${url}/message/sendText/${instance}`, {
-    method: 'POST',
-    headers: { apikey: apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ number, text, delay: 1200 }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(err);
-  }
 }
 
 
@@ -54,7 +37,7 @@ function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () 
   const [sending, setSending] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [activeTab, setActiveTab] = useState<'info' | 'diagnostico' | 'mensagem'>(
-    initialLead.ai_message ? 'mensagem' : 'info'
+    initialLead.ai_messages?.length ? 'mensagem' : 'info'
   );
   const updateLead = useUpdateGmbLead();
   const phone = lead.whatsapp_jid || lead.telefone;
@@ -66,14 +49,14 @@ function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () 
       const updated = {
         ...lead,
         ai_diagnosis: result.diagnosis,
-        ai_message: result.message,
+        ai_messages: result.messages,
         website_issues: result.website_issues,
       };
       setLead(updated);
       updateLead.mutate({
         id: lead.id,
         ai_diagnosis: result.diagnosis,
-        ai_message: result.message,
+        ai_messages: result.messages,
         website_issues: result.website_issues,
       });
       setActiveTab('mensagem');
@@ -88,14 +71,16 @@ function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () 
 
   const handleSend = async () => {
     if (!phone) { toast.error('Sem número de WhatsApp para este lead'); return; }
-    const message = lead.ai_message;
-    if (!message) { toast.error('Gere o diagnóstico primeiro'); return; }
+    if (!lead.ai_messages?.length) { toast.error('Gere o diagnóstico primeiro'); return; }
     setSending(true);
     try {
       const number = formatWhatsAppNumber(phone);
-      await sendViaEvolution(number, message);
+      await sendWhatsAppMessages(number, lead.ai_messages.map((m, i) => ({
+        message: m.message,
+        delay: i === 0 ? 0 : 3500,
+      })));
       updateLead.mutate({ id: lead.id, status: 'Contatado' });
-      toast.success('Mensagem enviada no WhatsApp!');
+      toast.success('3 mensagens enviadas no WhatsApp!');
       onClose();
     } catch (e) {
       console.error(e);
@@ -142,7 +127,7 @@ function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () 
         </div>
 
         {/* Botão gerar diagnóstico */}
-        {!lead.ai_message && (
+        {!lead.ai_messages?.length && (
           <Button className="w-full gap-2" onClick={handleAnalyze} disabled={analyzing}>
             {analyzing
               ? <><Loader2 className="w-4 h-4 animate-spin" /> Analisando site + dados do Google...</>
@@ -267,20 +252,32 @@ function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () 
         {/* Aba Mensagem */}
         {activeTab === 'mensagem' && (
           <div className="space-y-3">
-            {lead.ai_message ? (
-              <div className="relative">
-                <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">
-                  {lead.ai_message}
-                </pre>
-                <Button size="sm" variant="ghost" className="absolute top-2 right-2 h-6 w-6 p-0"
-                  onClick={() => { navigator.clipboard.writeText(lead.ai_message!); toast.success('Mensagem copiada!'); }}>
-                  <Copy className="w-3 h-3" />
+            {lead.ai_messages?.length ? (
+              <>
+                <p className="text-xs text-muted-foreground">Sequência de {lead.ai_messages.length} mensagens enviadas em ordem com intervalo de 3,5s:</p>
+                {lead.ai_messages.map((m) => (
+                  <div key={m.part} className="relative">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-xs font-semibold text-primary bg-primary/10 rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">{m.part}</span>
+                      <span className="text-xs text-muted-foreground">Mensagem {m.part}</span>
+                    </div>
+                    <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">
+                      {m.message}
+                    </pre>
+                    <Button size="sm" variant="ghost" className="absolute top-6 right-2 h-6 w-6 p-0"
+                      onClick={() => { navigator.clipboard.writeText(m.message); toast.success('Copiada!'); }}>
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" className="w-full gap-2 text-xs" onClick={handleAnalyze} disabled={analyzing}>
+                  {analyzing ? <><Loader2 className="w-3 h-3 animate-spin" />Gerando...</> : <><Sparkles className="w-3 h-3" />Regenerar mensagens</>}
                 </Button>
-              </div>
+              </>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">Gere o diagnóstico para criar a mensagem personalizada</p>
+                <p className="text-sm">Gere o diagnóstico para criar as mensagens personalizadas</p>
               </div>
             )}
           </div>
@@ -288,7 +285,7 @@ function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () 
 
         {/* Ações */}
         <div className="flex gap-2 pt-1 border-t border-border">
-          {phone && lead.ai_message && (
+          {phone && lead.ai_messages?.length && (
             <Button className="flex-1 gap-2 bg-green-600 hover:bg-green-700" onClick={handleSend} disabled={sending}>
               {sending
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
