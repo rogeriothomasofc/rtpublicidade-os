@@ -24,8 +24,23 @@ export interface GmbLead {
   status: GmbLeadStatus;
   notes: string | null;
   mensagem_enviada: string | null;
+  ai_diagnosis: string | null;
+  ai_message: string | null;
+  website_issues: { critical: string[]; warnings: string[]; positives: string[]; score: number } | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface GmbAnalyzeResult {
+  diagnosis: string;
+  website_issues: { critical: string[]; warnings: string[]; positives: string[]; score: number } | null;
+  message: string;
+}
+
+export async function analyzeGmbLead(lead: Pick<GmbLead, 'id' | 'nome_empresa' | 'endereco' | 'website' | 'rating' | 'reviews' | 'especialidades' | 'telefone'>): Promise<GmbAnalyzeResult> {
+  const res = await supabase.functions.invoke('analyze-gmb-lead', { body: { lead } });
+  if (res.error) throw res.error;
+  return res.data as GmbAnalyzeResult;
 }
 
 export type InsertGmbLead = Omit<GmbLead, 'id' | 'created_at' | 'updated_at'>;

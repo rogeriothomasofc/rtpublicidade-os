@@ -8,12 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   MapPin, Phone, Globe, Star, Trash2, MessageCircle,
   Search, Loader2, Users, Copy, Building2, Briefcase,
-  ExternalLink, ChevronRight,
+  ExternalLink, ChevronRight, Sparkles, AlertTriangle,
+  XCircle, CheckCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useGmbLeads, useUpdateGmbLead, useDeleteGmbLead,
-  GMB_STATUSES, GMB_STATUS_COLORS,
+  analyzeGmbLead, GMB_STATUSES, GMB_STATUS_COLORS,
   type GmbLead, type GmbLeadStatus,
 } from '@/hooks/useGmbLeads';
 
@@ -45,39 +46,50 @@ async function sendViaEvolution(number: string, text: string): Promise<void> {
   }
 }
 
-// ─── Gerar mensagem de prospecção ─────────────────────────────────────────────
-
-function buildProspectingMessage(lead: GmbLead): string {
-  const rating = lead.rating ? `⭐ ${lead.rating}/5 (${lead.reviews?.toLocaleString('pt-BR') ?? 0} avaliações no Google)` : '';
-  const site = lead.website ? `🌐 ${lead.website}` : '';
-
-  return `Olá! Tudo bem? 😊
-
-Vi o *${lead.nome_empresa}* no Google${lead.endereco ? ` — ${lead.endereco}` : ''} e queria te fazer uma proposta rápida.
-${rating ? `\n${rating}` : ''}${site ? `\n${site}` : ''}
-
-Sou da *RT Publicidade* e identificamos algumas oportunidades para aumentar sua captação de clientes online:
-
-✅ Anúncios segmentados no Google e Instagram
-✅ Gestão profissional das redes sociais
-✅ Site otimizado para converter visitantes em clientes
-
-Podemos te mostrar resultados reais em 30 dias. Que tal uma conversa rápida sem compromisso?
-
-— *RT Publicidade* 🚀`;
-}
 
 // ─── Modal do lead ────────────────────────────────────────────────────────────
 
-function LeadModal({ lead, onClose }: { lead: GmbLead; onClose: () => void }) {
+function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () => void }) {
+  const [lead, setLead] = useState(initialLead);
   const [sending, setSending] = useState(false);
-  const [activeTab, setActiveTab] = useState<'info' | 'mensagem'>('info');
+  const [analyzing, setAnalyzing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'info' | 'diagnostico' | 'mensagem'>(
+    initialLead.ai_message ? 'mensagem' : 'info'
+  );
   const updateLead = useUpdateGmbLead();
-  const message = buildProspectingMessage(lead);
   const phone = lead.whatsapp_jid || lead.telefone;
+
+  const handleAnalyze = async () => {
+    setAnalyzing(true);
+    try {
+      const result = await analyzeGmbLead(lead);
+      const updated = {
+        ...lead,
+        ai_diagnosis: result.diagnosis,
+        ai_message: result.message,
+        website_issues: result.website_issues,
+      };
+      setLead(updated);
+      updateLead.mutate({
+        id: lead.id,
+        ai_diagnosis: result.diagnosis,
+        ai_message: result.message,
+        website_issues: result.website_issues,
+      });
+      setActiveTab('mensagem');
+      toast.success('Diagnóstico gerado!');
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao gerar diagnóstico.');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const handleSend = async () => {
     if (!phone) { toast.error('Sem número de WhatsApp para este lead'); return; }
+    const message = lead.ai_message;
+    if (!message) { toast.error('Gere o diagnóstico primeiro'); return; }
     setSending(true);
     try {
       const number = formatWhatsAppNumber(phone);
@@ -92,6 +104,12 @@ function LeadModal({ lead, onClose }: { lead: GmbLead; onClose: () => void }) {
       setSending(false);
     }
   };
+
+  const tabs = [
+    { key: 'info' as const, label: 'Informações' },
+    { key: 'diagnostico' as const, label: 'Diagnóstico' },
+    { key: 'mensagem' as const, label: 'Mensagem' },
+  ];
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -113,17 +131,28 @@ function LeadModal({ lead, onClose }: { lead: GmbLead; onClose: () => void }) {
               {lead.reviews && <span className="opacity-70">({lead.reviews.toLocaleString('pt-BR')})</span>}
             </span>
           )}
+          {lead.website_issues?.score !== undefined && (
+            <span className={`text-xs rounded-full px-2.5 py-1 font-medium flex items-center gap-1 ${lead.website_issues.score >= 70 ? 'bg-green-500/15 text-green-600' : lead.website_issues.score >= 40 ? 'bg-yellow-500/15 text-yellow-600' : 'bg-red-500/15 text-red-600'}`}>
+              <Globe className="w-3 h-3" /> Site {lead.website_issues.score}/100
+            </span>
+          )}
           <Badge className={`${GMB_STATUS_COLORS[lead.status]} text-white text-xs`}>
             {lead.status}
           </Badge>
         </div>
 
+        {/* Botão gerar diagnóstico */}
+        {!lead.ai_message && (
+          <Button className="w-full gap-2" onClick={handleAnalyze} disabled={analyzing}>
+            {analyzing
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Analisando site + dados do Google...</>
+              : <><Sparkles className="w-4 h-4" /> Gerar Diagnóstico com IA</>}
+          </Button>
+        )}
+
         {/* Tabs */}
         <div className="flex gap-1 border-b border-border">
-          {([
-            { key: 'info', label: 'Informações' },
-            { key: 'mensagem', label: 'Mensagem de Prospecção' },
-          ] as const).map(tab => (
+          {tabs.map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
               className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors -mb-px ${activeTab === tab.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
               {tab.label}
@@ -131,6 +160,7 @@ function LeadModal({ lead, onClose }: { lead: GmbLead; onClose: () => void }) {
           ))}
         </div>
 
+        {/* Aba Info */}
         {activeTab === 'info' && (
           <div className="space-y-3 text-sm">
             {lead.endereco && (
@@ -163,14 +193,10 @@ function LeadModal({ lead, onClose }: { lead: GmbLead; onClose: () => void }) {
                 <span className="text-muted-foreground">{lead.especialidades}</span>
               </div>
             )}
-
-            {/* Status */}
             <div className="pt-2 border-t border-border">
               <p className="text-xs text-muted-foreground mb-1.5">Alterar status</p>
               <Select value={lead.status} onValueChange={s => updateLead.mutate({ id: lead.id, status: s as GmbLeadStatus })}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {GMB_STATUSES.map(s => (
                     <SelectItem key={s} value={s}>
@@ -186,23 +212,83 @@ function LeadModal({ lead, onClose }: { lead: GmbLead; onClose: () => void }) {
           </div>
         )}
 
+        {/* Aba Diagnóstico */}
+        {activeTab === 'diagnostico' && (
+          <div className="space-y-3">
+            {lead.ai_diagnosis ? (
+              <>
+                <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg p-3 leading-relaxed">
+                  {lead.ai_diagnosis}
+                </p>
+                {lead.website_issues && (
+                  <div className="space-y-2">
+                    {lead.website_issues.critical?.length > 0 && (
+                      <div className="space-y-1">
+                        {lead.website_issues.critical.map((c, i) => (
+                          <div key={i} className="flex items-start gap-1.5 text-xs text-red-600">
+                            <XCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />{c}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {lead.website_issues.warnings?.length > 0 && (
+                      <div className="space-y-1">
+                        {lead.website_issues.warnings.map((w, i) => (
+                          <div key={i} className="flex items-start gap-1.5 text-xs text-yellow-600">
+                            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />{w}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {lead.website_issues.positives?.length > 0 && (
+                      <div className="space-y-1">
+                        {lead.website_issues.positives.map((p, i) => (
+                          <div key={i} className="flex items-start gap-1.5 text-xs text-green-600">
+                            <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />{p}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <Button variant="outline" size="sm" className="w-full gap-2 text-xs" onClick={handleAnalyze} disabled={analyzing}>
+                  {analyzing ? <><Loader2 className="w-3 h-3 animate-spin" /> Gerando...</> : <><Sparkles className="w-3 h-3" /> Regenerar</>}
+                </Button>
+              </>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">Clique em "Gerar Diagnóstico com IA" acima</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Aba Mensagem */}
         {activeTab === 'mensagem' && (
           <div className="space-y-3">
-            <div className="relative">
-              <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">
-                {message}
-              </pre>
-              <Button size="sm" variant="ghost" className="absolute top-2 right-2 h-6 w-6 p-0"
-                onClick={() => { navigator.clipboard.writeText(message); toast.success('Mensagem copiada!'); }}>
-                <Copy className="w-3 h-3" />
-              </Button>
-            </div>
+            {lead.ai_message ? (
+              <div className="relative">
+                <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">
+                  {lead.ai_message}
+                </pre>
+                <Button size="sm" variant="ghost" className="absolute top-2 right-2 h-6 w-6 p-0"
+                  onClick={() => { navigator.clipboard.writeText(lead.ai_message!); toast.success('Mensagem copiada!'); }}>
+                  <Copy className="w-3 h-3" />
+                </Button>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">Gere o diagnóstico para criar a mensagem personalizada</p>
+              </div>
+            )}
           </div>
         )}
 
         {/* Ações */}
         <div className="flex gap-2 pt-1 border-t border-border">
-          {phone && (
+          {phone && lead.ai_message && (
             <Button className="flex-1 gap-2 bg-green-600 hover:bg-green-700" onClick={handleSend} disabled={sending}>
               {sending
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
