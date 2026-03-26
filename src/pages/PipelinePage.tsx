@@ -1,17 +1,14 @@
+import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PipelineBoard } from '@/components/pipeline/PipelineBoard';
+import { InstagramProspecting } from '@/components/pipeline/InstagramProspecting';
 import { useSalesPipeline } from '@/hooks/useSalesPipeline';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatCurrency } from '@/lib/utils';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { TrendingUp, Instagram } from 'lucide-react';
 
 export default function PipelinePage() {
   const { data: leads, isLoading } = useSalesPipeline();
-
-  const totalPipelineValue = leads?.filter(l => l.stage !== 'Perdido' && l.stage !== 'Ganho')
-    .reduce((sum, l) => sum + Number(l.deal_value), 0) || 0;
-  
-  const weightedValue = leads?.filter(l => l.stage !== 'Perdido' && l.stage !== 'Ganho')
-    .reduce((sum, l) => sum + (Number(l.deal_value) * l.probability / 100), 0) || 0;
 
   if (isLoading) {
     return (
@@ -32,8 +29,23 @@ export default function PipelinePage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 animate-fade-in">
-        <PipelineBoard leads={leads || []} />
+      <div className="space-y-4 animate-fade-in">
+        <Tabs defaultValue="pipeline">
+          <TabsList className="h-9">
+            <TabsTrigger value="pipeline" className="gap-1.5 text-sm">
+              <TrendingUp className="w-3.5 h-3.5" /> Pipeline
+            </TabsTrigger>
+            <TabsTrigger value="instagram" className="gap-1.5 text-sm">
+              <Instagram className="w-3.5 h-3.5" /> Prospecção Instagram
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="pipeline" className="mt-4">
+            <PipelineBoard leads={leads || []} />
+          </TabsContent>
+          <TabsContent value="instagram" className="mt-4">
+            <InstagramProspecting />
+          </TabsContent>
+        </Tabs>
       </div>
     </MainLayout>
   );
