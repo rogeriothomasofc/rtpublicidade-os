@@ -39,3 +39,5 @@ create policy "allow_all_instagram_prospects"
   on instagram_prospects for all
   using (true)
   with check (true);
+
+grant all on table instagram_prospects to anon, authenticated, service_role;
