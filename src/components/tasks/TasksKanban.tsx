@@ -259,7 +259,7 @@ export function TasksKanban({ tasks, onStatusChange, onTaskClick }: TasksKanbanP
   }, [tasks]);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+    <div className="grid grid-flow-col auto-cols-[280px] overflow-x-auto pb-2 sm:grid-flow-row sm:auto-cols-auto sm:grid-cols-2 sm:overflow-x-visible sm:pb-0 xl:grid-cols-4 gap-4 items-start">
       {COLUMNS.map(col => (
         <KanbanColumn
           key={col.status}
