@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PipelineBoard } from '@/components/pipeline/PipelineBoard';
 import { InstagramProspecting } from '@/components/pipeline/InstagramProspecting';
+import { GmbLeads } from '@/components/pipeline/GmbLeads';
 import { useSalesPipeline } from '@/hooks/useSalesPipeline';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { TrendingUp, Instagram } from 'lucide-react';
+import { TrendingUp, Instagram, MapPin } from 'lucide-react';
 
 export default function PipelinePage() {
   const { data: leads, isLoading } = useSalesPipeline();
@@ -38,12 +39,18 @@ export default function PipelinePage() {
             <TabsTrigger value="instagram" className="gap-1.5 text-sm">
               <Instagram className="w-3.5 h-3.5" /> Prospecção Instagram
             </TabsTrigger>
+            <TabsTrigger value="gmb" className="gap-1.5 text-sm">
+              <MapPin className="w-3.5 h-3.5" /> Google Maps
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="pipeline" className="mt-4">
             <PipelineBoard leads={leads || []} />
           </TabsContent>
           <TabsContent value="instagram" className="mt-4">
             <InstagramProspecting />
+          </TabsContent>
+          <TabsContent value="gmb" className="mt-4">
+            <GmbLeads />
           </TabsContent>
         </Tabs>
       </div>

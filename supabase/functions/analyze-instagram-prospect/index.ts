@@ -32,7 +32,36 @@ interface GoogleData {
   name: string | null;
 }
 
-// ─── Instagram fetch (3 métodos) ────────────────────────────────────────────
+// ─── Instagram fetch (4 métodos) ────────────────────────────────────────────
+
+// Método 1: Instagram Business Discovery API (oficial, usa token da agência)
+async function fetchViaBusinessDiscovery(
+  username: string,
+  accessToken: string,
+  igUserId: string
+): Promise<ProfileData | null> {
+  if (!accessToken || !igUserId) return null;
+  try {
+    const fields = "biography,followers_count,follows_count,media_count,name,website,profile_picture_url,username,category";
+    const url = `https://graph.facebook.com/v20.0/${igUserId}?fields=business_discovery.fields(${fields})&username=${encodeURIComponent(username)}&access_token=${accessToken}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const bd = json?.business_discovery;
+    if (!bd) return null;
+    return {
+      full_name: bd.name || null,
+      bio: bd.biography || null,
+      followers_count: bd.followers_count ?? null,
+      following_count: bd.follows_count ?? null,
+      posts_count: bd.media_count ?? null,
+      website: bd.website || null,
+      niche: bd.category || null,
+      is_business: true,
+      avatar_url: bd.profile_picture_url || null,
+    };
+  } catch { return null; }
+}
 
 async function fetchViaWebApi(username: string): Promise<ProfileData | null> {
   try {
@@ -126,8 +155,13 @@ async function fetchViaHtml(username: string): Promise<ProfileData | null> {
   } catch { return null; }
 }
 
-async function fetchInstagramProfile(username: string): Promise<{ profile: ProfileData | null; fetched: boolean }> {
-  const profile = await fetchViaWebApi(username)
+async function fetchInstagramProfile(
+  username: string,
+  accessToken: string,
+  igUserId: string
+): Promise<{ profile: ProfileData | null; fetched: boolean }> {
+  const profile = await fetchViaBusinessDiscovery(username, accessToken, igUserId)
+    ?? await fetchViaWebApi(username)
     ?? await fetchViaMobileApi(username)
     ?? await fetchViaHtml(username);
   return { profile, fetched: profile !== null };
@@ -275,13 +309,15 @@ serve(async (req) => {
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
     const GOOGLE_API_KEY = Deno.env.get("GOOGLE_PLACES_API_KEY") ?? "";
+    const INSTAGRAM_ACCESS_TOKEN = Deno.env.get("INSTAGRAM_ACCESS_TOKEN") ?? "";
+    const INSTAGRAM_USER_ID = Deno.env.get("INSTAGRAM_USER_ID") ?? "";
 
     // 1. Buscar perfil Instagram
     let profile: ProfileData | null = null;
     let profileFetched = false;
 
     if (!manual_bio) {
-      const result = await fetchInstagramProfile(username);
+      const result = await fetchInstagramProfile(username, INSTAGRAM_ACCESS_TOKEN, INSTAGRAM_USER_ID);
       profile = result.profile;
       profileFetched = result.fetched;
     } else {

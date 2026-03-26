@@ -40,6 +40,37 @@ function sendWhatsApp(phone: string, message: string) {
   window.open(`https://wa.me/55${clean}?text=${encodeURIComponent(message)}`, '_blank');
 }
 
+function formatWhatsAppNumber(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('55')) return digits;
+  return `55${digits}`;
+}
+
+async function sendViaEvolution(number: string, text: string): Promise<void> {
+  const url = import.meta.env.VITE_EVOLUTION_API_URL;
+  const apiKey = import.meta.env.VITE_EVOLUTION_API_KEY;
+  const instance = import.meta.env.VITE_EVOLUTION_INSTANCE;
+  const res = await fetch(`${url}/message/sendText/${instance}`, {
+    method: 'POST',
+    headers: { 'apikey': apiKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ number, text, delay: 1200 }),
+  });
+  if (!res.ok) throw new Error(`Evolution API error: ${res.status}`);
+}
+
+async function sendWhatsAppDiagnosis(
+  phone: string,
+  greeting: string,
+  diagnosis: string,
+  onSent?: () => void
+) {
+  const number = formatWhatsAppNumber(phone);
+  await sendViaEvolution(number, greeting);
+  await new Promise(r => setTimeout(r, 2500));
+  await sendViaEvolution(number, diagnosis);
+  onSent?.();
+}
+
 // ─── Formulário de novo prospect ──────────────────────────────────────────────
 
 interface AddProspectFormProps { onClose: () => void; }
@@ -223,10 +254,31 @@ function DiagnosisBadges({ prospect }: { prospect: InstagramProspect }) {
 function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
   const [expanded, setExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<'diagnostico' | 'dm' | 'whatsapp' | 'proposal' | 'creative'>('diagnostico');
+  const [sendingWA, setSendingWA] = useState(false);
   const updateProspect = useUpdateProspect();
   const deleteProspect = useDeleteProspect();
 
   const handleStatusChange = (status: ProspectStatus) => updateProspect.mutate({ id: prospect.id, status });
+
+  const handleSendWhatsApp = async () => {
+    if (!prospect.whatsapp || !prospect.ai_dm_message || !prospect.diagnosis_report) return;
+    setSendingWA(true);
+    try {
+      await sendWhatsAppDiagnosis(
+        prospect.whatsapp,
+        prospect.ai_dm_message,
+        prospect.diagnosis_report,
+        () => {
+          updateProspect.mutate({ id: prospect.id, status: 'Mensagem Enviada' });
+          toast.success('Mensagem enviada via WhatsApp!');
+        }
+      );
+    } catch {
+      toast.error('Erro ao enviar WhatsApp. Verifique a conexão da instância Evolution.');
+    } finally {
+      setSendingWA(false);
+    }
+  };
 
   return (
     <Card className="border border-border/60">
@@ -286,10 +338,11 @@ function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
             onClick={() => { copyToClipboard(prospect.ai_dm_message || '', 'Mensagem DM'); openInstagramConversation(prospect.username); }}>
             <Instagram className="w-3 h-3" /> DM + Abrir
           </Button>
-          {prospect.whatsapp && prospect.ai_dm_message && (
+          {prospect.whatsapp && prospect.ai_dm_message && prospect.diagnosis_report && (
             <Button size="sm" variant="outline" className="flex-1 h-7 text-xs gap-1 text-green-600 border-green-200 hover:bg-green-50 dark:hover:bg-green-900/20"
-              onClick={() => sendWhatsApp(prospect.whatsapp!, prospect.ai_dm_message!)}>
-              <MessageCircle className="w-3 h-3" /> WhatsApp
+              onClick={handleSendWhatsApp} disabled={sendingWA}>
+              {sendingWA ? <Loader2 className="w-3 h-3 animate-spin" /> : <MessageCircle className="w-3 h-3" />}
+              {sendingWA ? 'Enviando...' : 'WhatsApp'}
             </Button>
           )}
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
@@ -362,10 +415,12 @@ function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
                       onClick={() => copyToClipboard(prospect.ai_dm_message!, 'Mensagem')}><Copy className="w-3 h-3" /></Button>
                   </div>
                 )}
-                {prospect.whatsapp && prospect.ai_dm_message && (
+                {prospect.whatsapp && prospect.ai_dm_message && prospect.diagnosis_report && (
                   <Button size="sm" className="w-full h-7 text-xs gap-1 bg-green-600 hover:bg-green-700"
-                    onClick={() => sendWhatsApp(prospect.whatsapp!, prospect.ai_dm_message!)}>
-                    <MessageCircle className="w-3 h-3" /> Enviar no WhatsApp agora
+                    onClick={handleSendWhatsApp} disabled={sendingWA}>
+                    {sendingWA
+                      ? <><Loader2 className="w-3 h-3 animate-spin" /> Enviando saudação + diagnóstico...</>
+                      : <><MessageCircle className="w-3 h-3" /> Enviar saudação + diagnóstico agora</>}
                   </Button>
                 )}
               </div>
