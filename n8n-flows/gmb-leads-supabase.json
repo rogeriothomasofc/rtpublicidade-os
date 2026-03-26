@@ -205,6 +205,7 @@
       "id": "e031f7e3-4154-40e1-8bd1-b7a4c506f461",
       "name": "Verificar duplicata",
       "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -215,13 +216,13 @@
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2 },
           "conditions": [
             {
               "id": "9949dc12",
-              "leftValue": "={{ $json.id }}",
+              "leftValue": "={{ $json.id ?? '' }}",
               "rightValue": "",
-              "operator": { "type": "string", "operation": "empty", "singleValue": true }
+              "operator": { "type": "string", "operation": "equals" }
             }
           ],
           "combinator": "and"
