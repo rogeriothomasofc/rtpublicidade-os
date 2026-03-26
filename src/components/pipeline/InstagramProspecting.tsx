@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -18,7 +17,6 @@ import {
   ChevronDown,
   ChevronUp,
   Users,
-  Globe,
   Phone,
   Mail,
   Loader2,
@@ -26,7 +24,6 @@ import {
   TrendingUp,
   FileText,
   Lightbulb,
-  Calendar,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -73,49 +70,40 @@ interface AddProspectFormProps {
 function AddProspectForm({ onClose }: AddProspectFormProps) {
   const createProspect = useCreateProspect();
   const [analyzing, setAnalyzing] = useState(false);
-  const [form, setForm] = useState({
-    username: '',
-    full_name: '',
-    bio: '',
-    followers_count: '',
-    following_count: '',
-    posts_count: '',
-    niche: '',
-    website: '',
-    whatsapp: '',
-    email: '',
-  });
-
-  const set = (field: string, value: string) => setForm(f => ({ ...f, [field]: value }));
+  const [step, setStep] = useState<'idle' | 'fetching' | 'analyzing'>('idle');
+  const [username, setUsername] = useState('');
 
   const handleAnalyzeAndSave = async () => {
-    if (!form.username.trim()) {
-      toast.error('Informe o @username do perfil');
+    const clean = username
+      .replace('@', '')
+      .replace(/https?:\/\/(www\.)?instagram\.com\/?/, '')
+      .replace(/\/$/, '')
+      .trim();
+    if (!clean) {
+      toast.error('Informe o @username ou URL do perfil');
       return;
     }
     setAnalyzing(true);
+    setStep('fetching');
     try {
-      const input = {
-        username: form.username.replace('@', '').trim(),
-        full_name: form.full_name || undefined,
-        bio: form.bio || undefined,
-        followers_count: form.followers_count ? Number(form.followers_count) : undefined,
-        following_count: form.following_count ? Number(form.following_count) : undefined,
-        posts_count: form.posts_count ? Number(form.posts_count) : undefined,
-        niche: form.niche || undefined,
-        website: form.website || undefined,
-        whatsapp: form.whatsapp || undefined,
-        email: form.email || undefined,
-      };
-
-      const ai = await analyzeInstagramProspect(input);
+      setStep('analyzing');
+      const result = await analyzeInstagramProspect(clean);
 
       await createProspect.mutateAsync({
-        ...input,
-        ai_analysis: ai.analysis,
-        ai_dm_message: ai.dm_message,
-        ai_proposal_brief: ai.proposal_brief,
-        ai_creative_concept: ai.creative_concept,
+        username: clean,
+        full_name: result.profile?.full_name ?? null,
+        bio: result.profile?.bio ?? null,
+        followers_count: result.profile?.followers_count ?? null,
+        following_count: result.profile?.following_count ?? null,
+        posts_count: result.profile?.posts_count ?? null,
+        niche: result.profile?.niche ?? null,
+        website: result.profile?.website ?? null,
+        whatsapp: result.extracted_whatsapp ?? null,
+        email: result.extracted_email ?? null,
+        ai_analysis: result.analysis,
+        ai_dm_message: result.dm_message,
+        ai_proposal_brief: result.proposal_brief,
+        ai_creative_concept: result.creative_concept,
         status: 'Identificado',
         meeting_date: null,
         loss_reason: null,
@@ -127,74 +115,56 @@ function AddProspectForm({ onClose }: AddProspectFormProps) {
       onClose();
     } catch (err) {
       console.error(err);
-      toast.error('Erro ao analisar perfil. Verifique os dados e tente novamente.');
+      toast.error('Erro ao analisar perfil. Tente novamente.');
     } finally {
       setAnalyzing(false);
+      setStep('idle');
     }
   };
 
+  const stepLabel = step === 'fetching'
+    ? 'Buscando perfil...'
+    : step === 'analyzing'
+    ? 'Analisando com IA...'
+    : '';
+
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2">
-          <Label>@Username do Instagram *</Label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
-            <Input
-              className="pl-7"
-              placeholder="nomedo perfil"
-              value={form.username}
-              onChange={e => set('username', e.target.value)}
-            />
-          </div>
-        </div>
-        <div>
-          <Label>Nome / Empresa</Label>
-          <Input placeholder="Ex: João Silva" value={form.full_name} onChange={e => set('full_name', e.target.value)} />
-        </div>
-        <div>
-          <Label>Nicho / Segmento</Label>
-          <Input placeholder="Ex: Restaurante, Clínica..." value={form.niche} onChange={e => set('niche', e.target.value)} />
-        </div>
-        <div className="col-span-2">
-          <Label>Bio do perfil</Label>
-          <Textarea
-            placeholder="Cole aqui a bio do Instagram..."
-            rows={2}
-            value={form.bio}
-            onChange={e => set('bio', e.target.value)}
+    <div className="space-y-5">
+      <div>
+        <Label>@Username ou URL do Instagram</Label>
+        <div className="relative mt-1.5">
+          <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            className="pl-9 h-10"
+            placeholder="@perfil  ou  instagram.com/perfil"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !analyzing && handleAnalyzeAndSave()}
+            autoFocus
+            disabled={analyzing}
           />
         </div>
-        <div>
-          <Label>Seguidores</Label>
-          <Input type="number" placeholder="Ex: 5000" value={form.followers_count} onChange={e => set('followers_count', e.target.value)} />
-        </div>
-        <div>
-          <Label>Posts</Label>
-          <Input type="number" placeholder="Ex: 120" value={form.posts_count} onChange={e => set('posts_count', e.target.value)} />
-        </div>
-        <div>
-          <Label>WhatsApp</Label>
-          <Input placeholder="(11) 99999-9999" value={form.whatsapp} onChange={e => set('whatsapp', e.target.value)} />
-        </div>
-        <div>
-          <Label>Email</Label>
-          <Input type="email" placeholder="contato@email.com" value={form.email} onChange={e => set('email', e.target.value)} />
-        </div>
-        <div className="col-span-2">
-          <Label>Site</Label>
-          <Input placeholder="https://..." value={form.website} onChange={e => set('website', e.target.value)} />
-        </div>
+        <p className="text-xs text-muted-foreground mt-1.5">
+          A IA vai buscar automaticamente: bio, seguidores, site, WhatsApp e email do perfil.
+        </p>
       </div>
-      <div className="flex gap-2 pt-2">
-        <Button variant="outline" className="flex-1" onClick={onClose}>
+
+      {analyzing && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2.5">
+          <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
+          {stepLabel}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <Button variant="outline" className="flex-1" onClick={onClose} disabled={analyzing}>
           Cancelar
         </Button>
         <Button className="flex-1 gap-2" onClick={handleAnalyzeAndSave} disabled={analyzing}>
           {analyzing ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Analisando com IA...</>
+            <><Loader2 className="w-4 h-4 animate-spin" /> {stepLabel}</>
           ) : (
-            <><Sparkles className="w-4 h-4" /> Analisar e Salvar</>
+            <><Sparkles className="w-4 h-4" /> Analisar Perfil</>
           )}
         </Button>
       </div>
@@ -525,7 +495,7 @@ export function InstagramProspecting() {
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground -mt-2">
-            Preencha os dados do perfil. A IA vai analisar e gerar mensagem personalizada + brief de proposta automaticamente.
+            Cole o @ ou URL do perfil. A IA analisa e gera mensagem personalizada + proposta automaticamente.
           </p>
           <AddProspectForm onClose={() => setShowAddDialog(false)} />
         </DialogContent>

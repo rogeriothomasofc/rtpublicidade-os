@@ -113,33 +113,34 @@ export function useDeleteProspect() {
   });
 }
 
-export async function analyzeInstagramProspect(prospect: {
-  username: string;
-  full_name?: string;
-  bio?: string;
-  followers_count?: number;
-  following_count?: number;
-  posts_count?: number;
-  niche?: string;
-  website?: string;
-  whatsapp?: string;
-  email?: string;
-}) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error('Não autenticado');
+export interface AnalyzeResult {
+  profile: {
+    full_name: string | null;
+    bio: string | null;
+    followers_count: number | null;
+    following_count: number | null;
+    posts_count: number | null;
+    website: string | null;
+    niche: string | null;
+    is_business: boolean;
+    avatar_url: string | null;
+  } | null;
+  analysis: string;
+  dm_message: string;
+  whatsapp_message: string;
+  proposal_brief: string;
+  creative_concept: string;
+  extracted_whatsapp: string | null;
+  extracted_email: string | null;
+}
 
+export async function analyzeInstagramProspect(username: string): Promise<AnalyzeResult> {
   const res = await supabase.functions.invoke('analyze-instagram-prospect', {
-    body: prospect,
+    body: { username },
   });
 
   if (res.error) throw res.error;
-  return res.data as {
-    analysis: string;
-    dm_message: string;
-    whatsapp_message: string;
-    proposal_brief: string;
-    creative_concept: string;
-  };
+  return res.data as AnalyzeResult;
 }
 
 export const PROSPECT_STATUSES: ProspectStatus[] = [
