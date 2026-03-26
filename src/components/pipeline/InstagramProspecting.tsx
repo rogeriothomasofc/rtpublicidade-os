@@ -4,49 +4,26 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Instagram,
-  Search,
-  Sparkles,
-  Copy,
-  MessageCircle,
-  ExternalLink,
-  Trash2,
-  ChevronDown,
-  ChevronUp,
-  Users,
-  Phone,
-  Mail,
-  Loader2,
-  Plus,
-  TrendingUp,
-  FileText,
-  Lightbulb,
+  Instagram, Search, Sparkles, Copy, MessageCircle, ExternalLink,
+  Trash2, ChevronDown, ChevronUp, Users, Phone, Mail, Loader2,
+  Plus, TrendingUp, FileText, Lightbulb, Globe, Star, AlertTriangle,
+  CheckCircle, XCircle, Stethoscope,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  useInstagramProspects,
-  useCreateProspect,
-  useUpdateProspect,
-  useDeleteProspect,
-  analyzeInstagramProspect,
-  PROSPECT_STATUSES,
-  STATUS_COLORS,
-  type InstagramProspect,
-  type ProspectStatus,
+  useInstagramProspects, useCreateProspect, useUpdateProspect, useDeleteProspect,
+  analyzeInstagramProspect, PROSPECT_STATUSES, STATUS_COLORS,
+  type InstagramProspect, type ProspectStatus,
 } from '@/hooks/useInstagramProspects';
 
 const STATUS_LABELS: Record<ProspectStatus, string> = {
-  'Identificado': 'Identificado',
-  'Mensagem Enviada': 'Msg Enviada',
-  'Respondeu': 'Respondeu',
-  'Reunião Marcada': 'Reunião',
-  'Proposta Enviada': 'Proposta',
-  'Ganho': 'Ganho',
-  'Perdido': 'Perdido',
+  'Identificado': 'Identificado', 'Mensagem Enviada': 'Msg Enviada',
+  'Respondeu': 'Respondeu', 'Reunião Marcada': 'Reunião',
+  'Proposta Enviada': 'Proposta', 'Ganho': 'Ganho', 'Perdido': 'Perdido',
 };
 
 function copyToClipboard(text: string, label: string) {
@@ -60,18 +37,18 @@ function openInstagramConversation(username: string) {
 
 function sendWhatsApp(phone: string, message: string) {
   const clean = phone.replace(/\D/g, '');
-  const encoded = encodeURIComponent(message);
-  window.open(`https://wa.me/55${clean}?text=${encoded}`, '_blank');
+  window.open(`https://wa.me/55${clean}?text=${encodeURIComponent(message)}`, '_blank');
 }
 
-interface AddProspectFormProps {
-  onClose: () => void;
-}
+// ─── Formulário de novo prospect ──────────────────────────────────────────────
+
+interface AddProspectFormProps { onClose: () => void; }
 
 function AddProspectForm({ onClose }: AddProspectFormProps) {
   const createProspect = useCreateProspect();
   const [step, setStep] = useState<'idle' | 'fetching' | 'analyzing' | 'needs_bio'>('idle');
   const [username, setUsername] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
   const [manualBio, setManualBio] = useState('');
   const [cleanUsername, setCleanUsername] = useState('');
 
@@ -87,19 +64,21 @@ function AddProspectForm({ onClose }: AddProspectFormProps) {
       following_count: result.profile?.following_count ?? null,
       posts_count: result.profile?.posts_count ?? null,
       niche: result.profile?.niche ?? null,
-      website: result.profile?.website ?? null,
+      website: result.profile?.website ?? websiteUrl ?? null,
       whatsapp: result.extracted_whatsapp ?? null,
       email: result.extracted_email ?? null,
-      ai_analysis: result.analysis ?? null,
+      ai_analysis: null,
       ai_dm_message: result.dm_message ?? null,
       ai_proposal_brief: result.proposal_brief ?? null,
       ai_creative_concept: result.creative_concept ?? null,
+      website_issues: result.website_audit ?? null,
+      google_rating: result.google_data?.rating ?? null,
+      google_reviews_count: result.google_data?.reviews_count ?? null,
+      google_address: result.google_data?.address ?? null,
+      diagnosis_report: result.diagnosis_report ?? null,
       status: 'Identificado',
-      meeting_date: null,
-      loss_reason: null,
-      notes: null,
-      pipeline_lead_id: null,
-      engagement_rate: null,
+      meeting_date: null, loss_reason: null, notes: null,
+      pipeline_lead_id: null, engagement_rate: null,
     });
     onClose();
   };
@@ -111,11 +90,8 @@ function AddProspectForm({ onClose }: AddProspectFormProps) {
     setStep('fetching');
     try {
       setStep('analyzing');
-      const result = await analyzeInstagramProspect(clean);
-      if (result.needs_manual_bio) {
-        setStep('needs_bio');
-        return;
-      }
+      const result = await analyzeInstagramProspect(clean, undefined, websiteUrl || undefined);
+      if (result.needs_manual_bio) { setStep('needs_bio'); return; }
       await doSave(result, clean);
     } catch (err) {
       console.error(err);
@@ -128,74 +104,72 @@ function AddProspectForm({ onClose }: AddProspectFormProps) {
     if (!manualBio.trim()) { toast.error('Cole a bio do perfil para continuar'); return; }
     setStep('analyzing');
     try {
-      const result = await analyzeInstagramProspect(cleanUsername, manualBio.trim());
+      const result = await analyzeInstagramProspect(cleanUsername, manualBio.trim(), websiteUrl || undefined);
       await doSave(result, cleanUsername);
     } catch (err) {
       console.error(err);
-      toast.error('Erro ao analisar perfil. Tente novamente.');
+      toast.error('Erro ao analisar. Tente novamente.');
       setStep('needs_bio');
     }
   };
 
   const isLoading = step === 'fetching' || step === 'analyzing';
-  const stepLabel = step === 'fetching' ? 'Buscando perfil...' : 'Analisando com IA...';
+  const stepLabel = step === 'fetching' ? 'Buscando perfil Instagram...' : 'Analisando com IA (site + Instagram + Google)...';
 
-  // Etapa 2: Instagram bloqueou o fetch — pedir bio manualmente
   if (step === 'needs_bio') {
     return (
       <div className="space-y-4">
         <div className="flex items-start gap-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2.5">
-          <span className="text-yellow-500 text-base mt-0.5">⚠️</span>
+          <span className="text-yellow-500 mt-0.5">⚠️</span>
           <div className="text-xs text-yellow-700 dark:text-yellow-400">
             <p className="font-medium">Instagram bloqueou o acesso automático para <span className="font-bold">@{cleanUsername}</span></p>
-            <p className="mt-0.5 opacity-80">Cole a bio do perfil abaixo para gerar uma análise real.</p>
+            <p className="mt-0.5 opacity-80">Cole a bio abaixo para a IA gerar um diagnóstico real.</p>
           </div>
         </div>
+        <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs"
+          onClick={() => window.open(`https://instagram.com/${cleanUsername}`, '_blank')}>
+          <ExternalLink className="w-3 h-3" /> Abrir @{cleanUsername} no Instagram para copiar a bio
+        </Button>
         <div>
-          <Label>Bio do perfil <span className="text-muted-foreground font-normal">(copie do Instagram)</span></Label>
-          <Textarea
-            className="mt-1.5 text-sm"
-            placeholder="Cole aqui a bio do perfil... (nome, descrição, contatos, link)"
-            rows={5}
-            value={manualBio}
-            onChange={e => setManualBio(e.target.value)}
-            autoFocus
-            disabled={step === 'analyzing'}
-          />
+          <Label>Bio do perfil</Label>
+          <Textarea className="mt-1.5 text-sm" placeholder="Cole aqui a bio do perfil (nome, descrição, contatos, link)..."
+            rows={5} value={manualBio} onChange={e => setManualBio(e.target.value)}
+            autoFocus disabled={step === 'analyzing'} />
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={() => setStep('idle')} disabled={step === 'analyzing'}>
-            Voltar
-          </Button>
+          <Button variant="outline" className="flex-1" onClick={() => setStep('idle')} disabled={step === 'analyzing'}>Voltar</Button>
           <Button className="flex-1 gap-2" onClick={handleAnalyzeWithBio} disabled={step === 'analyzing'}>
             {step === 'analyzing'
               ? <><Loader2 className="w-4 h-4 animate-spin" /> Analisando...</>
-              : <><Sparkles className="w-4 h-4" /> Analisar com Bio</>}
+              : <><Sparkles className="w-4 h-4" /> Gerar Diagnóstico</>}
           </Button>
         </div>
       </div>
     );
   }
 
-  // Etapa 1: entrada do username
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div>
-        <Label>@Username ou URL do Instagram</Label>
+        <Label>@Username ou URL do Instagram *</Label>
         <div className="relative mt-1.5">
           <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            className="pl-9 h-10"
-            placeholder="@perfil  ou  instagram.com/perfil"
-            value={username}
-            onChange={e => setUsername(e.target.value)}
+          <Input className="pl-9 h-10" placeholder="@perfil  ou  instagram.com/perfil"
+            value={username} onChange={e => setUsername(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !isLoading && handleStart()}
-            autoFocus
-            disabled={isLoading}
-          />
+            autoFocus disabled={isLoading} />
+        </div>
+      </div>
+      <div>
+        <Label>Site do negócio <span className="text-muted-foreground font-normal">(opcional — para auditoria completa)</span></Label>
+        <div className="relative mt-1.5">
+          <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input className="pl-9 h-10" placeholder="site.com.br"
+            value={websiteUrl} onChange={e => setWebsiteUrl(e.target.value)}
+            disabled={isLoading} />
         </div>
         <p className="text-xs text-muted-foreground mt-1.5">
-          A IA busca automaticamente bio, seguidores, site e contatos do perfil.
+          Com o site, a IA encontra problemas reais: Lorem ipsum, SEO, CTAs, erros técnicos.
         </p>
       </div>
 
@@ -206,35 +180,53 @@ function AddProspectForm({ onClose }: AddProspectFormProps) {
         </div>
       )}
 
-      <div className="flex gap-2">
-        <Button variant="outline" className="flex-1" onClick={onClose} disabled={isLoading}>
-          Cancelar
-        </Button>
+      <div className="flex gap-2 pt-1">
+        <Button variant="outline" className="flex-1" onClick={onClose} disabled={isLoading}>Cancelar</Button>
         <Button className="flex-1 gap-2" onClick={handleStart} disabled={isLoading}>
           {isLoading
-            ? <><Loader2 className="w-4 h-4 animate-spin" /> {stepLabel}</>
-            : <><Sparkles className="w-4 h-4" /> Analisar Perfil</>}
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> {step === 'fetching' ? 'Buscando...' : 'Analisando...'}</>
+            : <><Stethoscope className="w-4 h-4" /> Gerar Diagnóstico</>}
         </Button>
       </div>
     </div>
   );
 }
 
-interface ProspectCardProps {
-  prospect: InstagramProspect;
+// ─── Card do prospect ────────────────────────────────────────────────────────
+
+function DiagnosisBadges({ prospect }: { prospect: InstagramProspect }) {
+  const issues = prospect.website_issues;
+  if (!issues) return null;
+  const critical = issues.critical?.length ?? 0;
+  const warnings = issues.warnings?.length ?? 0;
+  return (
+    <div className="flex gap-1 flex-wrap mt-1">
+      {critical > 0 && (
+        <span className="flex items-center gap-1 text-xs bg-red-500/15 text-red-600 dark:text-red-400 rounded-full px-2 py-0.5">
+          <XCircle className="w-3 h-3" /> {critical} crítico{critical > 1 ? 's' : ''}
+        </span>
+      )}
+      {warnings > 0 && (
+        <span className="flex items-center gap-1 text-xs bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 rounded-full px-2 py-0.5">
+          <AlertTriangle className="w-3 h-3" /> {warnings} alerta{warnings > 1 ? 's' : ''}
+        </span>
+      )}
+      {issues.score !== undefined && (
+        <span className={`flex items-center gap-1 text-xs rounded-full px-2 py-0.5 ${issues.score >= 70 ? 'bg-green-500/15 text-green-600 dark:text-green-400' : issues.score >= 40 ? 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400' : 'bg-red-500/15 text-red-600 dark:text-red-400'}`}>
+          <Globe className="w-3 h-3" /> Site {issues.score}/100
+        </span>
+      )}
+    </div>
+  );
 }
 
-function ProspectCard({ prospect }: ProspectCardProps) {
+function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
   const [expanded, setExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dm' | 'whatsapp' | 'analysis' | 'proposal' | 'creative'>('dm');
+  const [activeTab, setActiveTab] = useState<'diagnostico' | 'dm' | 'whatsapp' | 'proposal' | 'creative'>('diagnostico');
   const updateProspect = useUpdateProspect();
   const deleteProspect = useDeleteProspect();
 
-  const handleStatusChange = (status: ProspectStatus) => {
-    updateProspect.mutate({ id: prospect.id, status });
-  };
-
-  const statusColor = STATUS_COLORS[prospect.status];
+  const handleStatusChange = (status: ProspectStatus) => updateProspect.mutate({ id: prospect.id, status });
 
   return (
     <Card className="border border-border/60">
@@ -246,94 +238,77 @@ function ProspectCard({ prospect }: ProspectCardProps) {
             </div>
             <div className="min-w-0">
               <p className="font-semibold text-sm truncate">@{prospect.username}</p>
-              {prospect.full_name && (
-                <p className="text-xs text-muted-foreground truncate">{prospect.full_name}</p>
-              )}
+              {prospect.full_name && <p className="text-xs text-muted-foreground truncate">{prospect.full_name}</p>}
             </div>
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <Select value={prospect.status} onValueChange={handleStatusChange}>
-              <SelectTrigger className="h-6 text-xs px-2 w-auto border-none shadow-none">
-                <SelectValue>
-                  <Badge className={`${statusColor} text-white text-xs px-1.5 py-0`}>
-                    {STATUS_LABELS[prospect.status]}
-                  </Badge>
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {PROSPECT_STATUSES.map(s => (
-                  <SelectItem key={s} value={s}>
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${STATUS_COLORS[s]}`} />
-                      {s}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <Select value={prospect.status} onValueChange={handleStatusChange}>
+            <SelectTrigger className="h-6 text-xs px-2 w-auto border-none shadow-none">
+              <SelectValue>
+                <Badge className={`${STATUS_COLORS[prospect.status]} text-white text-xs px-1.5 py-0`}>
+                  {STATUS_LABELS[prospect.status]}
+                </Badge>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {PROSPECT_STATUSES.map(s => (
+                <SelectItem key={s} value={s}>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${STATUS_COLORS[s]}`} />
+                    {s}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        {/* Resumo rápido */}
+        {/* Métricas rápidas */}
         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
           {prospect.niche && <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" />{prospect.niche}</span>}
           {prospect.followers_count && <span className="flex items-center gap-1"><Users className="w-3 h-3" />{prospect.followers_count.toLocaleString('pt-BR')}</span>}
+          {prospect.google_rating && (
+            <span className="flex items-center gap-1 text-yellow-500">
+              <Star className="w-3 h-3 fill-current" />{prospect.google_rating}
+              {prospect.google_reviews_count && <span className="text-muted-foreground">({prospect.google_reviews_count})</span>}
+            </span>
+          )}
           {prospect.whatsapp && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />WhatsApp</span>}
-          {prospect.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />Email</span>}
         </div>
+
+        {/* Badges de problemas encontrados */}
+        <DiagnosisBadges prospect={prospect} />
       </CardHeader>
 
-      {/* Botões de ação rápida */}
       <CardContent className="px-4 pb-3 space-y-2">
+        {/* Ações rápidas */}
         <div className="flex gap-1.5">
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1 h-7 text-xs gap-1"
-            onClick={() => {
-              copyToClipboard(prospect.ai_dm_message || '', 'Mensagem DM');
-              openInstagramConversation(prospect.username);
-            }}
-          >
+          <Button size="sm" variant="outline" className="flex-1 h-7 text-xs gap-1"
+            onClick={() => { copyToClipboard(prospect.ai_dm_message || '', 'Mensagem DM'); openInstagramConversation(prospect.username); }}>
             <Instagram className="w-3 h-3" /> DM + Abrir
           </Button>
           {prospect.whatsapp && prospect.ai_dm_message && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="flex-1 h-7 text-xs gap-1 text-green-600 border-green-200 hover:bg-green-50"
-              onClick={() => sendWhatsApp(prospect.whatsapp!, prospect.ai_dm_message!)}
-            >
+            <Button size="sm" variant="outline" className="flex-1 h-7 text-xs gap-1 text-green-600 border-green-200 hover:bg-green-50 dark:hover:bg-green-900/20"
+              onClick={() => sendWhatsApp(prospect.whatsapp!, prospect.ai_dm_message!)}>
               <MessageCircle className="w-3 h-3" /> WhatsApp
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 w-7 p-0"
-            onClick={() => window.open(`https://instagram.com/${prospect.username}`, '_blank')}
-          >
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
+            onClick={() => window.open(`https://instagram.com/${prospect.username}`, '_blank')}>
             <ExternalLink className="w-3 h-3" />
           </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-            onClick={() => deleteProspect.mutate(prospect.id)}
-          >
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+            onClick={() => deleteProspect.mutate(prospect.id)}>
             <Trash2 className="w-3 h-3" />
           </Button>
         </div>
 
-        {/* Expandir conteúdo IA */}
-        {(prospect.ai_dm_message || prospect.ai_analysis) && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full h-6 text-xs text-muted-foreground"
-            onClick={() => setExpanded(!expanded)}
-          >
-            {expanded ? <><ChevronUp className="w-3 h-3 mr-1" />Ocultar IA</> : <><ChevronDown className="w-3 h-3 mr-1" />Ver análise IA</>}
+        {/* Toggle expandir */}
+        {(prospect.diagnosis_report || prospect.ai_dm_message) && (
+          <Button variant="ghost" size="sm" className="w-full h-6 text-xs text-muted-foreground"
+            onClick={() => setExpanded(!expanded)}>
+            {expanded
+              ? <><ChevronUp className="w-3 h-3 mr-1" />Ocultar diagnóstico</>
+              : <><ChevronDown className="w-3 h-3 mr-1" />Ver diagnóstico completo</>}
           </Button>
         )}
 
@@ -342,93 +317,71 @@ function ProspectCard({ prospect }: ProspectCardProps) {
             {/* Tabs */}
             <div className="flex gap-1 flex-wrap">
               {[
+                { key: 'diagnostico', label: 'Diagnóstico', icon: <Stethoscope className="w-3 h-3" /> },
                 { key: 'dm', label: 'DM', icon: <Instagram className="w-3 h-3" /> },
                 { key: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle className="w-3 h-3" /> },
-                { key: 'analysis', label: 'Análise', icon: <Search className="w-3 h-3" /> },
                 { key: 'proposal', label: 'Proposta', icon: <FileText className="w-3 h-3" /> },
                 { key: 'creative', label: 'Criativo', icon: <Lightbulb className="w-3 h-3" /> },
               ].map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-                    activeTab === tab.key
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary text-muted-foreground hover:text-foreground'
-                  }`}
-                >
+                <button key={tab.key} onClick={() => setActiveTab(tab.key as typeof activeTab)}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${activeTab === tab.key ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
                   {tab.icon}{tab.label}
                 </button>
               ))}
             </div>
 
-            {/* Conteúdo da tab */}
+            {/* Conteúdo */}
+            {activeTab === 'diagnostico' && (
+              <div className="space-y-2">
+                {prospect.diagnosis_report ? (
+                  <div className="relative">
+                    <pre className="text-xs bg-secondary/50 rounded p-2 pr-8 whitespace-pre-wrap font-sans leading-relaxed">{prospect.diagnosis_report}</pre>
+                    <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
+                      onClick={() => copyToClipboard(prospect.diagnosis_report!, 'Diagnóstico')}>
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-4">Diagnóstico não disponível</p>
+                )}
+              </div>
+            )}
             {activeTab === 'dm' && prospect.ai_dm_message && (
               <div className="relative">
                 <p className="text-xs bg-secondary/50 rounded p-2 pr-8 whitespace-pre-wrap">{prospect.ai_dm_message}</p>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="absolute top-1 right-1 h-6 w-6 p-0"
-                  onClick={() => copyToClipboard(prospect.ai_dm_message!, 'Mensagem DM')}
-                >
-                  <Copy className="w-3 h-3" />
-                </Button>
+                <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
+                  onClick={() => copyToClipboard(prospect.ai_dm_message!, 'Mensagem DM')}><Copy className="w-3 h-3" /></Button>
               </div>
             )}
             {activeTab === 'whatsapp' && (
-              <div className="relative">
-                <p className="text-xs bg-secondary/50 rounded p-2 pr-8 whitespace-pre-wrap">
-                  {prospect.ai_dm_message || 'Sem mensagem gerada'}
-                </p>
+              <div className="space-y-1">
                 {prospect.ai_dm_message && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="absolute top-1 right-1 h-6 w-6 p-0"
-                    onClick={() => copyToClipboard(prospect.ai_dm_message!, 'Mensagem WhatsApp')}
-                  >
-                    <Copy className="w-3 h-3" />
-                  </Button>
+                  <div className="relative">
+                    <p className="text-xs bg-secondary/50 rounded p-2 pr-8 whitespace-pre-wrap">{prospect.ai_dm_message}</p>
+                    <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
+                      onClick={() => copyToClipboard(prospect.ai_dm_message!, 'Mensagem')}><Copy className="w-3 h-3" /></Button>
+                  </div>
                 )}
                 {prospect.whatsapp && prospect.ai_dm_message && (
-                  <Button
-                    size="sm"
-                    className="w-full mt-1 h-7 text-xs gap-1 bg-green-600 hover:bg-green-700"
-                    onClick={() => sendWhatsApp(prospect.whatsapp!, prospect.ai_dm_message!)}
-                  >
+                  <Button size="sm" className="w-full h-7 text-xs gap-1 bg-green-600 hover:bg-green-700"
+                    onClick={() => sendWhatsApp(prospect.whatsapp!, prospect.ai_dm_message!)}>
                     <MessageCircle className="w-3 h-3" /> Enviar no WhatsApp agora
                   </Button>
                 )}
               </div>
             )}
-            {activeTab === 'analysis' && prospect.ai_analysis && (
-              <p className="text-xs bg-secondary/50 rounded p-2 whitespace-pre-wrap">{prospect.ai_analysis}</p>
-            )}
             {activeTab === 'proposal' && prospect.ai_proposal_brief && (
               <div className="relative">
                 <p className="text-xs bg-secondary/50 rounded p-2 pr-8 whitespace-pre-wrap">{prospect.ai_proposal_brief}</p>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="absolute top-1 right-1 h-6 w-6 p-0"
-                  onClick={() => copyToClipboard(prospect.ai_proposal_brief!, 'Brief de proposta')}
-                >
-                  <Copy className="w-3 h-3" />
-                </Button>
+                <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
+                  onClick={() => copyToClipboard(prospect.ai_proposal_brief!, 'Brief de proposta')}><Copy className="w-3 h-3" /></Button>
               </div>
             )}
             {activeTab === 'creative' && prospect.ai_creative_concept && (
               <div className="relative">
                 <p className="text-xs bg-secondary/50 rounded p-2 pr-8 whitespace-pre-wrap">{prospect.ai_creative_concept}</p>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="absolute top-1 right-1 h-6 w-6 p-0"
-                  onClick={() => copyToClipboard(prospect.ai_creative_concept!, 'Conceito criativo')}
-                >
-                  <Copy className="w-3 h-3" />
-                </Button>
+                <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
+                  onClick={() => copyToClipboard(prospect.ai_creative_concept!, 'Conceito criativo')}><Copy className="w-3 h-3" /></Button>
               </div>
             )}
           </div>
@@ -438,6 +391,8 @@ function ProspectCard({ prospect }: ProspectCardProps) {
   );
 }
 
+// ─── Página principal ─────────────────────────────────────────────────────────
+
 export function InstagramProspecting() {
   const { data: prospects, isLoading } = useInstagramProspects();
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -446,7 +401,10 @@ export function InstagramProspecting() {
 
   const filtered = (prospects || []).filter(p => {
     const matchStatus = filterStatus === 'Todos' || p.status === filterStatus;
-    const matchSearch = !search || p.username.toLowerCase().includes(search.toLowerCase()) || (p.full_name || '').toLowerCase().includes(search.toLowerCase()) || (p.niche || '').toLowerCase().includes(search.toLowerCase());
+    const matchSearch = !search ||
+      p.username.toLowerCase().includes(search.toLowerCase()) ||
+      (p.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.niche || '').toLowerCase().includes(search.toLowerCase());
     return matchStatus && matchSearch;
   });
 
@@ -467,34 +425,23 @@ export function InstagramProspecting() {
             Prospecção Instagram
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Analise perfis com IA e gere mensagens personalizadas para marcar reuniões
+            Diagnóstico digital completo: Instagram + site + Google — mensagem personalizada gerada automaticamente
           </p>
         </div>
         <Button size="sm" className="gap-1.5" onClick={() => setShowAddDialog(true)}>
-          <Plus className="w-4 h-4" /> Novo Prospect
+          <Plus className="w-4 h-4" /> Novo Diagnóstico
         </Button>
       </div>
 
-      {/* Funil resumido */}
+      {/* Filtros de status */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {(['Todos', ...PROSPECT_STATUSES] as const).map(s => (
-          <button
-            key={s}
-            onClick={() => setFilterStatus(s)}
-            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-              filterStatus === s
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-background border-border text-muted-foreground hover:text-foreground'
-            }`}
-          >
+          <button key={s} onClick={() => setFilterStatus(s)}
+            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${filterStatus === s ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border text-muted-foreground hover:text-foreground'}`}>
             {s !== 'Todos' && <span className={`w-2 h-2 rounded-full ${STATUS_COLORS[s as ProspectStatus]}`} />}
             {s}
-            {s !== 'Todos' && counts[s] ? (
-              <span className="bg-white/20 rounded-full px-1">{counts[s]}</span>
-            ) : null}
-            {s === 'Todos' && prospects?.length ? (
-              <span className="bg-white/20 rounded-full px-1">{prospects.length}</span>
-            ) : null}
+            {s !== 'Todos' && counts[s] ? <span className="bg-white/20 rounded-full px-1">{counts[s]}</span> : null}
+            {s === 'Todos' && prospects?.length ? <span className="bg-white/20 rounded-full px-1">{prospects.length}</span> : null}
           </button>
         ))}
       </div>
@@ -502,12 +449,8 @@ export function InstagramProspecting() {
       {/* Busca */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          className="pl-9 h-8 text-sm"
-          placeholder="Buscar por @username, nome ou nicho..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        <Input className="pl-9 h-8 text-sm" placeholder="Buscar por @username, nome ou nicho..."
+          value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
       {/* Lista */}
@@ -518,32 +461,30 @@ export function InstagramProspecting() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500/20 to-orange-400/20 flex items-center justify-center mx-auto mb-3">
-            <Instagram className="w-6 h-6 text-pink-500" />
+            <Stethoscope className="w-6 h-6 text-pink-500" />
           </div>
           <p className="font-medium text-sm">Nenhum prospect encontrado</p>
-          <p className="text-xs mt-1">Clique em "Novo Prospect" para começar a prospectar via Instagram</p>
+          <p className="text-xs mt-1">Clique em "Novo Diagnóstico" para começar a prospectar</p>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map(p => (
-            <ProspectCard key={p.id} prospect={p} />
-          ))}
+          {filtered.map(p => <ProspectCard key={p.id} prospect={p} />)}
         </div>
       )}
 
-      {/* Dialog adicionar */}
+      {/* Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="w-6 h-6 rounded bg-gradient-to-br from-pink-500 to-orange-400 flex items-center justify-center">
-                <Instagram className="w-3.5 h-3.5 text-white" />
+                <Stethoscope className="w-3.5 h-3.5 text-white" />
               </div>
-              Novo Prospect Instagram
+              Novo Diagnóstico Digital
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground -mt-2">
-            Cole o @ ou URL do perfil. A IA analisa e gera mensagem personalizada + proposta automaticamente.
+            Informe o @ e o site. A IA vai analisar Instagram + site + Google e gerar um diagnóstico completo com mensagem personalizada.
           </p>
           <AddProspectForm onClose={() => setShowAddDialog(false)} />
         </DialogContent>

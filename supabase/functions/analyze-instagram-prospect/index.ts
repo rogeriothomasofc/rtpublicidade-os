@@ -18,7 +18,22 @@ interface ProfileData {
   avatar_url: string | null;
 }
 
-// Método 1: API web oficial do Instagram
+interface WebsiteAudit {
+  critical: string[];
+  warnings: string[];
+  positives: string[];
+  score: number;
+}
+
+interface GoogleData {
+  rating: number | null;
+  reviews_count: number | null;
+  address: string | null;
+  name: string | null;
+}
+
+// ─── Instagram fetch (3 métodos) ────────────────────────────────────────────
+
 async function fetchViaWebApi(username: string): Promise<ProfileData | null> {
   try {
     const res = await fetch(
@@ -30,10 +45,6 @@ async function fetchViaWebApi(username: string): Promise<ProfileData | null> {
           "Accept": "*/*",
           "Accept-Language": "pt-BR,pt;q=0.9",
           "Referer": "https://www.instagram.com/",
-          "X-Requested-With": "XMLHttpRequest",
-          "Sec-Fetch-Dest": "empty",
-          "Sec-Fetch-Mode": "cors",
-          "Sec-Fetch-Site": "same-origin",
         },
       }
     );
@@ -55,7 +66,6 @@ async function fetchViaWebApi(username: string): Promise<ProfileData | null> {
   } catch { return null; }
 }
 
-// Método 2: API mobile do Instagram (i.instagram.com)
 async function fetchViaMobileApi(username: string): Promise<ProfileData | null> {
   try {
     const res = await fetch(
@@ -64,7 +74,6 @@ async function fetchViaMobileApi(username: string): Promise<ProfileData | null> 
         headers: {
           "x-ig-app-id": "936619743392459",
           "User-Agent": "Instagram 275.0.0.27.98 Android (29/10; 420dpi; 1080x2134; samsung; SM-G973F; beyond1; exynos9820; pt_BR; 458517901)",
-          "Accept": "*/*",
           "Accept-Language": "pt-BR",
         },
       }
@@ -87,31 +96,25 @@ async function fetchViaMobileApi(username: string): Promise<ProfileData | null> 
   } catch { return null; }
 }
 
-// Método 3: Parsear HTML da página pública
 async function fetchViaHtml(username: string): Promise<ProfileData | null> {
   try {
     const res = await fetch(`https://www.instagram.com/${encodeURIComponent(username)}/`, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept": "text/html,application/xhtml+xml",
         "Accept-Language": "pt-BR,pt;q=0.9",
       },
     });
     if (!res.ok) return null;
     const html = await res.text();
-
-    // Tentar extrair JSON embutido na página
-    const jsonMatch = html.match(/"biography":"([^"]*)"/) ||
-                      html.match(/,"biography":"(.*?)","/);
+    const bioMatch = html.match(/"biography":"([^"]*)"/);
     const followersMatch = html.match(/"edge_followed_by":\{"count":(\d+)\}/);
     const fullNameMatch = html.match(/"full_name":"([^"]*)"/);
     const websiteMatch = html.match(/"external_url":"([^"]*)"/);
-
-    if (!jsonMatch && !followersMatch) return null;
-
+    if (!bioMatch && !followersMatch) return null;
     return {
       full_name: fullNameMatch ? fullNameMatch[1] : null,
-      bio: jsonMatch ? jsonMatch[1].replace(/\\n/g, '\n').replace(/\\u[0-9a-f]{4}/gi, '') : null,
+      bio: bioMatch ? bioMatch[1].replace(/\\n/g, '\n') : null,
       followers_count: followersMatch ? parseInt(followersMatch[1]) : null,
       following_count: null,
       posts_count: null,
@@ -124,13 +127,115 @@ async function fetchViaHtml(username: string): Promise<ProfileData | null> {
 }
 
 async function fetchInstagramProfile(username: string): Promise<{ profile: ProfileData | null; fetched: boolean }> {
-  // Tenta os 3 métodos em sequência
   const profile = await fetchViaWebApi(username)
     ?? await fetchViaMobileApi(username)
     ?? await fetchViaHtml(username);
-
   return { profile, fetched: profile !== null };
 }
+
+// ─── Análise de site ─────────────────────────────────────────────────────────
+
+async function fetchWebsiteHtml(url: string): Promise<string | null> {
+  try {
+    const normalized = url.startsWith('http') ? url : `https://${url}`;
+    const res = await fetch(normalized, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html",
+        "Accept-Language": "pt-BR,pt;q=0.9",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    // Limitar a 40KB para não estourar o contexto
+    return html.slice(0, 40000);
+  } catch { return null; }
+}
+
+async function analyzeWebsite(url: string, apiKey: string): Promise<WebsiteAudit | null> {
+  const html = await fetchWebsiteHtml(url);
+  if (!html) return null;
+
+  // Extrair só as partes relevantes do HTML para análise
+  const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+  const metaDesc = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i);
+  const metaDesc2 = html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*name=["']description["']/i);
+  const hasLoremIpsum = /lorem\s+ipsum/i.test(html);
+  const hasPhone = /\(?\d{2}\)?\s?\d{4,5}[-\s]?\d{4}/.test(html);
+  const hasWhatsApp = /whatsapp|wa\.me/i.test(html);
+  const hasForm = /<form/i.test(html);
+  const hasSchema = /application\/ld\+json/i.test(html);
+  const hasViewport = /name=["']viewport["']/i.test(html);
+
+  // Snippet limpo para a IA analisar
+  const snippet = `
+URL: ${url}
+Title tag: ${titleMatch ? titleMatch[1] : 'AUSENTE'}
+Meta description: ${metaDesc ? metaDesc[1] : metaDesc2 ? metaDesc2[1] : 'AUSENTE'}
+Lorem ipsum detectado: ${hasLoremIpsum ? 'SIM ⚠️' : 'não'}
+Telefone/contato no HTML: ${hasPhone ? 'sim' : 'não detectado'}
+WhatsApp no site: ${hasWhatsApp ? 'sim' : 'não'}
+Formulário de contato: ${hasForm ? 'sim' : 'não'}
+Schema.org (SEO estruturado): ${hasSchema ? 'sim' : 'não'}
+Viewport (mobile): ${hasViewport ? 'ok' : 'AUSENTE ⚠️'}
+
+--- TRECHO DO HTML (primeiros 8KB) ---
+${html.slice(0, 8000)}
+  `.trim();
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1000,
+        system: "Você é um especialista em auditoria de sites e marketing digital. Analise o site fornecido e identifique problemas críticos, alertas e pontos positivos. Responda SOMENTE com JSON válido.",
+        messages: [{
+          role: "user",
+          content: `Analise este site e retorne um JSON com problemas encontrados:\n\n${snippet}\n\nRetorne SOMENTE este JSON:\n{\n  "critical": ["problema crítico 1", "problema crítico 2"],\n  "warnings": ["alerta 1", "alerta 2"],\n  "positives": ["ponto positivo 1"],\n  "score": 45\n}\n\nOnde score é de 0-100 (presença digital geral). critical = problemas graves que prejudicam vendas. warnings = melhorias importantes. positives = o que está bem.`,
+        }],
+      }),
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    const raw = data.content?.[0]?.text ?? "{}";
+    try {
+      return JSON.parse(raw) as WebsiteAudit;
+    } catch {
+      const match = raw.match(/\{[\s\S]*\}/);
+      return match ? JSON.parse(match[0]) : null;
+    }
+  } catch { return null; }
+}
+
+// ─── Google Places ────────────────────────────────────────────────────────────
+
+async function fetchGoogleBusiness(query: string, apiKey: string): Promise<GoogleData | null> {
+  if (!apiKey) return null;
+  try {
+    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&language=pt-BR&key=${apiKey}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const json = await res.json();
+    const place = json?.results?.[0];
+    if (!place) return null;
+    return {
+      rating: place.rating ?? null,
+      reviews_count: place.user_ratings_total ?? null,
+      address: place.formatted_address ?? null,
+      name: place.name ?? null,
+    };
+  } catch { return null; }
+}
+
+// ─── Main handler ─────────────────────────────────────────────────────────────
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -157,17 +262,21 @@ serve(async (req) => {
       });
     }
 
-    const { username, manual_bio } = await req.json() as { username: string; manual_bio?: string };
+    const { username, manual_bio, website_url } = await req.json() as {
+      username: string;
+      manual_bio?: string;
+      website_url?: string;
+    };
     if (!username) {
       return new Response(JSON.stringify({ error: "username is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
+    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_PLACES_API_KEY") ?? "";
 
-    // Buscar dados do perfil (somente se não foi passado manual_bio)
+    // 1. Buscar perfil Instagram
     let profile: ProfileData | null = null;
     let profileFetched = false;
 
@@ -176,62 +285,84 @@ serve(async (req) => {
       profile = result.profile;
       profileFetched = result.fetched;
     } else {
-      // Dados manuais — montar profile com a bio fornecida
       profile = {
-        full_name: null,
-        bio: manual_bio,
-        followers_count: null,
-        following_count: null,
-        posts_count: null,
-        website: null,
-        niche: null,
-        is_business: false,
-        avatar_url: null,
+        full_name: null, bio: manual_bio, followers_count: null,
+        following_count: null, posts_count: null,
+        website: website_url ?? null, niche: null,
+        is_business: false, avatar_url: null,
       };
       profileFetched = true;
     }
 
-    // Se não conseguiu buscar dados, retornar flag para o frontend pedir bio manual
+    // Se não tem bio, pedir manualmente
     if (!profileFetched || !profile?.bio) {
       return new Response(
-        JSON.stringify({ needs_manual_bio: true, profile }),
+        JSON.stringify({ needs_manual_bio: true, profile_fetched: false, profile }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const profileSummary = `
-Perfil Instagram: @${username}
-Nome: ${profile.full_name || "Não obtido"}
-Bio: ${profile.bio}
-Seguidores: ${profile.followers_count?.toLocaleString("pt-BR") ?? "Não obtido"}
-Seguindo: ${profile.following_count?.toLocaleString("pt-BR") ?? "Não obtido"}
-Posts: ${profile.posts_count ?? "Não obtido"}
-Nicho/Categoria: ${profile.niche || "Identificar pela bio"}
-Site: ${profile.website || "Não informado"}
-Conta Comercial: ${profile.is_business ? "Sim" : "Não"}
+    // Usar website da bio ou o informado manualmente
+    const websiteToAudit = website_url || profile.website;
+
+    // 2. Análise do site + Google em paralelo
+    const [websiteAudit, googleData] = await Promise.all([
+      websiteToAudit ? analyzeWebsite(websiteToAudit, ANTHROPIC_API_KEY) : Promise.resolve(null),
+      profile.full_name
+        ? fetchGoogleBusiness(`${profile.full_name}`, GOOGLE_API_KEY)
+        : Promise.resolve(null),
+    ]);
+
+    // 3. Montar contexto completo para o diagnóstico final
+    const instagramSection = `
+📱 INSTAGRAM: @${username}
+• Nome: ${profile.full_name || "não identificado"}
+• Bio: ${profile.bio}
+• Seguidores: ${profile.followers_count?.toLocaleString("pt-BR") ?? "não obtido"}
+• Posts: ${profile.posts_count ?? "não obtido"}
+• Nicho: ${profile.niche || "a identificar"}
+• Site no bio: ${profile.website || "não informado"}
+• Conta comercial: ${profile.is_business ? "sim" : "não"}
     `.trim();
 
-    const systemPrompt = `Você é um especialista em prospecção comercial de uma agência de marketing digital e tráfego pago brasileira chamada RT Publicidade.
-Seu objetivo é analisar perfis do Instagram com base nos dados REAIS fornecidos e criar estratégias personalizadas de abordagem para marcar reuniões comerciais.
-A análise deve ser baseada EXCLUSIVAMENTE nos dados reais do perfil fornecidos — bio, seguidores, nicho, site — sem inventar informações.
-Responda SOMENTE com um JSON válido, sem markdown, sem explicações, apenas o JSON puro.`;
+    const websiteSection = websiteAudit ? `
+🌐 SITE: ${websiteToAudit}
+• Score de presença digital: ${websiteAudit.score}/100
+• Problemas CRÍTICOS: ${websiteAudit.critical.length > 0 ? websiteAudit.critical.join(' | ') : 'nenhum'}
+• Alertas: ${websiteAudit.warnings.length > 0 ? websiteAudit.warnings.join(' | ') : 'nenhum'}
+• Pontos positivos: ${websiteAudit.positives.length > 0 ? websiteAudit.positives.join(' | ') : 'nenhum'}
+    `.trim() : '🌐 SITE: não analisado';
 
-    const userMessage = `Com base nos dados REAIS deste perfil do Instagram, gere uma estratégia de prospecção completa:
+    const googleSection = googleData ? `
+⭐ GOOGLE MINHA EMPRESA:
+• Avaliação: ${googleData.rating}/5 (${googleData.reviews_count?.toLocaleString("pt-BR")} avaliações)
+• Endereço: ${googleData.address}
+    `.trim() : '⭐ GOOGLE: não analisado';
 
-${profileSummary}
+    const fullContext = `${instagramSection}\n\n${websiteSection}\n\n${googleSection}`;
+
+    // 4. Gerar diagnóstico completo + mensagens
+    const systemPrompt = `Você é um especialista em marketing digital e prospecção comercial da agência RT Publicidade.
+Com base nos dados REAIS coletados automaticamente do perfil, site e Google do prospect, gere um diagnóstico completo e mensagens de abordagem altamente personalizadas.
+Seja específico, cite dados reais. Nunca invente informações.
+Responda SOMENTE com JSON válido, sem markdown.`;
+
+    const userMessage = `Dados coletados automaticamente do prospect:
+
+${fullContext}
 
 Retorne exatamente este JSON:
 {
-  "analysis": "Análise real e específica baseada nos dados do perfil: o que o negócio faz, qual o público, pontos fracos de marketing identificados na bio/métricas, oportunidades concretas de crescimento. Seja específico e use os dados reais da bio. (3-4 parágrafos)",
-  "dm_message": "DM personalizada referenciando elementos reais da bio/perfil. Objetivo: marcar reunião. Tom natural, não de vendedor. Máximo 5 linhas. Assinar como RT Publicidade.",
-  "whatsapp_message": "Mensagem WhatsApp informal com emojis naturais, referenciando algo real do perfil. Objetivo: marcar reunião. Máximo 6 linhas. Assinar como RT Publicidade.",
-  "proposal_brief": "Brief de proposta baseado no negócio real: serviços que fazem sentido pro nicho deles, plataformas ideais, investimento sugerido em mídia e fee de gestão em R$",
-  "creative_concept": "Conceito de anúncio baseado no negócio real deles: produto/serviço principal, público-alvo, copy, formato e call to action",
-  "extracted_whatsapp": "Número WhatsApp extraído da bio se houver, senão null",
-  "extracted_email": "Email extraído da bio se houver, senão null"
+  "diagnosis_report": "🔥 DIAGNÓSTICO COMPLETO — [Nome do negócio]\n\n📍 [Localização se disponível]\n⭐ Google: [rating] ([N] avaliações) SE DISPONÍVEL\n📱 Instagram: @[username] ([N] seguidores, [N] posts)\n🌐 Site: [url] SE DISPONÍVEL\n\n─────────────────────────\n🔴 PROBLEMAS CRÍTICOS:\n[liste cada problema crítico do site com bullet 🔴]\n\n⚠️ ALERTAS:\n[liste alertas com bullet ⚠️]\n\n✅ PONTOS POSITIVOS:\n[liste pontos positivos com bullet ✅]\n\n─────────────────────────\n💡 OPORTUNIDADE PARA A RT PUBLICIDADE:\n[2-3 frases sobre o que a agência pode resolver/melhorar especificamente para este cliente]",
+  "dm_message": "DM personalizada citando 1-2 problemas específicos encontrados. Ex: 'Vi que seu site tem [problema real]...' Objetivo: marcar reunião. Tom amigável. Máximo 5 linhas. Assinar como RT Publicidade.",
+  "whatsapp_message": "WhatsApp informal com emojis, citando problemas reais encontrados. Objetivo: marcar reunião. Máximo 6 linhas. Assinar como RT Publicidade.",
+  "proposal_brief": "Proposta baseada nos problemas reais encontrados: serviços que resolvem especificamente os problemas identificados, plataformas, investimento em mídia e fee de gestão em R$",
+  "creative_concept": "Conceito de anúncio baseado no negócio real e problemas identificados: produto/serviço principal, público-alvo, copy, formato e CTA",
+  "extracted_whatsapp": "número WhatsApp da bio se encontrado, senão null",
+  "extracted_email": "email da bio se encontrado, senão null"
 }`;
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "x-api-key": ANTHROPIC_API_KEY,
@@ -240,19 +371,19 @@ Retorne exatamente este JSON:
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 2500,
+        max_tokens: 3000,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],
       }),
     });
 
-    if (!response.ok) throw new Error(`Anthropic API error: ${response.status}`);
+    if (!aiRes.ok) throw new Error(`Anthropic API error: ${aiRes.status}`);
 
-    const data = await response.json();
-    const raw = data.content?.[0]?.text ?? "{}";
+    const aiData = await aiRes.json();
+    const raw = aiData.content?.[0]?.text ?? "{}";
 
     let aiResult: {
-      analysis: string;
+      diagnosis_report: string;
       dm_message: string;
       whatsapp_message: string;
       proposal_brief: string;
@@ -261,16 +392,22 @@ Retorne exatamente este JSON:
       extracted_email: string | null;
     };
 
-    try {
-      aiResult = JSON.parse(raw);
-    } catch {
+    try { aiResult = JSON.parse(raw); }
+    catch {
       const match = raw.match(/\{[\s\S]*\}/);
       if (match) aiResult = JSON.parse(match[0]);
       else throw new Error("Failed to parse AI response");
     }
 
     return new Response(
-      JSON.stringify({ profile, profile_fetched: profileFetched, needs_manual_bio: false, ...aiResult }),
+      JSON.stringify({
+        profile,
+        profile_fetched: profileFetched,
+        needs_manual_bio: false,
+        website_audit: websiteAudit,
+        google_data: googleData,
+        ...aiResult,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 

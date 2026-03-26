@@ -29,6 +29,12 @@ export interface InstagramProspect {
   ai_dm_message: string | null;
   ai_proposal_brief: string | null;
   ai_creative_concept: string | null;
+  // Diagnóstico completo
+  website_issues: { critical: string[]; warnings: string[]; positives: string[]; score: number } | null;
+  google_rating: number | null;
+  google_reviews_count: number | null;
+  google_address: string | null;
+  diagnosis_report: string | null;
   status: ProspectStatus;
   meeting_date: string | null;
   loss_reason: string | null;
@@ -38,7 +44,9 @@ export interface InstagramProspect {
   updated_at: string;
 }
 
-export type InsertProspect = Omit<InstagramProspect, 'id' | 'profile_url' | 'created_at' | 'updated_at'>;
+export type InsertProspect = Omit<InstagramProspect, 'id' | 'profile_url' | 'created_at' | 'updated_at'> & {
+  website_issues?: { critical: string[]; warnings: string[]; positives: string[]; score: number } | null;
+};
 export type UpdateProspect = Partial<InsertProspect> & { id: string };
 
 const QUERY_KEY = ['instagram_prospects'];
@@ -127,7 +135,9 @@ export interface AnalyzeResult {
   } | null;
   profile_fetched: boolean;
   needs_manual_bio: boolean;
-  analysis?: string;
+  website_audit: { critical: string[]; warnings: string[]; positives: string[]; score: number } | null;
+  google_data: { rating: number | null; reviews_count: number | null; address: string | null; name: string | null } | null;
+  diagnosis_report?: string;
   dm_message?: string;
   whatsapp_message?: string;
   proposal_brief?: string;
@@ -136,11 +146,14 @@ export interface AnalyzeResult {
   extracted_email?: string | null;
 }
 
-export async function analyzeInstagramProspect(username: string, manual_bio?: string): Promise<AnalyzeResult> {
+export async function analyzeInstagramProspect(
+  username: string,
+  manual_bio?: string,
+  website_url?: string
+): Promise<AnalyzeResult> {
   const res = await supabase.functions.invoke('analyze-instagram-prospect', {
-    body: { username, manual_bio },
+    body: { username, manual_bio, website_url },
   });
-
   if (res.error) throw res.error;
   return res.data as AnalyzeResult;
 }
