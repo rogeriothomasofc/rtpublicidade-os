@@ -31,19 +31,19 @@
             {
               "id": "f54ace6d",
               "name": "url_do_evolution",
-              "value": "https://api.rtpublicidade.com/",
+              "value": "https://api.rtpublicidade.com",
               "type": "string"
             },
             {
               "id": "ed523a0c",
               "name": "api_key_evolution",
-              "value": "DAC08157180C-4A96-B22A-58766CD75810",
+              "value": "DEAECB055863-491D-AD22-EE1E6699F841",
               "type": "string"
             },
             {
               "id": "8e88f47d",
               "name": "instancia_evolution",
-              "value": "agencia",
+              "value": "RTPUBLICIDADE",
               "type": "string"
             }
           ]
