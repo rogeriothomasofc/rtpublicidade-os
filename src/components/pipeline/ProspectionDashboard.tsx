@@ -1,6 +1,7 @@
 import { useSalesPipeline } from '@/hooks/useSalesPipeline';
 import { useGmbLeads } from '@/hooks/useGmbLeads';
 import { useInstagramProspects } from '@/hooks/useInstagramProspects';
+import { usePipelineStages } from '@/hooks/usePipelineStages';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -148,12 +149,18 @@ function ChannelFunnel({ title, icon, total, steps }: ChannelFunnelProps) {
 // ──────────────────────────────────────────────
 // Main component
 // ──────────────────────────────────────────────
+const FUNNEL_COLOR_PALETTE = [
+  'bg-slate-500', 'bg-blue-500', 'bg-cyan-600', 'bg-indigo-500',
+  'bg-purple-600', 'bg-violet-500', 'bg-orange-500', 'bg-yellow-600',
+];
+
 export function ProspectionDashboard() {
   const { data: pipelineLeads = [], isLoading: loadingPipeline } = useSalesPipeline();
   const { data: gmbLeads = [], isLoading: loadingGmb } = useGmbLeads();
   const { data: igProspects = [], isLoading: loadingIg } = useInstagramProspects();
+  const { data: stages = [], isLoading: loadingStages } = usePipelineStages();
 
-  const isLoading = loadingPipeline || loadingGmb || loadingIg;
+  const isLoading = loadingPipeline || loadingGmb || loadingIg || loadingStages;
 
   if (isLoading) {
     return (
@@ -193,25 +200,15 @@ export function ProspectionDashboard() {
   ].length;
   const conversionRate = pct(totalGanhos, totalProspects);
 
-  // ── Funil visual do Pipeline (excl. Perdido, em ordem) ──
-  const FUNNEL_ORDER = ['Novo', 'Qualificação', 'Diagnóstico', 'Reunião Agendada', 'Proposta Enviada', 'Negociação', 'Ganho'];
-  const FUNNEL_COLORS: Record<string, string> = {
-    'Novo': 'bg-slate-500',
-    'Qualificação': 'bg-blue-500',
-    'Diagnóstico': 'bg-cyan-600',
-    'Reunião Agendada': 'bg-purple-600',
-    'Proposta Enviada': 'bg-orange-500',
-    'Negociação': 'bg-yellow-600',
-    'Ganho': 'bg-green-600',
-  };
-
-  const funnelSteps: FunnelStep[] = FUNNEL_ORDER
-    .map(stage => ({
-      label: stage,
-      count: pipelineLeads.filter(l => l.stage === stage).length,
-      color: FUNNEL_COLORS[stage],
-    }))
-    .filter(s => s.count > 0);
+  // ── Funil visual do Pipeline — baseado nas colunas reais (excl. Perdido) ──
+  const funnelSteps: FunnelStep[] = stages
+    .filter(s => s.display_name !== 'Perdido')
+    .sort((a, b) => a.position - b.position)
+    .map((stage, idx) => ({
+      label: stage.display_name,
+      count: pipelineLeads.filter(l => l.stage === stage.display_name).length,
+      color: stage.display_name === 'Ganho' ? 'bg-green-600' : FUNNEL_COLOR_PALETTE[idx % FUNNEL_COLOR_PALETTE.length],
+    }));
 
   // ── Funnels por canal ──
 
@@ -286,9 +283,7 @@ export function ProspectionDashboard() {
       </div>
 
       {/* Funil visual do Pipeline de Vendas */}
-      {funnelSteps.length > 0 && (
-        <PipelineVisualFunnel steps={funnelSteps} total={pipelineLeads.length} />
-      )}
+      <PipelineVisualFunnel steps={funnelSteps} total={pipelineLeads.length} />
     </div>
   );
 }
