@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, TrendingUp, Trophy, Percent, Instagram, MapPin, Target, DollarSign } from 'lucide-react';
+import { Users, TrendingUp, Percent, MapPin, Target, MessageCircle, Filter, Camera } from 'lucide-react';
 
 // ──────────────────────────────────────────────
 // Helpers
@@ -49,7 +49,64 @@ function KpiCard({ label, value, sub, icon, color }: KpiProps) {
 }
 
 // ──────────────────────────────────────────────
-// Funil de um canal
+// Funil Visual do Pipeline
+// ──────────────────────────────────────────────
+interface FunnelStep {
+  label: string;
+  count: number;
+  color: string;
+}
+
+function PipelineVisualFunnel({ steps, total }: { steps: FunnelStep[]; total: number }) {
+  const maxCount = steps[0]?.count || 1;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+          <Filter className="w-3.5 h-3.5 text-blue-500" />
+          Funil do Pipeline
+          <Badge variant="secondary" className="ml-auto">{total} leads</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-1">
+        {steps.map((step, idx) => {
+          const widthPct = Math.max(Math.round((step.count / maxCount) * 100), 10);
+          const prevCount = idx > 0 ? steps[idx - 1].count : step.count;
+          const fromPrev = idx > 0 && prevCount > 0 ? pct(step.count, prevCount) : null;
+
+          return (
+            <div key={step.label} className="flex flex-col items-center">
+              <div
+                className="w-full transition-all duration-300"
+                style={{
+                  paddingLeft: `${(100 - widthPct) / 2}%`,
+                  paddingRight: `${(100 - widthPct) / 2}%`,
+                }}
+              >
+                <div className={`${step.color} rounded px-3 py-2 flex items-center justify-between text-white text-xs`}>
+                  <span className="font-medium truncate mr-2">{step.label}</span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="font-bold">{step.count}</span>
+                    <span className="opacity-75">({pct(step.count, total)}%)</span>
+                  </div>
+                </div>
+              </div>
+              {fromPrev !== null && (
+                <span className="text-[10px] text-muted-foreground py-0.5">
+                  ↓ {fromPrev}% da etapa anterior
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ──────────────────────────────────────────────
+// Funil de um canal (barra de progresso)
 // ──────────────────────────────────────────────
 interface FunnelItem {
   label: string;
@@ -93,7 +150,7 @@ function ChannelFunnel({ title, icon, total, steps }: ChannelFunnelProps) {
 }
 
 // ──────────────────────────────────────────────
-// Principais leads do pipeline por valor
+// Stage colors
 // ──────────────────────────────────────────────
 const STAGE_COLORS: Record<string, string> = {
   'Novo': 'bg-slate-500',
@@ -122,6 +179,7 @@ export function ProspectionDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
         </div>
+        <Skeleton className="h-80 rounded-xl" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[1, 2, 3].map(i => <Skeleton key={i} className="h-64 rounded-xl" />)}
         </div>
@@ -129,27 +187,49 @@ export function ProspectionDashboard() {
     );
   }
 
-  // ── KPIs globais ──
+  // ── KPIs ──
   const totalProspects = pipelineLeads.length + gmbLeads.length + igProspects.length;
 
-  const activeLeads = [
-    ...pipelineLeads.filter(l => l.stage !== 'Ganho' && l.stage !== 'Perdido'),
-    ...gmbLeads.filter(l => l.status !== 'Ganho' && l.status !== 'Perdido'),
-    ...igProspects.filter(l => l.status !== 'Ganho' && l.status !== 'Perdido'),
+  const leadsNoFunil = pipelineLeads.filter(l => l.stage !== 'Ganho' && l.stage !== 'Perdido').length;
+
+  // Leads prospectados = GMB contactados + IG com mensagem enviada
+  const gmbContacted = gmbLeads.filter(l => l.status !== 'Novo');
+  const igContacted = igProspects.filter(l => l.status !== 'Identificado');
+  const totalProspectados = gmbContacted.length + igContacted.length;
+
+  // Taxa de resposta
+  const responded = [
+    ...gmbContacted.filter(l => ['Respondeu', 'Reunião Marcada', 'Proposta Enviada', 'Ganho'].includes(l.status)),
+    ...igContacted.filter(l => ['Respondeu', 'Reunião Marcada', 'Proposta Enviada', 'Ganho'].includes(l.status as string)),
   ].length;
+  const responseRate = pct(responded, totalProspectados);
 
   const totalGanhos = [
     ...pipelineLeads.filter(l => l.stage === 'Ganho'),
     ...gmbLeads.filter(l => l.status === 'Ganho'),
     ...igProspects.filter(l => l.status === 'Ganho'),
   ].length;
-
   const conversionRate = pct(totalGanhos, totalProspects);
 
-  // Pipeline value
-  const pipelineActiveValue = pipelineLeads
-    .filter(l => l.stage !== 'Perdido')
-    .reduce((sum, l) => sum + (l.deal_value || 0), 0);
+  // ── Funil visual do Pipeline (excl. Perdido, em ordem) ──
+  const FUNNEL_ORDER = ['Novo', 'Qualificação', 'Diagnóstico', 'Reunião Agendada', 'Proposta Enviada', 'Negociação', 'Ganho'];
+  const FUNNEL_COLORS: Record<string, string> = {
+    'Novo': 'bg-slate-500',
+    'Qualificação': 'bg-blue-500',
+    'Diagnóstico': 'bg-cyan-600',
+    'Reunião Agendada': 'bg-purple-600',
+    'Proposta Enviada': 'bg-orange-500',
+    'Negociação': 'bg-yellow-600',
+    'Ganho': 'bg-green-600',
+  };
+
+  const funnelSteps: FunnelStep[] = FUNNEL_ORDER
+    .map(stage => ({
+      label: stage,
+      count: pipelineLeads.filter(l => l.stage === stage).length,
+      color: FUNNEL_COLORS[stage],
+    }))
+    .filter(s => s.count > 0);
 
   // ── Funnels por canal ──
   const pipelineSteps: FunnelItem[] = [
@@ -194,40 +274,45 @@ export function ProspectionDashboard() {
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard
-          label="Total de Prospects"
-          value={totalProspects}
-          sub={`${activeLeads} em andamento`}
+          label="Leads no Funil"
+          value={leadsNoFunil}
+          sub={`de ${totalProspects} captados no total`}
           icon={<Users className="w-4 h-4 text-blue-600" />}
           color="bg-blue-100 dark:bg-blue-900/30"
         />
         <KpiCard
-          label="Valor no Pipeline"
-          value={fmt(pipelineActiveValue)}
-          sub="excl. leads perdidos"
-          icon={<DollarSign className="w-4 h-4 text-emerald-600" />}
+          label="Leads Prospectados"
+          value={totalProspectados}
+          sub="GMB + Instagram contactados"
+          icon={<MessageCircle className="w-4 h-4 text-emerald-600" />}
           color="bg-emerald-100 dark:bg-emerald-900/30"
         />
         <KpiCard
-          label="Convertidos (Ganho)"
-          value={totalGanhos}
-          sub={`de ${totalProspects} prospects`}
-          icon={<Trophy className="w-4 h-4 text-yellow-600" />}
-          color="bg-yellow-100 dark:bg-yellow-900/30"
+          label="Taxa de Resposta"
+          value={`${responseRate}%`}
+          sub={`${responded} responderam de ${totalProspectados}`}
+          icon={<TrendingUp className="w-4 h-4 text-orange-600" />}
+          color="bg-orange-100 dark:bg-orange-900/30"
         />
         <KpiCard
           label="Taxa de Conversão"
           value={`${conversionRate}%`}
-          sub="Ganho / Total captado"
+          sub={`${totalGanhos} ganhos de ${totalProspects}`}
           icon={<Percent className="w-4 h-4 text-purple-600" />}
           color="bg-purple-100 dark:bg-purple-900/30"
         />
       </div>
 
+      {/* Funil visual do Pipeline */}
+      {funnelSteps.length > 0 && (
+        <PipelineVisualFunnel steps={funnelSteps} total={pipelineLeads.length} />
+      )}
+
       {/* Funnels por canal */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <ChannelFunnel
           title="Pipeline de Vendas"
-          icon={<TrendingUp className="w-3.5 h-3.5 text-blue-500" />}
+          icon={<Filter className="w-3.5 h-3.5 text-blue-500" />}
           total={pipelineLeads.length}
           steps={pipelineSteps}
         />
@@ -239,7 +324,7 @@ export function ProspectionDashboard() {
         />
         <ChannelFunnel
           title="Prospecção Instagram"
-          icon={<Instagram className="w-3.5 h-3.5 text-pink-500" />}
+          icon={<Camera className="w-3.5 h-3.5 text-pink-500" />}
           total={igProspects.length}
           steps={igSteps}
         />
