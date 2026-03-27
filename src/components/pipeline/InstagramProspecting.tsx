@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Instagram, Search, Sparkles, Copy, MessageCircle, ExternalLink,
+  Instagram, Search, Sparkles, Copy, ExternalLink,
   Trash2, ChevronDown, ChevronUp, Users, Phone, Mail, Loader2,
   Plus, TrendingUp, FileText, Lightbulb, Globe, Star, AlertTriangle,
   CheckCircle, XCircle, Stethoscope, Kanban,
@@ -33,44 +33,8 @@ function copyToClipboard(text: string, label: string) {
   toast.success(`${label} copiado!`);
 }
 
-function openInstagramConversation(username: string) {
+function openInstagramDM(username: string) {
   window.open(`https://ig.me/m/${username}`, '_blank');
-}
-
-function sendWhatsApp(phone: string, message: string) {
-  const clean = phone.replace(/\D/g, '');
-  window.open(`https://wa.me/55${clean}?text=${encodeURIComponent(message)}`, '_blank');
-}
-
-function formatWhatsAppNumber(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.startsWith('55')) return digits;
-  return `55${digits}`;
-}
-
-async function sendViaEvolution(number: string, text: string): Promise<void> {
-  const url = import.meta.env.VITE_EVOLUTION_API_URL;
-  const apiKey = import.meta.env.VITE_EVOLUTION_API_KEY;
-  const instance = import.meta.env.VITE_EVOLUTION_INSTANCE;
-  const res = await fetch(`${url}/message/sendText/${instance}`, {
-    method: 'POST',
-    headers: { 'apikey': apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ number, text, delay: 1200 }),
-  });
-  if (!res.ok) throw new Error(`Evolution API error: ${res.status}`);
-}
-
-async function sendWhatsAppDiagnosis(
-  phone: string,
-  greeting: string,
-  diagnosis: string,
-  onSent?: () => void
-) {
-  const number = formatWhatsAppNumber(phone);
-  await sendViaEvolution(number, greeting);
-  await new Promise(r => setTimeout(r, 2500));
-  await sendViaEvolution(number, diagnosis);
-  onSent?.();
 }
 
 // ─── Formulário de novo prospect ──────────────────────────────────────────────
@@ -255,52 +219,41 @@ function DiagnosisBadges({ prospect }: { prospect: InstagramProspect }) {
 
 function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
   const [expanded, setExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<'diagnostico' | 'dm' | 'whatsapp' | 'proposal' | 'creative'>('diagnostico');
-  const [sendingWA, setSendingWA] = useState(false);
+  const [activeTab, setActiveTab] = useState<'diagnostico' | 'mensagens' | 'proposal' | 'creative'>('diagnostico');
   const updateProspect = useUpdateProspect();
   const deleteProspect = useDeleteProspect();
   const queryClient = useQueryClient();
 
   const handleStatusChange = (status: ProspectStatus) => updateProspect.mutate({ id: prospect.id, status });
 
-  const handleSendWhatsApp = async () => {
-    if (!prospect.whatsapp || !prospect.ai_dm_message || !prospect.diagnosis_report) return;
-    setSendingWA(true);
-    try {
-      await sendWhatsAppDiagnosis(
-        prospect.whatsapp,
-        prospect.ai_dm_message,
-        prospect.diagnosis_report,
-        async () => {
-          // Cria lead no Pipeline se ainda não foi criado
-          let pipelineLeadId = prospect.pipeline_lead_id;
-          if (!pipelineLeadId) {
-            const { data: pipelineLead } = await supabase
-              .from('sales_pipeline')
-              .insert({
-                lead_name: prospect.full_name || `@${prospect.username}`,
-                company: prospect.full_name || prospect.username,
-                phone: prospect.whatsapp || null,
-                email: prospect.email || null,
-                stage: 'ATENDIMENTO_INICIA',
-                deal_value: 0,
-                probability: 10,
-                source: 'instagram',
-              })
-              .select('id')
-              .single();
-            pipelineLeadId = pipelineLead?.id ?? null;
-            queryClient.invalidateQueries({ queryKey: ['sales-pipeline'] });
-          }
-          updateProspect.mutate({ id: prospect.id, status: 'Mensagem Enviada', pipeline_lead_id: pipelineLeadId });
-          toast.success('Mensagem enviada! Lead adicionado ao Pipeline.');
-        }
-      );
-    } catch {
-      toast.error('Erro ao enviar WhatsApp. Verifique a conexão da instância Evolution.');
-    } finally {
-      setSendingWA(false);
+  const handleSendViaInstagram = async () => {
+    if (prospect.ai_dm_message) {
+      await navigator.clipboard.writeText(prospect.ai_dm_message);
     }
+    openInstagramDM(prospect.username);
+
+    // Cria lead no Pipeline se ainda não foi criado
+    let pipelineLeadId = prospect.pipeline_lead_id;
+    if (!pipelineLeadId) {
+      const { data: pipelineLead } = await supabase
+        .from('sales_pipeline')
+        .insert({
+          lead_name: prospect.full_name || `@${prospect.username}`,
+          company: prospect.full_name || prospect.username,
+          phone: prospect.whatsapp || null,
+          email: prospect.email || null,
+          stage: 'ATENDIMENTO_INICIA',
+          deal_value: 0,
+          probability: 10,
+          source: 'instagram',
+        })
+        .select('id')
+        .single();
+      pipelineLeadId = pipelineLead?.id ?? null;
+      queryClient.invalidateQueries({ queryKey: ['sales-pipeline'] });
+    }
+    updateProspect.mutate({ id: prospect.id, status: 'Mensagem Enviada', pipeline_lead_id: pipelineLeadId });
+    toast.success('Instagram aberto! Mensagem 1 copiada — cole e envie. Depois copie a mensagem 2.');
   };
 
   return (
@@ -358,15 +311,10 @@ function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
       <CardContent className="px-4 pb-3 space-y-2">
         {/* Ações rápidas */}
         <div className="flex gap-1.5">
-          <Button size="sm" variant="outline" className="flex-1 h-7 text-xs gap-1"
-            onClick={() => { copyToClipboard(prospect.ai_dm_message || '', 'Mensagem DM'); openInstagramConversation(prospect.username); }}>
-            <Instagram className="w-3 h-3" /> DM + Abrir
-          </Button>
-          {prospect.whatsapp && prospect.ai_dm_message && prospect.diagnosis_report && (
-            <Button size="sm" variant="outline" className="flex-1 h-7 text-xs gap-1 text-green-600 border-green-200 hover:bg-green-50 dark:hover:bg-green-900/20"
-              onClick={handleSendWhatsApp} disabled={sendingWA}>
-              {sendingWA ? <Loader2 className="w-3 h-3 animate-spin" /> : <MessageCircle className="w-3 h-3" />}
-              {sendingWA ? 'Enviando...' : 'WhatsApp'}
+          {prospect.ai_dm_message && (
+            <Button size="sm" variant="outline" className="flex-1 h-7 text-xs gap-1 text-pink-600 border-pink-200 hover:bg-pink-50 dark:hover:bg-pink-900/20"
+              onClick={handleSendViaInstagram}>
+              <Instagram className="w-3 h-3" /> Enviar DM
             </Button>
           )}
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
@@ -395,8 +343,7 @@ function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
             <div className="flex gap-1 flex-wrap">
               {[
                 { key: 'diagnostico', label: 'Diagnóstico', icon: <Stethoscope className="w-3 h-3" /> },
-                { key: 'dm', label: 'DM', icon: <Instagram className="w-3 h-3" /> },
-                { key: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle className="w-3 h-3" /> },
+                { key: 'mensagens', label: 'Mensagens', icon: <Instagram className="w-3 h-3" /> },
                 { key: 'proposal', label: 'Proposta', icon: <FileText className="w-3 h-3" /> },
                 { key: 'creative', label: 'Criativo', icon: <Lightbulb className="w-3 h-3" /> },
               ].map(tab => (
@@ -444,18 +391,11 @@ function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
                 )}
               </div>
             )}
-            {activeTab === 'dm' && prospect.ai_dm_message && (
-              <div className="relative">
-                <p className="text-xs bg-secondary/50 rounded p-2 pr-8 whitespace-pre-wrap">{prospect.ai_dm_message}</p>
-                <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
-                  onClick={() => copyToClipboard(prospect.ai_dm_message!, 'Mensagem DM')}><Copy className="w-3 h-3" /></Button>
-              </div>
-            )}
-            {activeTab === 'whatsapp' && (
+            {activeTab === 'mensagens' && (
               <div className="space-y-2">
                 {prospect.ai_dm_message && prospect.diagnosis_report ? (
                   <>
-                    <p className="text-xs text-muted-foreground">Sequência de 2 mensagens com intervalo de 2,5s:</p>
+                    <p className="text-xs text-muted-foreground">Envie as 2 mensagens em sequência pelo Instagram DM:</p>
                     {[
                       { part: 1, message: prospect.ai_dm_message },
                       { part: 2, message: prospect.diagnosis_report },
@@ -470,14 +410,10 @@ function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
                           onClick={() => copyToClipboard(m.message, `Mensagem ${m.part}`)}><Copy className="w-3 h-3" /></Button>
                       </div>
                     ))}
-                    {prospect.whatsapp && (
-                      <Button size="sm" className="w-full h-7 text-xs gap-1 bg-green-600 hover:bg-green-700"
-                        onClick={handleSendWhatsApp} disabled={sendingWA}>
-                        {sendingWA
-                          ? <><Loader2 className="w-3 h-3 animate-spin" /> Enviando sequência...</>
-                          : <><MessageCircle className="w-3 h-3" /> Enviar sequência agora</>}
-                      </Button>
-                    )}
+                    <Button size="sm" className="w-full h-7 text-xs gap-1 bg-gradient-to-r from-pink-500 to-orange-400 hover:from-pink-600 hover:to-orange-500 text-white border-0"
+                      onClick={handleSendViaInstagram}>
+                      <Instagram className="w-3 h-3" /> Copiar msg 1 + Abrir Instagram DM
+                    </Button>
                   </>
                 ) : (
                   <p className="text-xs text-muted-foreground text-center py-4">Gere o diagnóstico primeiro para ver as mensagens</p>
