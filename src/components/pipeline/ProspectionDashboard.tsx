@@ -54,44 +54,42 @@ interface FunnelStep {
 }
 
 function PipelineVisualFunnel({ steps, total }: { steps: FunnelStep[]; total: number }) {
-  const maxCount = steps[0]?.count || 1;
+  const maxCount = Math.max(...steps.map(s => s.count), 1);
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-medium flex items-center gap-1.5">
           <Filter className="w-3.5 h-3.5 text-blue-500" />
-          Funil do Pipeline
+          Funil do Pipeline — por etapa
           <Badge variant="secondary" className="ml-auto">{total} leads</Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-1">
+      <CardContent className="space-y-2">
         {steps.map((step, idx) => {
-          const widthPct = Math.max(Math.round((step.count / maxCount) * 100), 10);
-          const prevCount = idx > 0 ? steps[idx - 1].count : step.count;
-          const fromPrev = idx > 0 && prevCount > 0 ? pct(step.count, prevCount) : null;
+          const barPct = Math.round((step.count / maxCount) * 100);
+          const prevCount = idx > 0 ? steps[idx - 1].count : null;
+          const fromPrev = prevCount != null && prevCount > 0 ? pct(step.count, prevCount) : null;
 
           return (
-            <div key={step.label} className="flex flex-col items-center">
-              <div
-                className="w-full transition-all duration-300"
-                style={{
-                  paddingLeft: `${(100 - widthPct) / 2}%`,
-                  paddingRight: `${(100 - widthPct) / 2}%`,
-                }}
-              >
-                <div className={`${step.color} rounded px-3 py-2 flex items-center justify-between text-white text-xs`}>
-                  <span className="font-medium truncate mr-2">{step.label}</span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="font-bold">{step.count}</span>
-                    <span className="opacity-75">({pct(step.count, total)}%)</span>
-                  </div>
+            <div key={step.label} className="space-y-0.5">
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground w-40 shrink-0">{step.label}</span>
+                <div className="flex-1 h-6 bg-secondary rounded overflow-hidden">
+                  <div
+                    className={`h-full ${step.color} rounded transition-all duration-500`}
+                    style={{ width: step.count > 0 ? `${barPct}%` : '2px' }}
+                  />
+                </div>
+                <div className="text-xs w-24 shrink-0 text-right tabular-nums">
+                  <span className="font-bold">{step.count}</span>
+                  <span className="text-muted-foreground ml-1">({pct(step.count, total)}%)</span>
                 </div>
               </div>
-              {fromPrev !== null && (
-                <span className="text-[10px] text-muted-foreground py-0.5">
+              {fromPrev !== null && step.count > 0 && (
+                <p className="text-[10px] text-muted-foreground pl-[calc(10rem+0.75rem)]">
                   ↓ {fromPrev}% da etapa anterior
-                </span>
+                </p>
               )}
             </div>
           );
@@ -186,12 +184,13 @@ export function ProspectionDashboard() {
   const igContacted = igProspects.filter(l => l.status !== 'Identificado');
   const totalProspectados = gmbContacted.length + igContacted.length;
 
-  // Taxa de resposta
-  const responded = [
-    ...gmbContacted.filter(l => ['Respondeu', 'Reunião Marcada', 'Proposta Enviada', 'Ganho'].includes(l.status)),
-    ...igContacted.filter(l => ['Respondeu', 'Reunião Marcada', 'Proposta Enviada', 'Ganho'].includes(l.status as string)),
-  ].length;
-  const responseRate = pct(responded, totalProspectados);
+  // Taxa de resposta (GMB + Instagram + Pipeline marcados como respondidos)
+  const pipelineResponded = pipelineLeads.filter(l => l.responded).length;
+  const gmbResponded = gmbContacted.filter(l => ['Respondeu', 'Reunião Marcada', 'Proposta Enviada', 'Ganho'].includes(l.status)).length;
+  const igResponded = igContacted.filter(l => ['Respondeu', 'Reunião Marcada', 'Proposta Enviada', 'Ganho'].includes(l.status as string)).length;
+  const responded = pipelineResponded + gmbResponded + igResponded;
+  const totalContatados = totalProspectados + pipelineLeads.length;
+  const responseRate = pct(responded, totalContatados);
 
   const totalGanhos = [
     ...pipelineLeads.filter(l => l.stage === 'Ganho'),
@@ -200,14 +199,14 @@ export function ProspectionDashboard() {
   ].length;
   const conversionRate = pct(totalGanhos, totalProspects);
 
-  // ── Funil visual do Pipeline — baseado nas colunas reais (excl. Perdido) ──
+  // ── Funil visual do Pipeline — usa stage.name para match, display_name para label ──
   const funnelSteps: FunnelStep[] = stages
-    .filter(s => s.display_name !== 'Perdido')
+    .filter(s => s.name !== 'Perdido')
     .sort((a, b) => a.position - b.position)
     .map((stage, idx) => ({
       label: stage.display_name,
-      count: pipelineLeads.filter(l => l.stage === stage.display_name).length,
-      color: stage.display_name === 'Ganho' ? 'bg-green-600' : FUNNEL_COLOR_PALETTE[idx % FUNNEL_COLOR_PALETTE.length],
+      count: pipelineLeads.filter(l => l.stage === stage.name).length,
+      color: stage.name === 'Ganho' ? 'bg-green-600' : FUNNEL_COLOR_PALETTE[idx % FUNNEL_COLOR_PALETTE.length],
     }));
 
   // ── Funnels por canal ──
@@ -253,7 +252,7 @@ export function ProspectionDashboard() {
         <KpiCard
           label="Taxa de Resposta"
           value={`${responseRate}%`}
-          sub={`${responded} responderam de ${totalProspectados}`}
+          sub={`${responded} responderam de ${totalContatados}`}
           icon={<TrendingUp className="w-4 h-4 text-orange-600" />}
           color="bg-orange-100 dark:bg-orange-900/30"
         />

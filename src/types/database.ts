@@ -92,6 +92,8 @@ export interface SalesPipeline {
   duration_months?: number;
   avatar_url?: string | null;
   source: LeadSource;
+  responded: boolean;
+  loss_reason?: string | null;
   created_at: string;
   updated_at: string;
 }
