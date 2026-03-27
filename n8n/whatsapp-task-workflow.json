@@ -31,9 +31,15 @@
             },
             {
               "id": "cond-not-fromme",
-              "leftValue": "={{ $('Webhook').item.json.body.data.key.fromMe }}",
-              "rightValue": false,
-              "operator": { "type": "boolean", "operation": "equals" }
+              "leftValue": "={{ String($('Webhook').item.json.body.data.key.fromMe) }}",
+              "rightValue": "false",
+              "operator": { "type": "string", "operation": "equals" }
+            },
+            {
+              "id": "cond-has-participant",
+              "leftValue": "={{ $('Webhook').item.json.body.data.key.participant }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEquals" }
             }
           ],
           "combinator": "and"
@@ -132,7 +138,7 @@
       "parameters": {
         "resource": "chat-api",
         "operation": "get-media-base64",
-        "instanceName": "tarefas-agencia",
+        "instanceName": "agent-sistema",
         "messageId": "={{ $('Webhook').item.json.body.data.key.id }}",
         "convertToMp4": true
       },
@@ -144,7 +150,7 @@
       "credentials": {
         "evolutionApi": {
           "id": "",
-          "name": "Evolution tarefas-agencia"
+          "name": "Evolution agent-sistema"
         }
       }
     },
@@ -203,7 +209,7 @@
         "promptType": "define",
         "text": "={{ $json.texto }}",
         "options": {
-          "systemMessage": "=Você é um assistente da agência RT Publicidade que cria tarefas via WhatsApp de forma rápida e direta.\n\n**Quem enviou:** {{ $('Webhook').item.json.body.data.pushName }}\n**Número do remetente:** {{ ($('Webhook').item.json.body.data.key.participant || '').replace('@s.whatsapp.net','').replace('@lid','') }}\n**Data e hora atual:** {{ $now }}\n\n---\n\n## Regra principal\n\nAo receber uma mensagem sobre tarefa, chame `buscar_responsavel_por_whatsapp` IMEDIATAMENTE para identificar quem enviou. Depois monte a tarefa com os dados disponíveis e apresente para confirmação em UMA ÚNICA MENSAGEM. Nunca faça perguntas antes de apresentar a tarefa.\n\n---\n\n## Defaults automáticos (use sem perguntar)\n\n| Campo | Default |\n|---|---|\n| Responsável | Quem enviou a mensagem (resultado de `buscar_responsavel_por_whatsapp`) |\n| Prioridade | Média |\n| Tipo | Inferir pelo contexto (post/vídeo/criativo → Criativo, campanha → Campanha, relatório → Relatório, resto → Outro) |\n| Cliente | Nenhum (a menos que mencionado) |\n\n---\n\n## Interpretação de datas\n\nBase: {{ $now }}. Interprete sem pedir confirmação:\n- \"amanhã\" → próximo dia\n- \"sexta\", \"segunda\"... → próximo dia da semana mencionado\n- \"semana que vem\" → próxima segunda-feira\n- \"fim do mês\" → último dia do mês atual\n- \"dia 10\" → dia 10 do mês atual (próximo mês se já passou)\n- sem prazo mencionado → deixe due_date vazio e mostre como \"Sem prazo\"\n\n---\n\n## Fluxo\n\n**Passo 1 — Montar e confirmar (UMA mensagem)**\nSempre que receber uma mensagem sobre tarefa:\n1. Chame `buscar_responsavel_por_whatsapp` para identificar quem enviou\n2. Se a mensagem mencionar qualquer nome que possa ser um cliente (ex: \"cliente X\", \"para X\", \"do X\"), chame `listar_clientes` e tente encontrar o cliente pelo nome mencionado\n3. Monte a tarefa completa com defaults e apresente:\n\n```\n📋 *Nova tarefa:*\n\n*Título:* [título extraído da mensagem]\n*Responsável:* [nome]\n*Prioridade:* [prioridade]\n*Prazo:* [data por extenso ou \"Sem prazo\"]\n*Tipo:* [tipo]\n*Cliente:* [nome ou —]\n\n✅ *sim* para criar | ✏️ ou me diga o que corrigir\n```\n\n**Passo 2 — Criar**\nApós confirmação (sim, ok, pode criar, isso, confirmar, etc.):\n1. Chame `criar_tarefa`\n2. Chame `atribuir_responsavel` com o `task_id` retornado e o `member_id`\n\n**Passo 3 — Confirmar**\n```\n✅ Tarefa criada! 📋 [título] | 👤 [responsável] | 📅 [prazo]\n```\n\n---\n\n## Casos especiais\n\n**Saudação** (oi, olá, bom dia...): Responda pelo nome e pergunte se quer criar uma tarefa.\n> Olá, [nome]! 👋 Quer criar uma tarefa?\n\n**Falta o título**: Peça só o título, nada mais.\n\n**Menciona cliente**: Já foi chamado no Passo 1. Use o `id` encontrado no `criar_tarefa`. Se não encontrar correspondência exata, mostre o nome como digitado e marque com ⚠️ para o usuário confirmar.\n\n**Menciona outro responsável**: Use `listar_membros` para buscar o ID.\n\nNUNCA faça múltiplas perguntas. NUNCA crie sem confirmação."
+          "systemMessage": "=Você é um assistente da agência RT Publicidade que cria tarefas via WhatsApp de forma rápida e direta.\n\n**Quem enviou:** {{ $('Webhook').item.json.body.data.pushName }}\n**Número do remetente:** {{ ($('Webhook').item.json.body.data.key.participant || '').replace('@s.whatsapp.net','').replace('@lid','') }}\n**Data e hora atual:** {{ $now }}\n\n---\n\n## Regra principal\n\nAo receber uma mensagem sobre tarefa, chame `buscar_responsavel_por_whatsapp` IMEDIATAMENTE para identificar quem enviou. Depois monte a tarefa com os dados disponíveis e apresente para confirmação em UMA ÚNICA MENSAGEM. Nunca faça perguntas antes de apresentar a tarefa.\n\n---\n\n## Defaults automáticos (use sem perguntar)\n\n| Campo | Default |\n|---|---|\n| Responsável | Quem enviou a mensagem (resultado de `buscar_responsavel_por_whatsapp`) |\n| Prioridade | Média |\n| Tipo | Inferir pelo contexto (post/vídeo/criativo → Criativo, campanha → Campanha, relatório → Relatório, resto → Outro) |\n| Cliente | Nenhum (a menos que mencionado) |\n\n---\n\n## Interpretação de datas e horários\n\nBase: {{ $now }}. Interprete sem pedir confirmação:\n- \"amanhã\" → próximo dia\n- \"sexta\", \"segunda\"... → próximo dia da semana mencionado\n- \"semana que vem\" → próxima segunda-feira\n- \"fim do mês\" → último dia do mês atual\n- \"dia 10\" → dia 10 do mês atual (próximo mês se já passou)\n- sem prazo mencionado → deixe due_date vazio e mostre como \"Sem prazo\"\n\nHorário:\n- \"às 14h\", \"14:00\", \"2 da tarde\" → 14:00\n- \"às 9h\", \"9:30\" → 09:00 / 09:30\n- \"de manhã\" → 09:00\n- \"meio-dia\" → 12:00\n- \"à tarde\" → 14:00\n- \"à noite\" → 19:00\n- sem horário mencionado → deixe due_time vazio e omita do resumo\n\n---\n\n## Fluxo\n\n**Passo 1 — Montar e confirmar (UMA mensagem)**\nSempre que receber uma mensagem sobre tarefa:\n1. Chame `buscar_responsavel_por_whatsapp` para identificar quem enviou\n2. Se a mensagem mencionar qualquer nome que possa ser um cliente (ex: \"cliente X\", \"para X\", \"do X\"), chame `listar_clientes` e tente encontrar o cliente pelo nome mencionado. GUARDE o `id` do cliente encontrado — você vai precisar dele na criação.\n3. Monte a tarefa completa com defaults e apresente:\n\n```\n📋 *Nova tarefa:*\n\n*Título:* [título extraído da mensagem]\n*Responsável:* [nome] | member_id: [uuid]\n*Prioridade:* [prioridade]\n*Prazo:* [data por extenso ou \"Sem prazo\"] [horário no formato HH:MM ou omita se não houver]\n*Tipo:* [tipo]\n*Cliente:* [nome] | client_id: [uuid] (ou — se não houver)\n\n✅ *sim* para criar | ✏️ ou me diga o que corrigir\n```\n\n**Passo 2 — Criar**\nApós confirmação (sim, ok, pode criar, isso, confirmar, etc.):\n⚠️ OBRIGATÓRIO: você DEVE chamar as ferramentas abaixo. Não apenas diga que criou — EXECUTE as chamadas:\n1. CHAME A FERRAMENTA `criar_tarefa` com os dados da tarefa confirmada. A resposta vai conter o campo `id` — esse é o UUID da tarefa criada. GUARDE esse valor.\n2. CHAME A FERRAMENTA `atribuir_responsavel` passando no campo `task_id` o `id` retornado no passo anterior, e no campo `member_id` o `id` retornado por `buscar_responsavel_por_whatsapp`\n3. Se o `client_id` estava na mensagem de confirmação (não era —), CHAME A FERRAMENTA `vincular_cliente` passando o mesmo `task_id` do passo 1 e o `client_id` identificado\n\nSe o histórico da conversa não tiver os dados da tarefa, peça para o usuário repetir a tarefa.\n\n**Passo 3 — Confirmar**\n```\n✅ Tarefa criada! 📋 [título] | 👤 [responsável] | 📅 [prazo]\n```\n\n---\n\n## Casos especiais\n\n**Saudação** (oi, olá, bom dia...): Responda pelo nome e pergunte se quer criar uma tarefa.\n> Olá, [nome]! 👋 Quer criar uma tarefa?\n\n**Falta o título**: Peça só o título, nada mais.\n\n**Menciona cliente**: Já foi chamado no Passo 1. Use o `id` encontrado no `criar_tarefa`. Se não encontrar correspondência exata, mostre o nome como digitado e marque com ⚠️ para o usuário confirmar.\n\n**Menciona outro responsável**: Use `listar_membros` para buscar o ID.\n\nNUNCA faça múltiplas perguntas. NUNCA crie sem confirmação. NUNCA simule a criação sem chamar as ferramentas."
         }
       },
       "id": "node-agent",
@@ -297,8 +303,8 @@
         "tableId": "task_assignees",
         "fieldsUi": {
           "fieldValues": [
-            { "fieldId": "task_id", "fieldValue": "={{ $fromAI('task_id', 'ID da tarefa recém criada', 'string') }}" },
-            { "fieldId": "member_id", "fieldValue": "={{ $fromAI('member_id', 'ID do membro responsável', 'string') }}" }
+            { "fieldId": "task_id", "fieldValue": "={{ $fromAI('task_id', 'UUID da tarefa retornado pelo campo id na resposta da tool criar_tarefa. Exemplo: \"3fa85f64-5717-4562-b3fc-2c963f66afa6\"', 'string') }}" },
+            { "fieldId": "member_id", "fieldValue": "={{ $fromAI('member_id', 'UUID do membro responsável retornado pelo campo id na resposta da tool buscar_responsavel_por_whatsapp', 'string') }}" }
           ]
         }
       },
@@ -307,6 +313,33 @@
       "type": "n8n-nodes-base.supabaseTool",
       "typeVersion": 1,
       "position": [2260, 520],
+      "credentials": {
+        "supabaseApi": {
+          "id": "",
+          "name": "Supabase RT Publicidade"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "tasks",
+        "filters": {
+          "conditions": [
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $fromAI('task_id', 'UUID da tarefa retornado pelo campo id na resposta da tool criar_tarefa', 'string') }}" }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "client_id", "fieldValue": "={{ $fromAI('client_id', 'UUID do cliente a vincular na tarefa', 'string') }}" }
+          ]
+        }
+      },
+      "id": "node-tool-vincular-cliente",
+      "name": "vincular_cliente",
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [2400, 520],
       "credentials": {
         "supabaseApi": {
           "id": "",
@@ -348,8 +381,8 @@
             { "fieldId": "priority", "fieldValue": "={{ $fromAI('priority', 'Prioridade: Baixa | Média | Alta | Urgente', 'string') }}" },
             { "fieldId": "type", "fieldValue": "={{ $fromAI('type', 'Tipo: Campanha | Criativo | Relatório | Onboarding | Otimização | Outro', 'string') }}" },
             { "fieldId": "recurrence", "fieldValue": "Nenhuma" },
-            { "fieldId": "due_date", "fieldValue": "={{ $fromAI('due_date', 'Data de entrega no formato YYYY-MM-DD', 'string') }}" },
-            { "fieldId": "client_id", "fieldValue": "={{ $fromAI('client_id', 'ID do cliente (opcional, deixe vazio se não houver)', 'string') }}" }
+            { "fieldId": "due_date", "fieldValue": "={{ $fromAI('due_date', 'Data de entrega no formato YYYY-MM-DD. Deixe em branco se sem prazo.', 'string') }}" },
+            { "fieldId": "due_time", "fieldValue": "={{ $fromAI('due_time', 'Horário de entrega no formato HH:MM (ex: 14:00). Deixe em branco se não mencionado.', 'string') }}" }
           ]
         }
       },
@@ -368,7 +401,7 @@
     {
       "parameters": {
         "resource": "messages-api",
-        "instanceName": "tarefas-agencia",
+        "instanceName": "agent-sistema",
         "remoteJid": "120363426584725074@g.us",
         "messageText": "={{ $json.output }}",
         "options_message": {}
@@ -381,7 +414,7 @@
       "credentials": {
         "evolutionApi": {
           "id": "",
-          "name": "Evolution tarefas-agencia"
+          "name": "Evolution agent-sistema"
         }
       }
     }
@@ -434,6 +467,9 @@
       "ai_tool": [[{ "node": "Agente de Tarefas", "type": "ai_tool", "index": 0 }]]
     },
     "atribuir_responsavel": {
+      "ai_tool": [[{ "node": "Agente de Tarefas", "type": "ai_tool", "index": 0 }]]
+    },
+    "vincular_cliente": {
       "ai_tool": [[{ "node": "Agente de Tarefas", "type": "ai_tool", "index": 0 }]]
     },
     "Agente de Tarefas": {
