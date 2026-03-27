@@ -3,10 +3,11 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { PipelineBoard } from '@/components/pipeline/PipelineBoard';
 import { InstagramProspecting } from '@/components/pipeline/InstagramProspecting';
 import { GmbLeads } from '@/components/pipeline/GmbLeads';
+import { ProspectionDashboard } from '@/components/pipeline/ProspectionDashboard';
 import { useSalesPipeline } from '@/hooks/useSalesPipeline';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { TrendingUp, Instagram, MapPin } from 'lucide-react';
+import { TrendingUp, Instagram, MapPin, LayoutDashboard } from 'lucide-react';
 
 export default function PipelinePage() {
   const { data: leads, isLoading } = useSalesPipeline();
@@ -31,8 +32,11 @@ export default function PipelinePage() {
   return (
     <MainLayout>
       <div className="space-y-4 animate-fade-in">
-        <Tabs defaultValue="pipeline">
+        <Tabs defaultValue="dashboard">
           <TabsList className="h-9">
+            <TabsTrigger value="dashboard" className="gap-1.5 text-sm">
+              <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
+            </TabsTrigger>
             <TabsTrigger value="pipeline" className="gap-1.5 text-sm">
               <TrendingUp className="w-3.5 h-3.5" /> Pipeline
             </TabsTrigger>
@@ -43,6 +47,9 @@ export default function PipelinePage() {
               <MapPin className="w-3.5 h-3.5" /> Google Maps
             </TabsTrigger>
           </TabsList>
+          <TabsContent value="dashboard" className="mt-4">
+            <ProspectionDashboard />
+          </TabsContent>
           <TabsContent value="pipeline" className="mt-4">
             <PipelineBoard leads={leads || []} />
           </TabsContent>
