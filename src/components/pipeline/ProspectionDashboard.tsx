@@ -3,17 +3,12 @@ import { useGmbLeads } from '@/hooks/useGmbLeads';
 import { useInstagramProspects } from '@/hooks/useInstagramProspects';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, TrendingUp, Percent, MapPin, Target, MessageCircle, Filter, Camera } from 'lucide-react';
+import { Users, TrendingUp, Percent, MapPin, MessageCircle, Filter, Camera } from 'lucide-react';
 
 // ──────────────────────────────────────────────
 // Helpers
 // ──────────────────────────────────────────────
-function fmt(value: number) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value);
-}
-
 function pct(part: number, total: number) {
   if (total === 0) return 0;
   return Math.round((part / total) * 100);
@@ -149,19 +144,6 @@ function ChannelFunnel({ title, icon, total, steps }: ChannelFunnelProps) {
   );
 }
 
-// ──────────────────────────────────────────────
-// Stage colors
-// ──────────────────────────────────────────────
-const STAGE_COLORS: Record<string, string> = {
-  'Novo': 'bg-slate-500',
-  'Qualificação': 'bg-blue-400',
-  'Diagnóstico': 'bg-cyan-500',
-  'Reunião Agendada': 'bg-purple-500',
-  'Proposta Enviada': 'bg-orange-500',
-  'Negociação': 'bg-yellow-500',
-  'Ganho': 'bg-green-500',
-  'Perdido': 'bg-red-500',
-};
 
 // ──────────────────────────────────────────────
 // Main component
@@ -232,16 +214,6 @@ export function ProspectionDashboard() {
     .filter(s => s.count > 0);
 
   // ── Funnels por canal ──
-  const pipelineSteps: FunnelItem[] = [
-    { label: 'Novo', count: pipelineLeads.filter(l => l.stage === 'Novo').length, color: 'bg-slate-400' },
-    { label: 'Qualificação', count: pipelineLeads.filter(l => l.stage === 'Qualificação').length, color: 'bg-blue-400' },
-    { label: 'Diagnóstico', count: pipelineLeads.filter(l => l.stage === 'Diagnóstico').length, color: 'bg-cyan-500' },
-    { label: 'Reunião Agendada', count: pipelineLeads.filter(l => l.stage === 'Reunião Agendada').length, color: 'bg-purple-500' },
-    { label: 'Proposta Enviada', count: pipelineLeads.filter(l => l.stage === 'Proposta Enviada').length, color: 'bg-orange-500' },
-    { label: 'Negociação', count: pipelineLeads.filter(l => l.stage === 'Negociação').length, color: 'bg-yellow-500' },
-    { label: 'Ganho', count: pipelineLeads.filter(l => l.stage === 'Ganho').length, color: 'bg-green-500' },
-    { label: 'Perdido', count: pipelineLeads.filter(l => l.stage === 'Perdido').length, color: 'bg-red-500' },
-  ].filter(s => s.count > 0);
 
   const gmbSteps: FunnelItem[] = [
     { label: 'Novo', count: gmbLeads.filter(l => l.status === 'Novo').length, color: 'bg-slate-400' },
@@ -262,12 +234,6 @@ export function ProspectionDashboard() {
     { label: 'Ganho', count: igProspects.filter(l => l.status === 'Ganho').length, color: 'bg-green-500' },
     { label: 'Perdido', count: igProspects.filter(l => l.status === 'Perdido').length, color: 'bg-red-500' },
   ].filter(s => s.count > 0);
-
-  // Top leads por valor
-  const topLeads = [...pipelineLeads]
-    .filter(l => l.stage !== 'Perdido')
-    .sort((a, b) => (b.deal_value || 0) - (a.deal_value || 0))
-    .slice(0, 6);
 
   return (
     <div className="space-y-6">
@@ -303,19 +269,8 @@ export function ProspectionDashboard() {
         />
       </div>
 
-      {/* Funil visual do Pipeline */}
-      {funnelSteps.length > 0 && (
-        <PipelineVisualFunnel steps={funnelSteps} total={pipelineLeads.length} />
-      )}
-
-      {/* Funnels por canal */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <ChannelFunnel
-          title="Pipeline de Vendas"
-          icon={<Filter className="w-3.5 h-3.5 text-blue-500" />}
-          total={pipelineLeads.length}
-          steps={pipelineSteps}
-        />
+      {/* Funnels GMB + Instagram */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ChannelFunnel
           title="Google Maps (GMB)"
           icon={<MapPin className="w-3.5 h-3.5 text-red-500" />}
@@ -330,44 +285,9 @@ export function ProspectionDashboard() {
         />
       </div>
 
-      {/* Top leads por valor */}
-      {topLeads.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
-              <Target className="w-3.5 h-3.5 text-orange-500" />
-              Principais Oportunidades no Pipeline
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {topLeads.map((lead) => {
-                const maxVal = topLeads[0]?.deal_value || 1;
-                return (
-                  <div key={lead.id} className="flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium truncate">{lead.company || lead.lead_name}</span>
-                        <div className="flex items-center gap-2 shrink-0 ml-2">
-                          <Badge
-                            className={`text-white text-[10px] px-1.5 py-0 ${STAGE_COLORS[lead.stage] || 'bg-slate-500'}`}
-                          >
-                            {lead.stage}
-                          </Badge>
-                          <span className="text-sm font-semibold text-emerald-600">{fmt(lead.deal_value || 0)}</span>
-                        </div>
-                      </div>
-                      <Progress
-                        value={pct(lead.deal_value || 0, maxVal)}
-                        className="h-1.5"
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Funil visual do Pipeline de Vendas */}
+      {funnelSteps.length > 0 && (
+        <PipelineVisualFunnel steps={funnelSteps} total={pipelineLeads.length} />
       )}
     </div>
   );
