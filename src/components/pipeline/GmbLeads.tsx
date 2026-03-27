@@ -9,7 +9,7 @@ import {
   MapPin, Phone, Globe, Star, Trash2, MessageCircle,
   Search, Loader2, Users, Copy, Building2, Briefcase,
   ExternalLink, ChevronRight, Sparkles, AlertTriangle,
-  XCircle, CheckCircle,
+  XCircle, CheckCircle, Kanban,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -17,6 +17,8 @@ import {
   analyzeGmbLead, sendWhatsAppMessages, GMB_STATUSES, GMB_STATUS_COLORS,
   type GmbLead, type GmbLeadStatus,
 } from '@/hooks/useGmbLeads';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 const STATUS_LABELS: Record<GmbLeadStatus, string> = {
   'Novo': 'Novo', 'Contatado': 'Contatado', 'Respondeu': 'Respondeu',
@@ -40,6 +42,7 @@ function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () 
     initialLead.ai_messages?.length ? 'mensagem' : 'info'
   );
   const updateLead = useUpdateGmbLead();
+  const queryClient = useQueryClient();
   const phone = lead.whatsapp_jid || lead.telefone;
 
   const handleAnalyze = async () => {
@@ -79,8 +82,30 @@ function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () 
         message: m.message,
         delay: i === 0 ? 0 : 3500,
       })));
-      updateLead.mutate({ id: lead.id, status: 'Contatado' });
-      toast.success('3 mensagens enviadas no WhatsApp!');
+
+      // Cria lead no Pipeline se ainda não foi criado
+      let pipelineLeadId = lead.pipeline_lead_id;
+      if (!pipelineLeadId) {
+        const { data: pipelineLead } = await supabase
+          .from('sales_pipeline')
+          .insert({
+            lead_name: lead.nome_empresa,
+            company: lead.nome_empresa,
+            phone: phone,
+            stage: 'ATENDIMENTO_INICIA',
+            deal_value: 0,
+            probability: 10,
+            source: 'gmb',
+            notes: lead.endereco || null,
+          })
+          .select('id')
+          .single();
+        pipelineLeadId = pipelineLead?.id ?? null;
+        queryClient.invalidateQueries({ queryKey: ['sales-pipeline'] });
+      }
+
+      updateLead.mutate({ id: lead.id, status: 'Contatado', pipeline_lead_id: pipelineLeadId });
+      toast.success('3 mensagens enviadas! Lead adicionado ao Pipeline.');
       onClose();
     } catch (e) {
       console.error(e);
@@ -124,6 +149,11 @@ function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () 
           <Badge className={`${GMB_STATUS_COLORS[lead.status]} text-white text-xs`}>
             {lead.status}
           </Badge>
+          {lead.pipeline_lead_id && (
+            <span className="flex items-center gap-1 text-xs bg-violet-500/15 text-violet-600 dark:text-violet-400 rounded-full px-2.5 py-1 font-medium">
+              <Kanban className="w-3 h-3" /> No Pipeline
+            </span>
+          )}
         </div>
 
         {/* Botão gerar diagnóstico */}
@@ -366,6 +396,7 @@ function GmbLeadCard({ lead, onClick }: { lead: GmbLead; onClick: () => void }) 
             </span>
           )}
           {phone && <span className="flex items-center gap-1 text-green-600"><Phone className="w-3 h-3" />WhatsApp</span>}
+          {lead.pipeline_lead_id && <span className="flex items-center gap-1 text-violet-600"><Kanban className="w-3 h-3" />Pipeline</span>}
         </div>
       </CardHeader>
 

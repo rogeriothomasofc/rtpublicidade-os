@@ -77,7 +77,7 @@ export interface Subtask {
   updated_at: string;
 }
 
-export type LeadSource = 'manual' | 'whatsapp_sync';
+export type LeadSource = 'manual' | 'whatsapp_sync' | 'instagram' | 'gmb';
 
 export interface SalesPipeline {
   id: string;

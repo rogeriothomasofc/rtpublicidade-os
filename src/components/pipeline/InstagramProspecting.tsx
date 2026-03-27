@@ -11,7 +11,7 @@ import {
   Instagram, Search, Sparkles, Copy, MessageCircle, ExternalLink,
   Trash2, ChevronDown, ChevronUp, Users, Phone, Mail, Loader2,
   Plus, TrendingUp, FileText, Lightbulb, Globe, Star, AlertTriangle,
-  CheckCircle, XCircle, Stethoscope,
+  CheckCircle, XCircle, Stethoscope, Kanban,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -19,6 +19,8 @@ import {
   analyzeInstagramProspect, PROSPECT_STATUSES, STATUS_COLORS,
   type InstagramProspect, type ProspectStatus,
 } from '@/hooks/useInstagramProspects';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 const STATUS_LABELS: Record<ProspectStatus, string> = {
   'Identificado': 'Identificado', 'Mensagem Enviada': 'Msg Enviada',
@@ -257,6 +259,7 @@ function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
   const [sendingWA, setSendingWA] = useState(false);
   const updateProspect = useUpdateProspect();
   const deleteProspect = useDeleteProspect();
+  const queryClient = useQueryClient();
 
   const handleStatusChange = (status: ProspectStatus) => updateProspect.mutate({ id: prospect.id, status });
 
@@ -268,9 +271,29 @@ function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
         prospect.whatsapp,
         prospect.ai_dm_message,
         prospect.diagnosis_report,
-        () => {
-          updateProspect.mutate({ id: prospect.id, status: 'Mensagem Enviada' });
-          toast.success('Mensagem enviada via WhatsApp!');
+        async () => {
+          // Cria lead no Pipeline se ainda não foi criado
+          let pipelineLeadId = prospect.pipeline_lead_id;
+          if (!pipelineLeadId) {
+            const { data: pipelineLead } = await supabase
+              .from('sales_pipeline')
+              .insert({
+                lead_name: prospect.full_name || `@${prospect.username}`,
+                company: prospect.full_name || prospect.username,
+                phone: prospect.whatsapp || null,
+                email: prospect.email || null,
+                stage: 'ATENDIMENTO_INICIA',
+                deal_value: 0,
+                probability: 10,
+                source: 'instagram',
+              })
+              .select('id')
+              .single();
+            pipelineLeadId = pipelineLead?.id ?? null;
+            queryClient.invalidateQueries({ queryKey: ['sales-pipeline'] });
+          }
+          updateProspect.mutate({ id: prospect.id, status: 'Mensagem Enviada', pipeline_lead_id: pipelineLeadId });
+          toast.success('Mensagem enviada! Lead adicionado ao Pipeline.');
         }
       );
     } catch {
@@ -325,6 +348,7 @@ function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
             </span>
           )}
           {prospect.whatsapp && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />WhatsApp</span>}
+          {prospect.pipeline_lead_id && <span className="flex items-center gap-1 text-violet-600"><Kanban className="w-3 h-3" />Pipeline</span>}
         </div>
 
         {/* Badges de problemas encontrados */}
