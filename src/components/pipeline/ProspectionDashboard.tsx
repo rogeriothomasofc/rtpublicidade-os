@@ -61,39 +61,54 @@ function PipelineVisualFunnel({ steps, total }: { steps: FunnelStep[]; total: nu
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-medium flex items-center gap-1.5">
           <Filter className="w-3.5 h-3.5 text-blue-500" />
-          Funil do Pipeline — por etapa
+          Funil do Pipeline
           <Badge variant="secondary" className="ml-auto">{total} leads</Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
-        {steps.map((step, idx) => {
-          const barPct = Math.round((step.count / maxCount) * 100);
-          const prevCount = idx > 0 ? steps[idx - 1].count : null;
-          const fromPrev = prevCount != null && prevCount > 0 ? pct(step.count, prevCount) : null;
+      <CardContent>
+        <div className="space-y-1.5">
+          {steps.map((step, idx) => {
+            const widthPct = step.count > 0
+              ? Math.max(Math.round((step.count / maxCount) * 100), 22)
+              : 12;
+            const prevCount = idx > 0 ? steps[idx - 1].count : null;
+            const fromPrev = prevCount != null && prevCount > 0 ? pct(step.count, prevCount) : null;
 
-          return (
-            <div key={step.label} className="space-y-0.5">
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground w-40 shrink-0">{step.label}</span>
-                <div className="flex-1 h-6 bg-secondary rounded overflow-hidden">
+            return (
+              <div key={step.label}>
+                <div className="flex items-center gap-2">
+                  {/* Label pill */}
                   <div
-                    className={`h-full ${step.color} rounded transition-all duration-500`}
-                    style={{ width: step.count > 0 ? `${barPct}%` : '2px' }}
-                  />
-                </div>
-                <div className="text-xs w-24 shrink-0 text-right tabular-nums">
-                  <span className="font-bold">{step.count}</span>
-                  <span className="text-muted-foreground ml-1">({pct(step.count, total)}%)</span>
+                    className={`shrink-0 w-44 px-3 py-2 rounded-full text-white text-xs font-semibold text-center shadow-sm ${step.color}`}
+                  >
+                    {step.label}
+                  </div>
+
+                  {/* Arrow / chevron bar */}
+                  <div className="flex-1 h-9 relative flex items-center">
+                    <div
+                      className={`h-full ${step.color} opacity-85 flex items-center justify-center text-white text-xs font-semibold transition-all duration-500`}
+                      style={{
+                        width: `${widthPct}%`,
+                        clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%)',
+                      }}
+                    >
+                      {step.count > 0 && (
+                        <span className="mr-5 drop-shadow">{step.count}</span>
+                      )}
+                    </div>
+                    <span className="ml-3 text-xs text-muted-foreground tabular-nums">
+                      {pct(step.count, total)}%
+                      {fromPrev !== null && step.count > 0 && (
+                        <span className="ml-2 text-[10px] opacity-70">↓ {fromPrev}% da anterior</span>
+                      )}
+                    </span>
+                  </div>
                 </div>
               </div>
-              {fromPrev !== null && step.count > 0 && (
-                <p className="text-[10px] text-muted-foreground pl-[calc(10rem+0.75rem)]">
-                  ↓ {fromPrev}% da etapa anterior
-                </p>
-              )}
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </CardContent>
     </Card>
   );
