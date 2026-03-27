@@ -411,13 +411,34 @@ function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
             {activeTab === 'diagnostico' && (
               <div className="space-y-2">
                 {prospect.diagnosis_report ? (
-                  <div className="relative">
-                    <pre className="text-xs bg-secondary/50 rounded p-2 pr-8 whitespace-pre-wrap font-sans leading-relaxed">{prospect.diagnosis_report}</pre>
-                    <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
-                      onClick={() => copyToClipboard(prospect.diagnosis_report!, 'Diagnóstico')}>
-                      <Copy className="w-3 h-3" />
-                    </Button>
-                  </div>
+                  <>
+                    {prospect.website_issues && (
+                      <div className="flex gap-1.5 flex-wrap">
+                        {(prospect.website_issues.critical?.length ?? 0) > 0 && (
+                          <span className="flex items-center gap-1 text-xs bg-red-500/15 text-red-600 dark:text-red-400 rounded-full px-2 py-0.5">
+                            <XCircle className="w-3 h-3" /> {prospect.website_issues.critical.length} crítico{prospect.website_issues.critical.length > 1 ? 's' : ''}
+                          </span>
+                        )}
+                        {(prospect.website_issues.warnings?.length ?? 0) > 0 && (
+                          <span className="flex items-center gap-1 text-xs bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 rounded-full px-2 py-0.5">
+                            <AlertTriangle className="w-3 h-3" /> {prospect.website_issues.warnings.length} alerta{prospect.website_issues.warnings.length > 1 ? 's' : ''}
+                          </span>
+                        )}
+                        {(prospect.website_issues.positives?.length ?? 0) > 0 && (
+                          <span className="flex items-center gap-1 text-xs bg-green-500/15 text-green-600 dark:text-green-400 rounded-full px-2 py-0.5">
+                            <CheckCircle className="w-3 h-3" /> {prospect.website_issues.positives.length} positivo{prospect.website_issues.positives.length > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <div className="relative">
+                      <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">{prospect.diagnosis_report}</pre>
+                      <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
+                        onClick={() => copyToClipboard(prospect.diagnosis_report!, 'Diagnóstico')}>
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </>
                 ) : (
                   <p className="text-xs text-muted-foreground text-center py-4">Diagnóstico não disponível</p>
                 )}
@@ -431,21 +452,35 @@ function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
               </div>
             )}
             {activeTab === 'whatsapp' && (
-              <div className="space-y-1">
-                {prospect.ai_dm_message && (
-                  <div className="relative">
-                    <p className="text-xs bg-secondary/50 rounded p-2 pr-8 whitespace-pre-wrap">{prospect.ai_dm_message}</p>
-                    <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
-                      onClick={() => copyToClipboard(prospect.ai_dm_message!, 'Mensagem')}><Copy className="w-3 h-3" /></Button>
-                  </div>
-                )}
-                {prospect.whatsapp && prospect.ai_dm_message && prospect.diagnosis_report && (
-                  <Button size="sm" className="w-full h-7 text-xs gap-1 bg-green-600 hover:bg-green-700"
-                    onClick={handleSendWhatsApp} disabled={sendingWA}>
-                    {sendingWA
-                      ? <><Loader2 className="w-3 h-3 animate-spin" /> Enviando saudação + diagnóstico...</>
-                      : <><MessageCircle className="w-3 h-3" /> Enviar saudação + diagnóstico agora</>}
-                  </Button>
+              <div className="space-y-2">
+                {prospect.ai_dm_message && prospect.diagnosis_report ? (
+                  <>
+                    <p className="text-xs text-muted-foreground">Sequência de 2 mensagens com intervalo de 2,5s:</p>
+                    {[
+                      { part: 1, message: prospect.ai_dm_message },
+                      { part: 2, message: prospect.diagnosis_report },
+                    ].map((m) => (
+                      <div key={m.part} className="relative">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="text-xs font-semibold text-primary bg-primary/10 rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">{m.part}</span>
+                          <span className="text-xs text-muted-foreground">Mensagem {m.part}</span>
+                        </div>
+                        <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">{m.message}</pre>
+                        <Button size="sm" variant="ghost" className="absolute top-6 right-2 h-6 w-6 p-0"
+                          onClick={() => copyToClipboard(m.message, `Mensagem ${m.part}`)}><Copy className="w-3 h-3" /></Button>
+                      </div>
+                    ))}
+                    {prospect.whatsapp && (
+                      <Button size="sm" className="w-full h-7 text-xs gap-1 bg-green-600 hover:bg-green-700"
+                        onClick={handleSendWhatsApp} disabled={sendingWA}>
+                        {sendingWA
+                          ? <><Loader2 className="w-3 h-3 animate-spin" /> Enviando sequência...</>
+                          : <><MessageCircle className="w-3 h-3" /> Enviar sequência agora</>}
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-4">Gere o diagnóstico primeiro para ver as mensagens</p>
                 )}
               </div>
             )}

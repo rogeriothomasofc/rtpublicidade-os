@@ -146,6 +146,16 @@ function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () 
               <Globe className="w-3 h-3" /> Site {lead.website_issues.score}/100
             </span>
           )}
+          {(lead.website_issues?.critical?.length ?? 0) > 0 && (
+            <span className="flex items-center gap-1 text-xs bg-red-500/15 text-red-600 dark:text-red-400 rounded-full px-2.5 py-1 font-medium">
+              <XCircle className="w-3 h-3" /> {lead.website_issues!.critical.length} crítico{lead.website_issues!.critical.length > 1 ? 's' : ''}
+            </span>
+          )}
+          {(lead.website_issues?.warnings?.length ?? 0) > 0 && (
+            <span className="flex items-center gap-1 text-xs bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 rounded-full px-2.5 py-1 font-medium">
+              <AlertTriangle className="w-3 h-3" /> {lead.website_issues!.warnings.length} alerta{lead.website_issues!.warnings.length > 1 ? 's' : ''}
+            </span>
+          )}
           <Badge className={`${GMB_STATUS_COLORS[lead.status]} text-white text-xs`}>
             {lead.status}
           </Badge>
@@ -232,40 +242,34 @@ function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () 
           <div className="space-y-3">
             {lead.ai_diagnosis ? (
               <>
-                <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg p-3 leading-relaxed">
-                  {lead.ai_diagnosis}
-                </p>
                 {lead.website_issues && (
-                  <div className="space-y-2">
-                    {lead.website_issues.critical?.length > 0 && (
-                      <div className="space-y-1">
-                        {lead.website_issues.critical.map((c, i) => (
-                          <div key={i} className="flex items-start gap-1.5 text-xs text-red-600">
-                            <XCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />{c}
-                          </div>
-                        ))}
-                      </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {(lead.website_issues.critical?.length ?? 0) > 0 && (
+                      <span className="flex items-center gap-1 text-xs bg-red-500/15 text-red-600 dark:text-red-400 rounded-full px-2 py-0.5">
+                        <XCircle className="w-3 h-3" /> {lead.website_issues.critical.length} crítico{lead.website_issues.critical.length > 1 ? 's' : ''}
+                      </span>
                     )}
-                    {lead.website_issues.warnings?.length > 0 && (
-                      <div className="space-y-1">
-                        {lead.website_issues.warnings.map((w, i) => (
-                          <div key={i} className="flex items-start gap-1.5 text-xs text-yellow-600">
-                            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />{w}
-                          </div>
-                        ))}
-                      </div>
+                    {(lead.website_issues.warnings?.length ?? 0) > 0 && (
+                      <span className="flex items-center gap-1 text-xs bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 rounded-full px-2 py-0.5">
+                        <AlertTriangle className="w-3 h-3" /> {lead.website_issues.warnings.length} alerta{lead.website_issues.warnings.length > 1 ? 's' : ''}
+                      </span>
                     )}
-                    {lead.website_issues.positives?.length > 0 && (
-                      <div className="space-y-1">
-                        {lead.website_issues.positives.map((p, i) => (
-                          <div key={i} className="flex items-start gap-1.5 text-xs text-green-600">
-                            <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />{p}
-                          </div>
-                        ))}
-                      </div>
+                    {(lead.website_issues.positives?.length ?? 0) > 0 && (
+                      <span className="flex items-center gap-1 text-xs bg-green-500/15 text-green-600 dark:text-green-400 rounded-full px-2 py-0.5">
+                        <CheckCircle className="w-3 h-3" /> {lead.website_issues.positives.length} positivo{lead.website_issues.positives.length > 1 ? 's' : ''}
+                      </span>
                     )}
                   </div>
                 )}
+                <div className="relative">
+                  <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">
+                    {lead.ai_diagnosis}
+                  </pre>
+                  <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
+                    onClick={() => { navigator.clipboard.writeText(lead.ai_diagnosis!); toast.success('Diagnóstico copiado!'); }}>
+                    <Copy className="w-3 h-3" />
+                  </Button>
+                </div>
                 <Button variant="outline" size="sm" className="w-full gap-2 text-xs" onClick={handleAnalyze} disabled={analyzing}>
                   {analyzing ? <><Loader2 className="w-3 h-3 animate-spin" /> Gerando...</> : <><Sparkles className="w-3 h-3" /> Regenerar</>}
                 </Button>
