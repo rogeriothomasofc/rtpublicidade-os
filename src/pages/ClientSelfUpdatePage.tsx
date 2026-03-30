@@ -30,48 +30,34 @@ interface FormData {
 const EDGE_FN = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/client-self-update`;
 const PORTAL_URL = `${window.location.origin}/portal`;
 
+const emptyForm = (): FormData => ({
+  name: '', company: '', email: '', phone: '',
+  person_type: 'pj', cpf: '', rg: '', cnpj: '',
+  razao_social: '', inscricao_estadual: '', zip_code: '',
+  address: '', city: '', state: '', instagram_username: '',
+});
+
 export default function ClientSelfUpdatePage() {
   const { token } = useParams<{ token: string }>();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [sendingAccess, setSendingAccess] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [accessSent, setAccessSent] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [clientEmail, setClientEmail] = useState('');
-  const [formData, setFormData] = useState<FormData>({
-    name: '', company: '', email: '', phone: '',
-    person_type: 'pj', cpf: '', rg: '', cnpj: '',
-    razao_social: '', inscricao_estadual: '', zip_code: '',
-    address: '', city: '', state: '', instagram_username: '',
-  });
+  const [formData, setFormData] = useState<FormData>(emptyForm());
 
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+  // Only validate the token — do not pre-fill form
   useEffect(() => {
     if (!token) { setNotFound(true); setLoading(false); return; }
     fetch(`${EDGE_FN}?token=${token}`, {
       headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
     })
       .then(r => r.json())
-      .then(data => {
-        if (data.error) { setNotFound(true); return; }
-        setFormData({
-          name: data.name ?? '',
-          company: data.company ?? '',
-          email: data.email ?? '',
-          phone: data.phone ?? '',
-          person_type: (data.person_type as PersonType) ?? 'pj',
-          cpf: data.cpf ?? '',
-          rg: data.rg ?? '',
-          cnpj: data.cnpj ?? '',
-          razao_social: data.razao_social ?? '',
-          inscricao_estadual: data.inscricao_estadual ?? '',
-          zip_code: data.zip_code ?? '',
-          address: data.address ?? '',
-          city: data.city ?? '',
-          state: data.state ?? '',
-          instagram_username: data.instagram_username ?? '',
-        });
-      })
+      .then(data => { if (data.error) setNotFound(true); })
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
   }, [token]);
@@ -84,11 +70,7 @@ export default function ClientSelfUpdatePage() {
     try {
       const res = await fetch(EDGE_FN, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: anonKey,
-          Authorization: `Bearer ${anonKey}`,
-        },
+        headers: { 'Content-Type': 'application/json', apikey: anonKey, Authorization: `Bearer ${anonKey}` },
         body: JSON.stringify({ token, ...formData }),
       });
       const data = await res.json();
@@ -99,6 +81,26 @@ export default function ClientSelfUpdatePage() {
       alert('Erro ao salvar: ' + e.message);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleAccessPortal() {
+    setSendingAccess(true);
+    try {
+      const res = await fetch(EDGE_FN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: anonKey, Authorization: `Bearer ${anonKey}` },
+        body: JSON.stringify({ token, action: 'send-access' }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setAccessSent(true);
+      // Open portal after short delay so user sees the confirmation
+      setTimeout(() => window.open(PORTAL_URL, '_blank'), 1500);
+    } catch (e: any) {
+      alert('Erro ao enviar acesso: ' + e.message);
+    } finally {
+      setSendingAccess(false);
     }
   }
 
@@ -136,27 +138,41 @@ export default function ClientSelfUpdatePage() {
             </div>
 
             <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
-              <p className="text-sm font-semibold">Como acessar o Painel do Cliente:</p>
-              <div className="space-y-2 text-sm text-muted-foreground">
+              <p className="text-sm font-semibold">Como funciona o acesso ao painel:</p>
+              <div className="space-y-2.5 text-sm text-muted-foreground">
                 <div className="flex items-start gap-2">
                   <Mail className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
-                  <span>A agência enviará um email{clientEmail ? <> para <strong className="text-foreground">{clientEmail}</strong></> : ''} com suas credenciais de acesso.</span>
+                  <span>
+                    Ao clicar em <strong className="text-foreground">"Acessar Painel"</strong>, enviaremos um email
+                    {clientEmail ? <> para <strong className="text-foreground">{clientEmail}</strong></> : ''} com suas credenciais de acesso.
+                  </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <KeyRound className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
-                  <span>No email você encontrará sua <strong className="text-foreground">senha temporária</strong>. Use-a junto com seu email para entrar no painel.</span>
+                  <span>No email você receberá sua <strong className="text-foreground">senha temporária</strong>. Use-a junto com seu email para entrar.</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <LayoutDashboard className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
-                  <span>No painel você acompanha tarefas, relatórios financeiros, planejamentos e muito mais.</span>
+                  <span>No painel você acompanha tarefas, relatórios, planejamentos e muito mais.</span>
                 </div>
               </div>
             </div>
 
-            <Button className="w-full" onClick={() => window.open(PORTAL_URL, '_blank')}>
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Acessar Painel do Cliente
-            </Button>
+            {accessSent ? (
+              <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-center">
+                <p className="text-sm text-green-700 dark:text-green-400 font-medium">
+                  ✓ Email enviado! Verifique sua caixa de entrada{clientEmail ? ` (${clientEmail})` : ''}.
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">O painel será aberto em instantes...</p>
+              </div>
+            ) : (
+              <Button className="w-full" onClick={handleAccessPortal} disabled={sendingAccess}>
+                {sendingAccess
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enviando credenciais...</>
+                  : <><ExternalLink className="w-4 h-4 mr-2" />Acessar Painel do Cliente</>
+                }
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -172,7 +188,6 @@ export default function ClientSelfUpdatePage() {
         </CardHeader>
         <CardContent className="space-y-4 max-h-[80vh] overflow-y-auto pr-2">
 
-          {/* Nome + Empresa */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Nome</Label>
@@ -184,7 +199,6 @@ export default function ClientSelfUpdatePage() {
             </div>
           </div>
 
-          {/* Email + Telefone */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Email</Label>
@@ -196,13 +210,11 @@ export default function ClientSelfUpdatePage() {
             </div>
           </div>
 
-          {/* Instagram */}
           <div>
             <Label>Instagram</Label>
             <Input value={formData.instagram_username} onChange={set('instagram_username')} placeholder="@seuperfil" />
           </div>
 
-          {/* Tipo de Pessoa */}
           <div>
             <Label>Tipo de Pessoa</Label>
             <RadioGroup
@@ -221,7 +233,6 @@ export default function ClientSelfUpdatePage() {
             </RadioGroup>
           </div>
 
-          {/* PF: CPF + RG */}
           {formData.person_type === 'pf' && (
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -235,7 +246,6 @@ export default function ClientSelfUpdatePage() {
             </div>
           )}
 
-          {/* PJ: CNPJ + Razão Social */}
           {formData.person_type === 'pj' && (
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -249,7 +259,6 @@ export default function ClientSelfUpdatePage() {
             </div>
           )}
 
-          {/* Inscrição Estadual (só PJ) */}
           {formData.person_type === 'pj' && (
             <div>
               <Label>Inscrição Estadual</Label>
@@ -257,7 +266,6 @@ export default function ClientSelfUpdatePage() {
             </div>
           )}
 
-          {/* CEP */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>CEP</Label>
@@ -265,13 +273,11 @@ export default function ClientSelfUpdatePage() {
             </div>
           </div>
 
-          {/* Endereço */}
           <div>
             <Label>Endereço</Label>
             <Input value={formData.address} onChange={set('address')} placeholder="Rua, número, complemento" />
           </div>
 
-          {/* Cidade + Estado */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Cidade</Label>
