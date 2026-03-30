@@ -606,7 +606,7 @@ serve(async (req) => {
               adset.effective_status === "ACTIVE" ? "Publicado" :
               adset.effective_status === "PAUSED" ? "Pausado" : "Arquivado";
 
-            await supabase.from("meta_adsets").insert({
+            const { data: newAdset } = await supabase.from("meta_adsets").insert({
               campaign_id: newCamp.id,
               name: adset.name,
               optimization_goal: adset.optimization_goal || "LINK_CLICKS",
@@ -617,7 +617,38 @@ serve(async (req) => {
               meta_id: adset.id,
               meta_status: adset.effective_status || adset.status,
               local_status: adsetLocalStatus,
-            });
+            }).select().single();
+
+            if (!newAdset) continue;
+
+            // Importa anúncios deste conjunto
+            const adsUrl = `${META_API}/${adset.id}/ads?fields=id,name,status,effective_status,creative{id,name,title,body,image_url,link_url,call_to_action_type}&limit=50&access_token=${token}`;
+            const adsRes = await fetch(adsUrl);
+            const adsData = await adsRes.json();
+
+            if (!adsData.error) {
+              for (const ad of (adsData.data ?? [])) {
+                const creative = ad.creative ?? {};
+                const adLocalStatus =
+                  ad.effective_status === "ACTIVE" ? "Publicado" :
+                  ad.effective_status === "PAUSED" ? "Pausado" : "Arquivado";
+
+                await supabase.from("meta_ads").insert({
+                  adset_id: newAdset.id,
+                  name: ad.name,
+                  format: "IMAGE",
+                  headline: creative.title ?? null,
+                  body: creative.body ?? null,
+                  image_url: creative.image_url ?? null,
+                  link_url: creative.link_url ?? null,
+                  cta_type: creative.call_to_action_type ?? "LEARN_MORE",
+                  meta_id: ad.id,
+                  meta_creative_id: creative.id ?? null,
+                  meta_status: ad.effective_status || ad.status,
+                  local_status: adLocalStatus,
+                });
+              }
+            }
           }
         }
 
