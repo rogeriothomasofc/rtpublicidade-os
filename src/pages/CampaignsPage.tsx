@@ -617,43 +617,47 @@ function CreateAdDialog({
             </div>
           </div>
 
-          {form.format === 'IMAGE' && (
-            <div className="grid gap-1.5">
-              <Label>Criativo (imagem)</Label>
-              {form.image_url ? (
-                <div className="relative rounded-lg overflow-hidden bg-muted border">
+          <div className="grid gap-1.5">
+            <Label>Criativo {form.format === 'VIDEO' ? '(vídeo)' : '(imagem)'}</Label>
+            {form.image_url ? (
+              <div className="relative rounded-lg overflow-hidden bg-muted border">
+                {form.format === 'VIDEO' ? (
+                  <video src={form.image_url} controls className="w-full max-h-48 object-cover" />
+                ) : (
                   <img src={form.image_url} alt="Preview do criativo" className="w-full max-h-48 object-cover" />
-                  <button
-                    type="button"
-                    className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 rounded-full p-1 transition-colors"
-                    onClick={() => setForm(f => ({ ...f, image_url: '' }))}
-                  >
-                    <X className="w-3.5 h-3.5 text-white" />
-                  </button>
-                </div>
-              ) : (
-                <label className={`flex flex-col items-center justify-center gap-2 cursor-pointer border-2 border-dashed rounded-lg p-6 transition-colors ${uploading ? 'opacity-50 cursor-wait border-muted' : 'border-muted hover:border-primary/50 hover:bg-muted/30'}`}>
-                  {uploading ? (
-                    <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
-                  ) : (
-                    <Upload className="w-6 h-6 text-muted-foreground" />
-                  )}
-                  <span className="text-sm text-muted-foreground">
-                    {uploading ? 'Enviando...' : 'Clique para selecionar imagem'}
-                  </span>
-                  <span className="text-xs text-muted-foreground">JPG, PNG, WEBP até 10MB</span>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    className="hidden"
-                    onChange={handleFileUpload}
-                    disabled={uploading}
-                  />
-                </label>
-              )}
-            </div>
-          )}
+                )}
+                <button
+                  type="button"
+                  className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 rounded-full p-1 transition-colors"
+                  onClick={() => setForm(f => ({ ...f, image_url: '' }))}
+                >
+                  <X className="w-3.5 h-3.5 text-white" />
+                </button>
+              </div>
+            ) : (
+              <label className={`flex flex-col items-center justify-center gap-2 cursor-pointer border-2 border-dashed rounded-lg p-6 transition-colors ${uploading ? 'opacity-50 cursor-wait border-muted' : 'border-muted hover:border-primary/50 hover:bg-muted/30'}`}>
+                {uploading ? (
+                  <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
+                ) : (
+                  <Upload className="w-6 h-6 text-muted-foreground" />
+                )}
+                <span className="text-sm text-muted-foreground">
+                  {uploading ? 'Enviando...' : `Clique para selecionar ${form.format === 'VIDEO' ? 'vídeo' : 'imagem'}`}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {form.format === 'VIDEO' ? 'MP4 até 10MB' : 'JPG, PNG, WEBP até 10MB'}
+                </span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={form.format === 'VIDEO' ? 'video/mp4,video/quicktime' : 'image/jpeg,image/png,image/webp,image/gif'}
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  disabled={uploading}
+                />
+              </label>
+            )}
+          </div>
 
           <div className="grid gap-1.5">
             <Label>Observações</Label>
