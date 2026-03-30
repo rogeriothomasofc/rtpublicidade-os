@@ -268,7 +268,7 @@
     "Mais de 5 Dias?": {
       "main": [
         [{ "node": "Gerar Sugestões com Claude", "type": "main", "index": 0 }],
-        []
+        [{ "node": "Loop por Cliente", "type": "main", "index": 0 }]
       ]
     },
     "Gerar Sugestões com Claude": {
@@ -288,7 +288,7 @@
       "main": [[]]
     },
     "Enviar WhatsApp": {
-      "main": [[]]
+      "main": [[{ "node": "Loop por Cliente", "type": "main", "index": 0 }]]
     }
   },
   "settings": {
