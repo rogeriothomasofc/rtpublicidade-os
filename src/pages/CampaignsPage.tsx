@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -14,9 +13,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
-  Plus, ChevronRight, ChevronDown, MoreHorizontal, Send, RefreshCw,
-  Search, Megaphone, Layers, Image, Trash2, Play, Pause, AlertCircle,
-  Download, Copy, CheckSquare, Square, Loader2, Upload, X,
+  ChevronRight, ChevronDown, MoreHorizontal, RefreshCw,
+  Search, Megaphone, Layers, Image, Trash2, Play, Pause,
+  Download, Copy, CheckSquare, Square, Loader2, ExternalLink, Eye,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -86,27 +85,16 @@ const OBJECTIVES = [
   { value: 'MESSAGES', label: 'Mensagens' },
 ];
 
-const OPTIMIZATION_GOALS = [
-  { value: 'LINK_CLICKS', label: 'Cliques no link' },
-  { value: 'LANDING_PAGE_VIEWS', label: 'Visualizações de página de destino' },
-  { value: 'IMPRESSIONS', label: 'Impressões' },
-  { value: 'REACH', label: 'Alcance' },
-  { value: 'LEAD_GENERATION', label: 'Geração de leads' },
-  { value: 'CONVERSIONS', label: 'Conversões' },
-  { value: 'MESSAGES', label: 'Mensagens' },
-  { value: 'POST_ENGAGEMENT', label: 'Engajamento com publicação' },
-];
-
-const CTA_TYPES = [
-  { value: 'LEARN_MORE', label: 'Saiba mais' },
-  { value: 'SHOP_NOW', label: 'Comprar agora' },
-  { value: 'SIGN_UP', label: 'Cadastre-se' },
-  { value: 'CONTACT_US', label: 'Fale conosco' },
-  { value: 'SEND_MESSAGE', label: 'Enviar mensagem' },
-  { value: 'GET_QUOTE', label: 'Solicitar orçamento' },
-  { value: 'DOWNLOAD', label: 'Baixar' },
-  { value: 'BOOK_TRAVEL', label: 'Reservar' },
-];
+const CTA_LABELS: Record<string, string> = {
+  LEARN_MORE: 'Saiba mais',
+  SHOP_NOW: 'Comprar agora',
+  SIGN_UP: 'Cadastre-se',
+  CONTACT_US: 'Fale conosco',
+  SEND_MESSAGE: 'Enviar mensagem',
+  GET_QUOTE: 'Solicitar orçamento',
+  DOWNLOAD: 'Baixar',
+  BOOK_TRAVEL: 'Reservar',
+};
 
 const STATUS_COLORS: Record<LocalStatus, string> = {
   Rascunho: 'bg-muted text-muted-foreground',
@@ -157,9 +145,7 @@ function useClients() {
 }
 
 async function invoke(action: string, body: Record<string, unknown>) {
-  const { data, error } = await supabase.functions.invoke(`meta-campaigns-manager/${action}`, {
-    body,
-  });
+  const { data, error } = await supabase.functions.invoke(`meta-campaigns-manager/${action}`, { body });
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
   return data;
@@ -174,511 +160,98 @@ function StatusBadge({ status }: { status: LocalStatus }) {
   );
 }
 
-// ─── Create Campaign Dialog ───────────────────────────────────
-function CreateCampaignDialog({
-  open,
-  onClose,
-  clients,
-}: {
-  open: boolean;
-  onClose: () => void;
-  clients: Client[];
-}) {
-  const qc = useQueryClient();
-  const [form, setForm] = useState({
-    client_id: '',
-    name: '',
-    objective: '',
-    budget_type: 'daily',
-    budget_value: '',
-    notes: '',
-  });
+// ─── Ad Preview Dialog ────────────────────────────────────────
+function AdPreviewDialog({ ad, open, onClose }: { ad: MetaAd | null; open: boolean; onClose: () => void }) {
+  if (!ad) return null;
 
-  const mutation = useMutation({
-    mutationFn: () => invoke('create-campaign', {
-      ...form,
-      budget_value: form.budget_value ? Number(form.budget_value) : undefined,
-    }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['meta-campaigns'] });
-      toast.success('Campanha criada como rascunho');
-      onClose();
-      setForm({ client_id: '', name: '', objective: '', budget_type: 'daily', budget_value: '', notes: '' });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const valid = form.client_id && form.name && form.objective;
+  const ctaLabel = ad.cta_type ? (CTA_LABELS[ad.cta_type] ?? ad.cta_type) : 'Saiba mais';
+  const domain = ad.link_url ? (() => { try { return new URL(ad.link_url).hostname.replace('www.', ''); } catch { return ad.link_url; } })() : null;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Megaphone className="w-5 h-5" /> Nova campanha
+      <DialogContent className="max-w-sm p-0 overflow-hidden">
+        <DialogHeader className="px-4 pt-4 pb-2">
+          <DialogTitle className="text-base flex items-center gap-2">
+            <Eye className="w-4 h-4" /> Preview do criativo
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-4">
-          <div className="grid gap-1.5">
-            <Label>Cliente *</Label>
-            <Select value={form.client_id} onValueChange={(v) => setForm(f => ({ ...f, client_id: v }))}>
-              <SelectTrigger><SelectValue placeholder="Selecionar cliente" /></SelectTrigger>
-              <SelectContent>
-                {clients.filter(c => c.meta_ads_account).map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-                {clients.filter(c => !c.meta_ads_account).length > 0 && (
-                  <>
-                    <div className="px-2 py-1 text-xs text-muted-foreground">Sem conta Meta configurada</div>
-                    {clients.filter(c => !c.meta_ads_account).map(c => (
-                      <SelectItem key={c.id} value={c.id} className="opacity-50">{c.name}</SelectItem>
-                    ))}
-                  </>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label>Nome da campanha *</Label>
-            <Input
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="Ex: Black Friday 2026 - Conversas"
-            />
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label>Objetivo *</Label>
-            <Select value={form.objective} onValueChange={(v) => setForm(f => ({ ...f, objective: v }))}>
-              <SelectTrigger><SelectValue placeholder="Selecionar objetivo" /></SelectTrigger>
-              <SelectContent>
-                {OBJECTIVES.map(o => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label>Tipo de orçamento</Label>
-              <Select value={form.budget_type} onValueChange={(v) => setForm(f => ({ ...f, budget_type: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">Diário</SelectItem>
-                  <SelectItem value="lifetime">Vitalício</SelectItem>
-                </SelectContent>
-              </Select>
+        {/* Mock Facebook ad card */}
+        <div className="mx-4 mb-4 border border-border rounded-xl overflow-hidden bg-white dark:bg-zinc-900 shadow-sm">
+          {/* Page header */}
+          <div className="flex items-center gap-2 p-3">
+            <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+              <Megaphone className="w-4 h-4 text-primary" />
             </div>
-            <div className="grid gap-1.5">
-              <Label>Valor (R$)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.budget_value}
-                onChange={e => setForm(f => ({ ...f, budget_value: e.target.value }))}
-                placeholder="50,00"
-              />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold leading-tight truncate">Página do anunciante</p>
+              <p className="text-xs text-muted-foreground">Patrocinado · <span className="inline-flex items-center gap-0.5">🌐</span></p>
             </div>
+            <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
           </div>
 
-          <div className="grid gap-1.5">
-            <Label>Observações</Label>
-            <Textarea
-              value={form.notes}
-              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-              placeholder="Notas internas..."
-              rows={2}
-            />
-          </div>
-        </div>
+          {/* Ad body text */}
+          {ad.body && (
+            <p className="px-3 pb-2 text-sm leading-relaxed">{ad.body}</p>
+          )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button
-            onClick={() => mutation.mutate()}
-            disabled={!valid || mutation.isPending}
-          >
-            {mutation.isPending ? 'Criando...' : 'Criar rascunho'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── Create AdSet Dialog ──────────────────────────────────────
-function CreateAdSetDialog({
-  open,
-  onClose,
-  campaignId,
-}: {
-  open: boolean;
-  onClose: () => void;
-  campaignId: string;
-}) {
-  const qc = useQueryClient();
-  const [form, setForm] = useState({
-    name: '',
-    optimization_goal: 'LINK_CLICKS',
-    billing_event: 'IMPRESSIONS',
-    budget_type: 'daily',
-    budget_value: '',
-    age_min: '18',
-    age_max: '65',
-    notes: '',
-  });
-
-  const mutation = useMutation({
-    mutationFn: () => invoke('create-adset', {
-      campaign_id: campaignId,
-      name: form.name,
-      optimization_goal: form.optimization_goal,
-      billing_event: form.billing_event,
-      budget_type: form.budget_type || undefined,
-      budget_value: form.budget_value ? Number(form.budget_value) : undefined,
-      targeting: {
-        age_min: Number(form.age_min),
-        age_max: Number(form.age_max),
-      },
-      notes: form.notes,
-    }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['meta-campaigns'] });
-      toast.success('Conjunto criado como rascunho');
-      onClose();
-      setForm({ name: '', optimization_goal: 'LINK_CLICKS', billing_event: 'IMPRESSIONS', budget_type: 'daily', budget_value: '', age_min: '18', age_max: '65', notes: '' });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Layers className="w-5 h-5" /> Novo conjunto de anúncios
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="grid gap-4">
-          <div className="grid gap-1.5">
-            <Label>Nome do conjunto *</Label>
-            <Input
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="Ex: Público Lookalike 25-45"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label>Objetivo de otimização</Label>
-              <Select value={form.optimization_goal} onValueChange={(v) => setForm(f => ({ ...f, optimization_goal: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {OPTIMIZATION_GOALS.map(o => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Evento de cobrança</Label>
-              <Select value={form.billing_event} onValueChange={(v) => setForm(f => ({ ...f, billing_event: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="IMPRESSIONS">Impressões</SelectItem>
-                  <SelectItem value="LINK_CLICKS">Cliques no link</SelectItem>
-                  <SelectItem value="PAGE_LIKES">Curtidas na página</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label>Tipo de orçamento</Label>
-              <Select value={form.budget_type} onValueChange={(v) => setForm(f => ({ ...f, budget_type: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">Diário</SelectItem>
-                  <SelectItem value="lifetime">Vitalício</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Valor (R$)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.budget_value}
-                onChange={e => setForm(f => ({ ...f, budget_value: e.target.value }))}
-                placeholder="50,00"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label>Idade mínima</Label>
-              <Input
-                type="number"
-                min="13"
-                max="65"
-                value={form.age_min}
-                onChange={e => setForm(f => ({ ...f, age_min: e.target.value }))}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Idade máxima</Label>
-              <Input
-                type="number"
-                min="13"
-                max="65"
-                value={form.age_max}
-                onChange={e => setForm(f => ({ ...f, age_max: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label>Observações</Label>
-            <Textarea
-              value={form.notes}
-              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-              rows={2}
-              placeholder="Notas sobre a segmentação..."
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button
-            onClick={() => mutation.mutate()}
-            disabled={!form.name || mutation.isPending}
-          >
-            {mutation.isPending ? 'Criando...' : 'Criar conjunto'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── Create Ad Dialog ─────────────────────────────────────────
-function CreateAdDialog({
-  open,
-  onClose,
-  adsetId,
-  initialLinkUrl,
-}: {
-  open: boolean;
-  onClose: () => void;
-  adsetId: string;
-  initialLinkUrl?: string;
-}) {
-  const qc = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [form, setForm] = useState({
-    name: '',
-    format: 'IMAGE' as 'IMAGE' | 'VIDEO' | 'CAROUSEL',
-    headline: '',
-    body: '',
-    description: '',
-    cta_type: 'LEARN_MORE',
-    image_url: '',
-    link_url: initialLinkUrl ?? '',
-    notes: '',
-  });
-
-  useEffect(() => {
-    if (open) {
-      setForm(f => ({ ...f, link_url: initialLinkUrl ?? f.link_url }));
-    }
-  }, [open, initialLinkUrl]);
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const ext = file.name.split('.').pop() ?? 'jpg';
-      const path = `ads/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from('creatives').upload(path, file, { upsert: true });
-      if (error) throw error;
-      const { data: { publicUrl } } = supabase.storage.from('creatives').getPublicUrl(path);
-      setForm(f => ({ ...f, image_url: publicUrl }));
-    } catch {
-      toast.error('Erro ao fazer upload da imagem');
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  const mutation = useMutation({
-    mutationFn: () => invoke('create-ad', { adset_id: adsetId, ...form }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['meta-campaigns'] });
-      toast.success('Anúncio criado como rascunho');
-      onClose();
-      setForm({ name: '', format: 'IMAGE', headline: '', body: '', description: '', cta_type: 'LEARN_MORE', image_url: '', link_url: initialLinkUrl ?? '', notes: '' });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Image className="w-5 h-5" /> Novo anúncio
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="grid gap-4">
-          <div className="grid gap-1.5">
-            <Label>Nome do anúncio *</Label>
-            <Input
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="Ex: Versão A - Imagem produto"
-            />
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label>Formato</Label>
-            <Select value={form.format} onValueChange={(v) => setForm(f => ({ ...f, format: v as typeof form.format }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="IMAGE">Imagem</SelectItem>
-                <SelectItem value="VIDEO">Vídeo</SelectItem>
-                <SelectItem value="CAROUSEL">Carrossel</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label>Título (headline)</Label>
-            <Input
-              value={form.headline}
-              onChange={e => setForm(f => ({ ...f, headline: e.target.value }))}
-              placeholder="Título do anúncio"
-              maxLength={255}
-            />
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label>Texto principal</Label>
-            <Textarea
-              value={form.body}
-              onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
-              placeholder="Texto do anúncio..."
-              rows={3}
-            />
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label>Descrição</Label>
-            <Input
-              value={form.description}
-              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-              placeholder="Descrição opcional"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label>URL de destino</Label>
-              <Input
-                value={form.link_url}
-                onChange={e => setForm(f => ({ ...f, link_url: e.target.value }))}
-                placeholder="https://..."
-                type="url"
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Botão (CTA)</Label>
-              <Select value={form.cta_type} onValueChange={(v) => setForm(f => ({ ...f, cta_type: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {CTA_TYPES.map(c => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label>Criativo {form.format === 'VIDEO' ? '(vídeo)' : '(imagem)'}</Label>
-            {form.image_url ? (
-              <div className="relative rounded-lg overflow-hidden bg-muted border">
-                {form.format === 'VIDEO' ? (
-                  <video src={form.image_url} controls className="w-full max-h-48 object-cover" />
-                ) : (
-                  <img src={form.image_url} alt="Preview do criativo" className="w-full max-h-48 object-cover" />
-                )}
-                <button
-                  type="button"
-                  className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 rounded-full p-1 transition-colors"
-                  onClick={() => setForm(f => ({ ...f, image_url: '' }))}
-                >
-                  <X className="w-3.5 h-3.5 text-white" />
-                </button>
-              </div>
+          {/* Creative */}
+          {ad.image_url ? (
+            ad.format === 'VIDEO' ? (
+              <video src={ad.image_url} controls className="w-full max-h-72 object-cover bg-black" />
             ) : (
-              <label className={`flex flex-col items-center justify-center gap-2 cursor-pointer border-2 border-dashed rounded-lg p-6 transition-colors ${uploading ? 'opacity-50 cursor-wait border-muted' : 'border-muted hover:border-primary/50 hover:bg-muted/30'}`}>
-                {uploading ? (
-                  <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
-                ) : (
-                  <Upload className="w-6 h-6 text-muted-foreground" />
-                )}
-                <span className="text-sm text-muted-foreground">
-                  {uploading ? 'Enviando...' : `Clique para selecionar ${form.format === 'VIDEO' ? 'vídeo' : 'imagem'}`}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {form.format === 'VIDEO' ? 'MP4 até 10MB' : 'JPG, PNG, WEBP até 10MB'}
-                </span>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept={form.format === 'VIDEO' ? 'video/mp4,video/quicktime' : 'image/jpeg,image/png,image/webp,image/gif'}
-                  className="hidden"
-                  onChange={handleFileUpload}
-                  disabled={uploading}
-                />
-              </label>
-            )}
+              <img src={ad.image_url} alt={ad.name} className="w-full max-h-72 object-cover" />
+            )
+          ) : (
+            <div className="w-full h-48 bg-muted flex flex-col items-center justify-center gap-2">
+              <Image className="w-10 h-10 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Sem imagem</span>
+            </div>
+          )}
+
+          {/* Headline + CTA bar */}
+          <div className="flex items-center justify-between gap-2 px-3 py-2.5 bg-muted/40 border-t border-border">
+            <div className="flex-1 min-w-0">
+              {domain && <p className="text-[10px] text-muted-foreground uppercase tracking-wide truncate">{domain}</p>}
+              {ad.headline && <p className="text-sm font-semibold leading-tight truncate">{ad.headline}</p>}
+            </div>
+            <button className="shrink-0 bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold px-3 py-1.5 rounded-md border border-border transition-colors">
+              {ctaLabel}
+            </button>
           </div>
 
-          <div className="grid gap-1.5">
-            <Label>Observações</Label>
-            <Textarea
-              value={form.notes}
-              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-              rows={2}
-              placeholder="Notas internas..."
-            />
+          {/* Reactions bar */}
+          <div className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground border-t border-border">
+            <span>👍 ❤️  Curtir · Comentar · Compartilhar</span>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button
-            onClick={() => mutation.mutate()}
-            disabled={!form.name || mutation.isPending}
-          >
-            {mutation.isPending ? 'Criando...' : 'Criar anúncio'}
-          </Button>
-        </DialogFooter>
+        {/* Meta info */}
+        <div className="px-4 pb-4 space-y-1.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium text-foreground">Formato:</span>
+            <span>{ad.format === 'IMAGE' ? 'Imagem' : ad.format === 'VIDEO' ? 'Vídeo' : 'Carrossel'}</span>
+          </div>
+          {ad.link_url && (
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-foreground">Destino:</span>
+              <a href={ad.link_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-0.5 truncate max-w-[220px]">
+                {ad.link_url}
+                <ExternalLink className="w-3 h-3 shrink-0" />
+              </a>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium text-foreground">Status:</span>
+            <StatusBadge status={ad.local_status} />
+          </div>
+          {ad.meta_id && (
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-foreground">ID Meta:</span>
+              <span className="font-mono">{ad.meta_id}</span>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -766,7 +339,7 @@ function ImportFromMetaDialog({
 
       const data = await invoke('import-campaigns', { client_id: clientId, campaigns: toImport });
       qc.invalidateQueries({ queryKey: ['meta-campaigns'] });
-      toast.success(`${data.imported} campanha${data.imported !== 1 ? 's' : ''} importada${data.imported !== 1 ? 's' : ''} com seus conjuntos`);
+      toast.success(`${data.imported} campanha${data.imported !== 1 ? 's' : ''} importada${data.imported !== 1 ? 's' : ''} com seus conjuntos e anúncios`);
       onClose();
       setMetaCampaigns([]);
       setSelected(new Set());
@@ -883,10 +456,7 @@ function ImportFromMetaDialog({
 
         <DialogFooter className="pt-2 border-t">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button
-            onClick={handleImport}
-            disabled={selected.size === 0 || importing}
-          >
+          <Button onClick={handleImport} disabled={selected.size === 0 || importing}>
             {importing
               ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Importando...</>
               : <><Download className="w-4 h-4 mr-2" />Importar {selected.size > 0 ? `(${selected.size})` : ''}</>
@@ -936,7 +506,6 @@ function DuplicateCampaignDialog({
         <div className="grid gap-3">
           <p className="text-sm text-muted-foreground">
             Será criada uma cópia de <strong>{campaign?.name}</strong> com todos os seus conjuntos.
-            Os anúncios não são duplicados — criativos precisam ser recriados.
           </p>
           <div className="grid gap-1.5">
             <Label>Nome da cópia</Label>
@@ -959,24 +528,19 @@ function DuplicateCampaignDialog({
 }
 
 // ─── Ad Row ───────────────────────────────────────────────────
-function AdRow({ ad, onDelete }: { ad: MetaAd; onDelete: () => void }) {
+function AdRow({ ad, onPreview }: { ad: MetaAd; onPreview: (ad: MetaAd) => void }) {
   const qc = useQueryClient();
 
-  const sendMutation = useMutation({
-    mutationFn: () => invoke('send-ad', {
+  const toggleMutation = useMutation({
+    mutationFn: (newStatus: 'ACTIVE' | 'PAUSED') => invoke('toggle-status', {
+      type: 'ad',
+      meta_id: ad.meta_id,
       local_id: ad.id,
-      adset_id: ad.adset_id,
-      name: ad.name,
-      format: ad.format,
-      headline: ad.headline,
-      body: ad.body,
-      image_url: ad.image_url,
-      link_url: ad.link_url,
-      cta_type: ad.cta_type,
+      new_status: newStatus,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['meta-campaigns'] });
-      toast.success('Anúncio enviado ao Meta como rascunho');
+      toast.success('Status do anúncio atualizado');
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -986,24 +550,56 @@ function AdRow({ ad, onDelete }: { ad: MetaAd; onDelete: () => void }) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['meta-campaigns'] });
       toast.success('Anúncio removido');
-      onDelete();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const FormatIcon = ad.format === 'VIDEO' ? Play : Image;
+  const hasCreative = !!(ad.image_url || ad.headline || ad.body);
 
   return (
     <div className="flex items-center gap-3 py-2 px-3 ml-8 rounded-lg hover:bg-muted/30 group">
       <FormatIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+
+      {/* Creative thumbnail */}
+      {ad.image_url ? (
+        <div
+          className="w-8 h-8 rounded overflow-hidden bg-muted shrink-0 cursor-pointer ring-0 hover:ring-2 hover:ring-primary transition-all"
+          onClick={() => onPreview(ad)}
+        >
+          {ad.format === 'VIDEO' ? (
+            <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
+              <Play className="w-3 h-3 text-white" />
+            </div>
+          ) : (
+            <img src={ad.image_url} alt="" className="w-full h-full object-cover" />
+          )}
+        </div>
+      ) : (
+        <div className="w-8 h-8 rounded bg-muted shrink-0 flex items-center justify-center">
+          <Image className="w-3.5 h-3.5 text-muted-foreground" />
+        </div>
+      )}
+
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{ad.name}</p>
         {ad.headline && <p className="text-xs text-muted-foreground truncate">{ad.headline}</p>}
       </div>
+
       <StatusBadge status={ad.local_status} />
-      {ad.meta_id && (
-        <span className="text-xs text-muted-foreground hidden group-hover:block">#{ad.meta_id.slice(-6)}</span>
+
+      {hasCreative && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 opacity-0 group-hover:opacity-100"
+          onClick={() => onPreview(ad)}
+          title="Ver preview"
+        >
+          <Eye className="w-4 h-4" />
+        </Button>
       )}
+
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">
@@ -1011,11 +607,30 @@ function AdRow({ ad, onDelete }: { ad: MetaAd; onDelete: () => void }) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {ad.local_status === 'Rascunho' && (
-            <DropdownMenuItem onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending}>
-              <Send className="w-4 h-4 mr-2" />
-              {sendMutation.isPending ? 'Enviando...' : 'Enviar ao Meta'}
+          {hasCreative && (
+            <DropdownMenuItem onClick={() => onPreview(ad)}>
+              <Eye className="w-4 h-4 mr-2" /> Ver criativo
             </DropdownMenuItem>
+          )}
+          {ad.meta_id && ad.local_status === 'Publicado' && (
+            <DropdownMenuItem onClick={() => toggleMutation.mutate('PAUSED')} disabled={toggleMutation.isPending}>
+              <Pause className="w-4 h-4 mr-2" /> Pausar no Meta
+            </DropdownMenuItem>
+          )}
+          {ad.meta_id && ad.local_status === 'Pausado' && (
+            <DropdownMenuItem onClick={() => toggleMutation.mutate('ACTIVE')} disabled={toggleMutation.isPending}>
+              <Play className="w-4 h-4 mr-2" /> Ativar no Meta
+            </DropdownMenuItem>
+          )}
+          {ad.link_url && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <a href={ad.link_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
+                  <ExternalLink className="w-4 h-4" /> Abrir URL de destino
+                </a>
+              </DropdownMenuItem>
+            </>
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -1034,29 +649,24 @@ function AdRow({ ad, onDelete }: { ad: MetaAd; onDelete: () => void }) {
 // ─── AdSet Row ────────────────────────────────────────────────
 function AdSetRow({
   adset,
-  clientId,
+  onPreview,
 }: {
   adset: MetaAdSet;
-  clientId: string;
+  onPreview: (ad: MetaAd) => void;
 }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [showNewAd, setShowNewAd] = useState(false);
 
-  const sendMutation = useMutation({
-    mutationFn: () => invoke('send-adset', {
+  const toggleMutation = useMutation({
+    mutationFn: (newStatus: 'ACTIVE' | 'PAUSED') => invoke('toggle-status', {
+      type: 'adset',
+      meta_id: adset.meta_id,
       local_id: adset.id,
-      campaign_id: adset.campaign_id,
-      name: adset.name,
-      optimization_goal: adset.optimization_goal,
-      billing_event: adset.billing_event,
-      budget_type: adset.budget_type,
-      budget_value: adset.budget_value,
-      targeting: adset.targeting,
+      new_status: newStatus,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['meta-campaigns'] });
-      toast.success('Conjunto enviado ao Meta como rascunho');
+      toast.success('Status do conjunto atualizado');
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1071,16 +681,15 @@ function AdSetRow({
   });
 
   const ads = adset.ads ?? [];
-  const existingLinkUrl = ads.find(a => a.link_url)?.link_url;
 
   return (
     <div className="ml-4">
       <Collapsible open={open} onOpenChange={setOpen}>
         <div className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-muted/30 group">
           <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
+            <button className="h-6 w-6 flex items-center justify-center shrink-0 rounded hover:bg-muted">
               {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            </Button>
+            </button>
           </CollapsibleTrigger>
           <Layers className="w-4 h-4 text-muted-foreground shrink-0" />
           <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setOpen(o => !o)}>
@@ -1097,13 +706,14 @@ function AdSetRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setShowNewAd(true)}>
-                <Plus className="w-4 h-4 mr-2" /> Novo anúncio
-              </DropdownMenuItem>
-              {adset.local_status === 'Rascunho' && (
-                <DropdownMenuItem onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending}>
-                  <Send className="w-4 h-4 mr-2" />
-                  {sendMutation.isPending ? 'Enviando...' : 'Enviar ao Meta'}
+              {adset.meta_id && adset.local_status === 'Publicado' && (
+                <DropdownMenuItem onClick={() => toggleMutation.mutate('PAUSED')} disabled={toggleMutation.isPending}>
+                  <Pause className="w-4 h-4 mr-2" /> Pausar no Meta
+                </DropdownMenuItem>
+              )}
+              {adset.meta_id && adset.local_status === 'Pausado' && (
+                <DropdownMenuItem onClick={() => toggleMutation.mutate('ACTIVE')} disabled={toggleMutation.isPending}>
+                  <Play className="w-4 h-4 mr-2" /> Ativar no Meta
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
@@ -1120,20 +730,16 @@ function AdSetRow({
 
         <CollapsibleContent>
           <div className="border-l-2 border-muted ml-7 mt-1 mb-2">
-            {ads.map(ad => (
-              <AdRow key={ad.id} ad={ad} onDelete={() => {}} />
-            ))}
-            <button
-              className="flex items-center gap-2 py-2 px-3 ml-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => setShowNewAd(true)}
-            >
-              <Plus className="w-3.5 h-3.5" /> Adicionar anúncio
-            </button>
+            {ads.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2 px-3 ml-4">Nenhum anúncio neste conjunto</p>
+            ) : (
+              ads.map(ad => (
+                <AdRow key={ad.id} ad={ad} onPreview={onPreview} />
+              ))
+            )}
           </div>
         </CollapsibleContent>
       </Collapsible>
-
-      <CreateAdDialog open={showNewAd} onClose={() => setShowNewAd(false)} adsetId={adset.id} initialLinkUrl={existingLinkUrl} />
     </div>
   );
 }
@@ -1142,27 +748,25 @@ function AdSetRow({
 function CampaignCard({
   campaign,
   onDuplicate,
+  onPreview,
 }: {
   campaign: MetaCampaign;
   onDuplicate: (c: MetaCampaign) => void;
+  onPreview: (ad: MetaAd) => void;
 }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [showNewAdSet, setShowNewAdSet] = useState(false);
 
-  const sendMutation = useMutation({
-    mutationFn: () => invoke('send-campaign', {
+  const toggleMutation = useMutation({
+    mutationFn: (newStatus: 'ACTIVE' | 'PAUSED') => invoke('toggle-status', {
+      type: 'campaign',
+      meta_id: campaign.meta_id,
       local_id: campaign.id,
-      client_id: campaign.client_id,
-      name: campaign.name,
-      objective: campaign.objective,
-      budget_type: campaign.budget_type,
-      budget_value: campaign.budget_value,
-      buying_type: campaign.buying_type,
+      new_status: newStatus,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['meta-campaigns'] });
-      toast.success('Campanha enviada ao Meta como rascunho');
+      toast.success('Status da campanha atualizado');
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1179,6 +783,9 @@ function CampaignCard({
   const adsets = campaign.adsets ?? [];
   const totalAds = adsets.reduce((acc, a) => acc + (a.ads?.length ?? 0), 0);
   const objectiveLabel = OBJECTIVES.find(o => o.value === campaign.objective)?.label ?? campaign.objective;
+
+  // Collect all ad thumbnails for preview strip
+  const allAds = adsets.flatMap(a => a.ads ?? []).filter(a => a.image_url);
 
   return (
     <div className="border border-border rounded-xl overflow-hidden bg-card">
@@ -1205,10 +812,31 @@ function CampaignCard({
             </p>
           </div>
 
+          {/* Creatives strip preview */}
+          {!open && allAds.length > 0 && (
+            <div className="flex -space-x-1.5 shrink-0">
+              {allAds.slice(0, 4).map(ad => (
+                <div
+                  key={ad.id}
+                  className="w-7 h-7 rounded-md overflow-hidden border-2 border-card cursor-pointer hover:scale-110 transition-transform"
+                  onClick={(e) => { e.stopPropagation(); onPreview(ad); }}
+                  title={ad.name}
+                >
+                  <img src={ad.image_url} alt="" className="w-full h-full object-cover" />
+                </div>
+              ))}
+              {allAds.length > 4 && (
+                <div className="w-7 h-7 rounded-md bg-muted border-2 border-card flex items-center justify-center">
+                  <span className="text-[9px] font-bold text-muted-foreground">+{allAds.length - 4}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           <StatusBadge status={campaign.local_status} />
 
           {campaign.meta_id && (
-            <span className="text-xs text-muted-foreground hidden group-hover:inline">
+            <span className="text-xs text-muted-foreground hidden group-hover:inline font-mono">
               #{campaign.meta_id.slice(-6)}
             </span>
           )}
@@ -1220,26 +848,13 @@ function CampaignCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setShowNewAdSet(true)}>
-                <Plus className="w-4 h-4 mr-2" /> Novo conjunto
-              </DropdownMenuItem>
-              {campaign.local_status === 'Rascunho' && (
-                <DropdownMenuItem onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending}>
-                  <Send className="w-4 h-4 mr-2" />
-                  {sendMutation.isPending ? 'Enviando...' : 'Enviar ao Meta'}
-                </DropdownMenuItem>
-              )}
               {campaign.meta_id && campaign.local_status === 'Publicado' && (
-                <DropdownMenuItem onClick={() => invoke('toggle-status', {
-                  type: 'campaign', meta_id: campaign.meta_id, new_status: 'PAUSED', local_id: campaign.id,
-                }).then(() => qc.invalidateQueries({ queryKey: ['meta-campaigns'] }))}>
+                <DropdownMenuItem onClick={() => toggleMutation.mutate('PAUSED')} disabled={toggleMutation.isPending}>
                   <Pause className="w-4 h-4 mr-2" /> Pausar no Meta
                 </DropdownMenuItem>
               )}
               {campaign.meta_id && campaign.local_status === 'Pausado' && (
-                <DropdownMenuItem onClick={() => invoke('toggle-status', {
-                  type: 'campaign', meta_id: campaign.meta_id, new_status: 'ACTIVE', local_id: campaign.id,
-                }).then(() => qc.invalidateQueries({ queryKey: ['meta-campaigns'] }))}>
+                <DropdownMenuItem onClick={() => toggleMutation.mutate('ACTIVE')} disabled={toggleMutation.isPending}>
                   <Play className="w-4 h-4 mr-2" /> Ativar no Meta
                 </DropdownMenuItem>
               )}
@@ -1263,38 +878,16 @@ function CampaignCard({
             {adsets.length === 0 ? (
               <div className="flex flex-col items-center py-6 text-center">
                 <Layers className="w-8 h-8 text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">Nenhum conjunto criado ainda</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-3"
-                  onClick={() => setShowNewAdSet(true)}
-                >
-                  <Plus className="w-4 h-4 mr-1" /> Criar conjunto
-                </Button>
+                <p className="text-sm text-muted-foreground">Nenhum conjunto importado</p>
               </div>
             ) : (
-              <>
-                {adsets.map(adset => (
-                  <AdSetRow key={adset.id} adset={adset} clientId={campaign.client_id} />
-                ))}
-                <button
-                  className="flex items-center gap-2 py-2 px-6 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => setShowNewAdSet(true)}
-                >
-                  <Plus className="w-3.5 h-3.5" /> Adicionar conjunto
-                </button>
-              </>
+              adsets.map(adset => (
+                <AdSetRow key={adset.id} adset={adset} onPreview={onPreview} />
+              ))
             )}
           </div>
         </CollapsibleContent>
       </Collapsible>
-
-      <CreateAdSetDialog
-        open={showNewAdSet}
-        onClose={() => setShowNewAdSet(false)}
-        campaignId={campaign.id}
-      />
     </div>
   );
 }
@@ -1304,21 +897,22 @@ export default function CampaignsPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [clientFilter, setClientFilter] = useState('all');
-  const [showNewCampaign, setShowNewCampaign] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
   const [showImport, setShowImport] = useState(false);
   const [duplicateTarget, setDuplicateTarget] = useState<MetaCampaign | null>(null);
+  const [previewAd, setPreviewAd] = useState<MetaAd | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   const { data: campaigns = [], isLoading } = useMetaCampaigns(clientFilter);
   const { data: clients = [] } = useClients();
 
   const filtered = campaigns.filter(c => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      c.name.toLowerCase().includes(q) ||
-      c.client?.name?.toLowerCase().includes(q)
-    );
+    if (search) {
+      const q = search.toLowerCase();
+      if (!c.name.toLowerCase().includes(q) && !c.client?.name?.toLowerCase().includes(q)) return false;
+    }
+    if (statusFilter !== 'all' && c.local_status !== statusFilter) return false;
+    return true;
   });
 
   const handleSync = async () => {
@@ -1338,10 +932,9 @@ export default function CampaignsPage() {
 
   const stats = {
     total: campaigns.length,
-    rascunho: campaigns.filter(c => c.local_status === 'Rascunho').length,
-    enviado: campaigns.filter(c => c.local_status === 'Enviado').length,
     publicado: campaigns.filter(c => c.local_status === 'Publicado').length,
     pausado: campaigns.filter(c => c.local_status === 'Pausado').length,
+    arquivado: campaigns.filter(c => c.local_status === 'Arquivado').length,
   };
 
   return (
@@ -1352,7 +945,7 @@ export default function CampaignsPage() {
           <div>
             <h1 className="text-2xl font-bold">Campanhas Meta Ads</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Crie e gerencie campanhas, conjuntos e anúncios. Tudo vai ao Meta como rascunho.
+              Gerencie e monitore campanhas importadas do Meta Ads Manager.
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -1360,12 +953,9 @@ export default function CampaignsPage() {
               <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
               Sincronizar status
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowImport(true)}>
+            <Button size="sm" onClick={() => setShowImport(true)}>
               <Download className="w-4 h-4 mr-2" />
               Importar do Meta
-            </Button>
-            <Button size="sm" onClick={() => setShowNewCampaign(true)}>
-              <Plus className="w-4 h-4 mr-2" /> Nova campanha
             </Button>
           </div>
         </div>
@@ -1374,9 +964,9 @@ export default function CampaignsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Total', value: stats.total, color: 'text-foreground' },
-            { label: 'Rascunho', value: stats.rascunho, color: 'text-muted-foreground' },
-            { label: 'Publicado', value: stats.publicado, color: 'text-green-600' },
-            { label: 'Pausado', value: stats.pausado, color: 'text-amber-600' },
+            { label: 'Ativas', value: stats.publicado, color: 'text-green-600' },
+            { label: 'Pausadas', value: stats.pausado, color: 'text-amber-600' },
+            { label: 'Arquivadas', value: stats.arquivado, color: 'text-red-500' },
           ].map(s => (
             <div key={s.label} className="border border-border rounded-lg p-3 bg-card">
               <p className="text-xs text-muted-foreground">{s.label}</p>
@@ -1397,7 +987,7 @@ export default function CampaignsPage() {
             />
           </div>
           <Select value={clientFilter} onValueChange={setClientFilter}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-44">
               <SelectValue placeholder="Todos os clientes" />
             </SelectTrigger>
             <SelectContent>
@@ -1405,6 +995,17 @@ export default function CampaignsPage() {
               {clients.map(c => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Todos os status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              <SelectItem value="Publicado">Ativas</SelectItem>
+              <SelectItem value="Pausado">Pausadas</SelectItem>
+              <SelectItem value="Arquivado">Arquivadas</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -1418,45 +1019,34 @@ export default function CampaignsPage() {
           <div className="flex flex-col items-center py-16 text-center">
             <Megaphone className="w-12 h-12 text-muted-foreground mb-3" />
             <p className="font-semibold">
-              {search || clientFilter !== 'all' ? 'Nenhuma campanha encontrada' : 'Nenhuma campanha criada ainda'}
+              {search || clientFilter !== 'all' || statusFilter !== 'all'
+                ? 'Nenhuma campanha encontrada'
+                : 'Nenhuma campanha importada ainda'}
             </p>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-              {search || clientFilter !== 'all'
+              {search || clientFilter !== 'all' || statusFilter !== 'all'
                 ? 'Tente ajustar os filtros.'
-                : 'Crie sua primeira campanha. Ela ficará como rascunho até você enviar ao Meta.'}
+                : 'Importe campanhas do Meta Ads Manager para gerenciá-las aqui.'}
             </p>
-            {!search && clientFilter === 'all' && (
-              <Button className="mt-4" onClick={() => setShowNewCampaign(true)}>
-                <Plus className="w-4 h-4 mr-2" /> Nova campanha
+            {!search && clientFilter === 'all' && statusFilter === 'all' && (
+              <Button className="mt-4" onClick={() => setShowImport(true)}>
+                <Download className="w-4 h-4 mr-2" /> Importar do Meta
               </Button>
             )}
           </div>
         ) : (
           <div className="space-y-3">
             {filtered.map(campaign => (
-              <CampaignCard key={campaign.id} campaign={campaign} onDuplicate={setDuplicateTarget} />
+              <CampaignCard
+                key={campaign.id}
+                campaign={campaign}
+                onDuplicate={setDuplicateTarget}
+                onPreview={setPreviewAd}
+              />
             ))}
           </div>
         )}
-
-        {/* Info box */}
-        {campaigns.length > 0 && (
-          <div className="flex items-start gap-2 p-3 bg-muted/40 rounded-lg text-xs text-muted-foreground">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>
-              Campanhas enviadas ficam como <strong>Pausado</strong> no Meta Ads Manager.
-              Para publicar, ative-as diretamente no Meta ou use o botão &ldquo;Ativar no Meta&rdquo; aqui.
-              Use <strong>Sincronizar status</strong> para atualizar o status de todas as campanhas.
-            </span>
-          </div>
-        )}
       </div>
-
-      <CreateCampaignDialog
-        open={showNewCampaign}
-        onClose={() => setShowNewCampaign(false)}
-        clients={clients}
-      />
 
       <ImportFromMetaDialog
         open={showImport}
@@ -1468,6 +1058,12 @@ export default function CampaignsPage() {
         open={!!duplicateTarget}
         onClose={() => setDuplicateTarget(null)}
         campaign={duplicateTarget}
+      />
+
+      <AdPreviewDialog
+        open={!!previewAd}
+        ad={previewAd}
+        onClose={() => setPreviewAd(null)}
       />
     </MainLayout>
   );
