@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import {
   Plus, ChevronRight, ChevronDown, MoreHorizontal, Send, RefreshCw,
   Search, Megaphone, Layers, Image, Trash2, Play, Pause, AlertCircle,
-  Download, Copy, CheckSquare, Square, Loader2,
+  Download, Copy, CheckSquare, Square, Loader2, Upload, X,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -476,12 +476,16 @@ function CreateAdDialog({
   open,
   onClose,
   adsetId,
+  initialLinkUrl,
 }: {
   open: boolean;
   onClose: () => void;
   adsetId: string;
+  initialLinkUrl?: string;
 }) {
   const qc = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
     name: '',
     format: 'IMAGE' as 'IMAGE' | 'VIDEO' | 'CAROUSEL',
@@ -490,9 +494,34 @@ function CreateAdDialog({
     description: '',
     cta_type: 'LEARN_MORE',
     image_url: '',
-    link_url: '',
+    link_url: initialLinkUrl ?? '',
     notes: '',
   });
+
+  useEffect(() => {
+    if (open) {
+      setForm(f => ({ ...f, link_url: initialLinkUrl ?? f.link_url }));
+    }
+  }, [open, initialLinkUrl]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const path = `ads/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error } = await supabase.storage.from('creatives').upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('creatives').getPublicUrl(path);
+      setForm(f => ({ ...f, image_url: publicUrl }));
+    } catch {
+      toast.error('Erro ao fazer upload da imagem');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const mutation = useMutation({
     mutationFn: () => invoke('create-ad', { adset_id: adsetId, ...form }),
@@ -500,7 +529,7 @@ function CreateAdDialog({
       qc.invalidateQueries({ queryKey: ['meta-campaigns'] });
       toast.success('Anúncio criado como rascunho');
       onClose();
-      setForm({ name: '', format: 'IMAGE', headline: '', body: '', description: '', cta_type: 'LEARN_MORE', image_url: '', link_url: '', notes: '' });
+      setForm({ name: '', format: 'IMAGE', headline: '', body: '', description: '', cta_type: 'LEARN_MORE', image_url: '', link_url: initialLinkUrl ?? '', notes: '' });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -590,16 +619,39 @@ function CreateAdDialog({
 
           {form.format === 'IMAGE' && (
             <div className="grid gap-1.5">
-              <Label>URL da imagem</Label>
-              <Input
-                value={form.image_url}
-                onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))}
-                placeholder="https://... (ou use o Supabase Storage)"
-                type="url"
-              />
-              <p className="text-xs text-muted-foreground">
-                Ao enviar ao Meta, a imagem precisa estar em URL pública acessível.
-              </p>
+              <Label>Criativo (imagem)</Label>
+              {form.image_url ? (
+                <div className="relative rounded-lg overflow-hidden bg-muted border">
+                  <img src={form.image_url} alt="Preview do criativo" className="w-full max-h-48 object-cover" />
+                  <button
+                    type="button"
+                    className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 rounded-full p-1 transition-colors"
+                    onClick={() => setForm(f => ({ ...f, image_url: '' }))}
+                  >
+                    <X className="w-3.5 h-3.5 text-white" />
+                  </button>
+                </div>
+              ) : (
+                <label className={`flex flex-col items-center justify-center gap-2 cursor-pointer border-2 border-dashed rounded-lg p-6 transition-colors ${uploading ? 'opacity-50 cursor-wait border-muted' : 'border-muted hover:border-primary/50 hover:bg-muted/30'}`}>
+                  {uploading ? (
+                    <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
+                  ) : (
+                    <Upload className="w-6 h-6 text-muted-foreground" />
+                  )}
+                  <span className="text-sm text-muted-foreground">
+                    {uploading ? 'Enviando...' : 'Clique para selecionar imagem'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">JPG, PNG, WEBP até 10MB</span>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                  />
+                </label>
+              )}
             </div>
           )}
 
@@ -1015,6 +1067,7 @@ function AdSetRow({
   });
 
   const ads = adset.ads ?? [];
+  const existingLinkUrl = ads.find(a => a.link_url)?.link_url;
 
   return (
     <div className="ml-4">
@@ -1076,7 +1129,7 @@ function AdSetRow({
         </CollapsibleContent>
       </Collapsible>
 
-      <CreateAdDialog open={showNewAd} onClose={() => setShowNewAd(false)} adsetId={adset.id} />
+      <CreateAdDialog open={showNewAd} onClose={() => setShowNewAd(false)} adsetId={adset.id} initialLinkUrl={existingLinkUrl} />
     </div>
   );
 }
