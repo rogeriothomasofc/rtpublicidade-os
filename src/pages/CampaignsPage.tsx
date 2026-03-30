@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import {
   Plus, ChevronRight, ChevronDown, MoreHorizontal, Send, RefreshCw,
   Search, Megaphone, Layers, Image, Trash2, Play, Pause, AlertCircle,
+  Download, Copy, CheckSquare, Square, Loader2,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -627,6 +628,280 @@ function CreateAdDialog({
   );
 }
 
+// ─── Import From Meta Dialog ──────────────────────────────────
+interface MetaCampaignFromApi {
+  id: string;
+  name: string;
+  objective: string;
+  status: string;
+  effective_status: string;
+  daily_budget?: string;
+  lifetime_budget?: string;
+  buying_type?: string;
+  created_time: string;
+  already_imported: boolean;
+}
+
+function ImportFromMetaDialog({
+  open,
+  onClose,
+  clients,
+}: {
+  open: boolean;
+  onClose: () => void;
+  clients: Client[];
+}) {
+  const qc = useQueryClient();
+  const [clientId, setClientId] = useState('');
+  const [metaCampaigns, setMetaCampaigns] = useState<MetaCampaignFromApi[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [fetching, setFetching] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  const clientsWithMeta = clients.filter(c => c.meta_ads_account);
+
+  const handleFetch = async () => {
+    if (!clientId) return;
+    setFetching(true);
+    setMetaCampaigns([]);
+    setSelected(new Set());
+    try {
+      const data = await invoke('fetch-meta-campaigns', { client_id: clientId });
+      setMetaCampaigns(data.campaigns ?? []);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao buscar campanhas');
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  const toggleAll = () => {
+    const importable = metaCampaigns.filter(c => !c.already_imported).map(c => c.id);
+    if (selected.size === importable.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(importable));
+    }
+  };
+
+  const toggle = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleImport = async () => {
+    if (!selected.size) return;
+    setImporting(true);
+    try {
+      const toImport = metaCampaigns
+        .filter(c => selected.has(c.id))
+        .map(c => ({
+          meta_id: c.id,
+          name: c.name,
+          objective: c.objective,
+          meta_status: c.effective_status || c.status,
+          daily_budget: c.daily_budget,
+          lifetime_budget: c.lifetime_budget,
+          buying_type: c.buying_type,
+        }));
+
+      const data = await invoke('import-campaigns', { client_id: clientId, campaigns: toImport });
+      qc.invalidateQueries({ queryKey: ['meta-campaigns'] });
+      toast.success(`${data.imported} campanha${data.imported !== 1 ? 's' : ''} importada${data.imported !== 1 ? 's' : ''} com seus conjuntos`);
+      onClose();
+      setMetaCampaigns([]);
+      setSelected(new Set());
+      setClientId('');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao importar');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const statusColor = (s: string) => {
+    if (s === 'ACTIVE') return 'text-green-600';
+    if (s === 'PAUSED') return 'text-amber-600';
+    return 'text-muted-foreground';
+  };
+
+  const importable = metaCampaigns.filter(c => !c.already_imported);
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Download className="w-5 h-5" /> Importar campanhas do Meta Ads Manager
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex gap-2">
+          <Select value={clientId} onValueChange={setClientId}>
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder="Selecionar cliente" />
+            </SelectTrigger>
+            <SelectContent>
+              {clientsWithMeta.map(c => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={handleFetch} disabled={!clientId || fetching} variant="outline">
+            {fetching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Buscar'}
+          </Button>
+        </div>
+
+        {fetching && (
+          <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span className="text-sm">Buscando campanhas no Meta...</span>
+          </div>
+        )}
+
+        {!fetching && metaCampaigns.length > 0 && (
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="flex items-center justify-between py-2 border-b mb-1">
+              <button
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+                onClick={toggleAll}
+              >
+                {selected.size === importable.length && importable.length > 0
+                  ? <CheckSquare className="w-4 h-4" />
+                  : <Square className="w-4 h-4" />}
+                Selecionar todas ({importable.length} disponíveis)
+              </button>
+              <span className="text-xs text-muted-foreground">{metaCampaigns.length} campanha{metaCampaigns.length !== 1 ? 's' : ''} encontrada{metaCampaigns.length !== 1 ? 's' : ''}</span>
+            </div>
+
+            <div className="space-y-1">
+              {metaCampaigns.map(c => {
+                const objective = OBJECTIVES.find(o => o.value === c.objective)?.label ?? c.objective;
+                const budget = c.daily_budget
+                  ? `R$ ${(Number(c.daily_budget) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/dia`
+                  : c.lifetime_budget
+                  ? `R$ ${(Number(c.lifetime_budget) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} total`
+                  : 'Sem orçamento';
+
+                return (
+                  <div
+                    key={c.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                      c.already_imported
+                        ? 'opacity-40 cursor-not-allowed bg-muted/30'
+                        : selected.has(c.id)
+                        ? 'border-primary bg-primary/5 cursor-pointer'
+                        : 'border-border hover:border-primary/50 cursor-pointer'
+                    }`}
+                    onClick={() => !c.already_imported && toggle(c.id)}
+                  >
+                    {c.already_imported ? (
+                      <CheckSquare className="w-4 h-4 text-muted-foreground shrink-0" />
+                    ) : selected.has(c.id) ? (
+                      <CheckSquare className="w-4 h-4 text-primary shrink-0" />
+                    ) : (
+                      <Square className="w-4 h-4 text-muted-foreground shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{c.name}</p>
+                      <p className="text-xs text-muted-foreground">{objective} · {budget}</p>
+                    </div>
+                    <span className={`text-xs font-medium ${statusColor(c.effective_status || c.status)}`}>
+                      {c.already_imported ? 'Já importada' : (c.effective_status || c.status)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {!fetching && metaCampaigns.length === 0 && clientId && (
+          <p className="text-sm text-muted-foreground text-center py-6">
+            Clique em &ldquo;Buscar&rdquo; para carregar as campanhas desta conta.
+          </p>
+        )}
+
+        <DialogFooter className="pt-2 border-t">
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button
+            onClick={handleImport}
+            disabled={selected.size === 0 || importing}
+          >
+            {importing
+              ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Importando...</>
+              : <><Download className="w-4 h-4 mr-2" />Importar {selected.size > 0 ? `(${selected.size})` : ''}</>
+            }
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Duplicate Campaign Dialog ────────────────────────────────
+function DuplicateCampaignDialog({
+  open,
+  onClose,
+  campaign,
+}: {
+  open: boolean;
+  onClose: () => void;
+  campaign: MetaCampaign | null;
+}) {
+  const qc = useQueryClient();
+  const [newName, setNewName] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: () => invoke('duplicate-campaign', {
+      id: campaign!.id,
+      new_name: newName || `${campaign!.name} (cópia)`,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['meta-campaigns'] });
+      toast.success('Campanha duplicada com sucesso');
+      onClose();
+      setNewName('');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Copy className="w-5 h-5" /> Duplicar campanha
+          </DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <p className="text-sm text-muted-foreground">
+            Será criada uma cópia de <strong>{campaign?.name}</strong> com todos os seus conjuntos.
+            Os anúncios não são duplicados — criativos precisam ser recriados.
+          </p>
+          <div className="grid gap-1.5">
+            <Label>Nome da cópia</Label>
+            <Input
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              placeholder={`${campaign?.name ?? ''} (cópia)`}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+            {mutation.isPending ? 'Duplicando...' : 'Duplicar'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Ad Row ───────────────────────────────────────────────────
 function AdRow({ ad, onDelete }: { ad: MetaAd; onDelete: () => void }) {
   const qc = useQueryClient();
@@ -807,7 +1082,13 @@ function AdSetRow({
 }
 
 // ─── Campaign Card ────────────────────────────────────────────
-function CampaignCard({ campaign }: { campaign: MetaCampaign }) {
+function CampaignCard({
+  campaign,
+  onDuplicate,
+}: {
+  campaign: MetaCampaign;
+  onDuplicate: (c: MetaCampaign) => void;
+}) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [showNewAdSet, setShowNewAdSet] = useState(false);
@@ -905,6 +1186,9 @@ function CampaignCard({ campaign }: { campaign: MetaCampaign }) {
                   <Play className="w-4 h-4 mr-2" /> Ativar no Meta
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem onClick={() => onDuplicate(campaign)}>
+                <Copy className="w-4 h-4 mr-2" /> Duplicar campanha
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive"
@@ -964,6 +1248,8 @@ export default function CampaignsPage() {
   const [search, setSearch] = useState('');
   const [clientFilter, setClientFilter] = useState('all');
   const [showNewCampaign, setShowNewCampaign] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [duplicateTarget, setDuplicateTarget] = useState<MetaCampaign | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   const { data: campaigns = [], isLoading } = useMetaCampaigns(clientFilter);
@@ -1012,10 +1298,14 @@ export default function CampaignsPage() {
               Crie e gerencie campanhas, conjuntos e anúncios. Tudo vai ao Meta como rascunho.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
               <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
               Sincronizar status
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowImport(true)}>
+              <Download className="w-4 h-4 mr-2" />
+              Importar do Meta
             </Button>
             <Button size="sm" onClick={() => setShowNewCampaign(true)}>
               <Plus className="w-4 h-4 mr-2" /> Nova campanha
@@ -1087,7 +1377,7 @@ export default function CampaignsPage() {
         ) : (
           <div className="space-y-3">
             {filtered.map(campaign => (
-              <CampaignCard key={campaign.id} campaign={campaign} />
+              <CampaignCard key={campaign.id} campaign={campaign} onDuplicate={setDuplicateTarget} />
             ))}
           </div>
         )}
@@ -1109,6 +1399,18 @@ export default function CampaignsPage() {
         open={showNewCampaign}
         onClose={() => setShowNewCampaign(false)}
         clients={clients}
+      />
+
+      <ImportFromMetaDialog
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        clients={clients}
+      />
+
+      <DuplicateCampaignDialog
+        open={!!duplicateTarget}
+        onClose={() => setDuplicateTarget(null)}
+        campaign={duplicateTarget}
       />
     </MainLayout>
   );

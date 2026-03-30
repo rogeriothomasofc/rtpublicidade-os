@@ -510,6 +510,196 @@ serve(async (req) => {
       return ok({ deleted: true });
     }
 
+    // ── FETCH campaigns from Meta (sem salvar) ──────────────
+    if (action === "fetch-meta-campaigns") {
+      const accountId = await getClientAccountId(supabase, body.client_id as string);
+      const fields = "id,name,objective,status,effective_status,daily_budget,lifetime_budget,buying_type,created_time";
+      const url = `${META_API}/act_${accountId}/campaigns?fields=${encodeURIComponent(fields)}&limit=100&access_token=${token}`;
+      const res = await fetch(url);
+      const metaData = await res.json();
+      if (metaData.error) throw new Error(metaData.error.message);
+
+      // Marca quais já foram importados
+      const { data: existing } = await supabase
+        .from("meta_campaigns")
+        .select("meta_id")
+        .eq("client_id", body.client_id as string)
+        .not("meta_id", "is", null);
+
+      const importedIds = new Set((existing ?? []).map((c: Record<string, unknown>) => c.meta_id));
+      const campaigns = (metaData.data ?? []).map((c: Record<string, unknown>) => ({
+        ...c,
+        already_imported: importedIds.has(c.id),
+      }));
+
+      return ok({ campaigns });
+    }
+
+    // ── IMPORT campaigns from Meta (salva localmente) ────────
+    if (action === "import-campaigns") {
+      const { client_id, campaigns: toImport } = body as {
+        client_id: string;
+        campaigns: Array<{
+          meta_id: string;
+          name: string;
+          objective: string;
+          meta_status: string;
+          daily_budget?: string;
+          lifetime_budget?: string;
+          buying_type?: string;
+        }>;
+      };
+
+      const accountId = await getClientAccountId(supabase, client_id);
+      const inserted: unknown[] = [];
+
+      for (const camp of toImport) {
+        // Evita duplicatas
+        const { data: existing } = await supabase
+          .from("meta_campaigns")
+          .select("id")
+          .eq("meta_id", camp.meta_id)
+          .maybeSingle();
+
+        if (existing) { inserted.push(existing); continue; }
+
+        const budgetType = camp.daily_budget ? "daily" : "lifetime";
+        const budgetValue = camp.daily_budget
+          ? Number(camp.daily_budget) / 100
+          : camp.lifetime_budget ? Number(camp.lifetime_budget) / 100 : null;
+
+        const localStatus =
+          camp.meta_status === "ACTIVE" ? "Publicado" :
+          camp.meta_status === "PAUSED" ? "Pausado" : "Arquivado";
+
+        const { data: newCamp, error } = await supabase
+          .from("meta_campaigns")
+          .insert({
+            client_id,
+            name: camp.name,
+            objective: camp.objective,
+            budget_type: budgetType,
+            budget_value: budgetValue,
+            buying_type: camp.buying_type || "AUCTION",
+            meta_id: camp.meta_id,
+            meta_status: camp.meta_status,
+            local_status: localStatus,
+            created_by: user.id,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Importa conjuntos desta campanha
+        const adsetsUrl = `${META_API}/${camp.meta_id}/adsets?fields=id,name,status,effective_status,optimization_goal,billing_event,daily_budget,lifetime_budget,targeting,created_time&limit=50&access_token=${token}`;
+        const adsetsRes = await fetch(adsetsUrl);
+        const adsetsData = await adsetsRes.json();
+
+        if (!adsetsData.error) {
+          for (const adset of (adsetsData.data ?? [])) {
+            const adsetBudgetType = adset.daily_budget ? "daily" : "lifetime";
+            const adsetBudgetValue = adset.daily_budget
+              ? Number(adset.daily_budget) / 100
+              : adset.lifetime_budget ? Number(adset.lifetime_budget) / 100 : null;
+            const adsetLocalStatus =
+              adset.effective_status === "ACTIVE" ? "Publicado" :
+              adset.effective_status === "PAUSED" ? "Pausado" : "Arquivado";
+
+            await supabase.from("meta_adsets").insert({
+              campaign_id: newCamp.id,
+              name: adset.name,
+              optimization_goal: adset.optimization_goal || "LINK_CLICKS",
+              billing_event: adset.billing_event || "IMPRESSIONS",
+              budget_type: adsetBudgetType,
+              budget_value: adsetBudgetValue,
+              targeting: adset.targeting || {},
+              meta_id: adset.id,
+              meta_status: adset.effective_status || adset.status,
+              local_status: adsetLocalStatus,
+            });
+          }
+        }
+
+        inserted.push(newCamp);
+      }
+
+      return ok({ imported: inserted.length, campaigns: inserted });
+    }
+
+    // ── DUPLICATE campaign ────────────────────────────────────
+    if (action === "duplicate-campaign") {
+      const { id: sourceId, new_name } = body as { id: string; new_name: string };
+
+      const { data: source, error: srcErr } = await supabase
+        .from("meta_campaigns")
+        .select("*, adsets:meta_adsets(*)")
+        .eq("id", sourceId)
+        .single();
+
+      if (srcErr || !source) throw new Error("Campanha não encontrada");
+
+      // Cria localmente primeiro
+      const { data: newCamp, error: insertErr } = await supabase
+        .from("meta_campaigns")
+        .insert({
+          client_id: source.client_id,
+          name: new_name || `${source.name} (cópia)`,
+          objective: source.objective,
+          budget_type: source.budget_type,
+          budget_value: source.budget_value,
+          buying_type: source.buying_type,
+          special_ad_categories: source.special_ad_categories || [],
+          notes: source.notes,
+          local_status: "Rascunho",
+          created_by: user.id,
+        })
+        .select()
+        .single();
+
+      if (insertErr) throw insertErr;
+
+      // Duplica conjuntos (sem anúncios — criativos precisam ser recriados)
+      const adsets = (source.adsets as Record<string, unknown>[]) ?? [];
+      for (const adset of adsets) {
+        await supabase.from("meta_adsets").insert({
+          campaign_id: newCamp.id,
+          name: adset.name,
+          optimization_goal: adset.optimization_goal || "LINK_CLICKS",
+          billing_event: adset.billing_event || "IMPRESSIONS",
+          budget_type: adset.budget_type,
+          budget_value: adset.budget_value,
+          targeting: adset.targeting || {},
+          placement_type: adset.placement_type || "AUTOMATIC",
+          local_status: "Rascunho",
+        });
+      }
+
+      // Se tinha meta_id, envia a cópia ao Meta
+      if (source.meta_id) {
+        const accountId = await getClientAccountId(supabase, source.client_id as string);
+        try {
+          const result = await createCampaign(supabase, token, accountId, {
+            ...newCamp,
+            local_id: newCamp.id,
+            client_id: source.client_id,
+          });
+          return ok({ campaign: result });
+        } catch (_) {
+          // Se falhar no Meta, retorna rascunho local mesmo
+        }
+      }
+
+      // Retorna com adsets incluídos
+      const { data: full } = await supabase
+        .from("meta_campaigns")
+        .select("*, client:clients(id, name), adsets:meta_adsets(*, ads:meta_ads(*))")
+        .eq("id", newCamp.id)
+        .single();
+
+      return ok({ campaign: full });
+    }
+
     return metaError("Ação não reconhecida", 404);
   } catch (err) {
     console.error("meta-campaigns-manager error:", err);
