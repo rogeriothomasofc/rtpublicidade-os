@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Building2, Mail, Phone, Calendar, DollarSign, Briefcase, FileText, TrendingUp, Plus, CheckSquare, Edit, MapPin, Pencil, Send, Eye, Lightbulb, ExternalLink, FolderOpen, Megaphone, Loader2, Link2, Copy, Check } from 'lucide-react';
+import { useCepLookup } from '@/hooks/useCepLookup';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { ClientStatus, TaskStatus, TaskPriority, PersonType } from '@/types/database';
@@ -116,6 +117,7 @@ export default function ClientDetailPage() {
   const { toast } = useToast();
   const [financeDialogOpen, setFinanceDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const { handleCepChange, loadingCep } = useCepLookup();
   const [sendingAccess, setSendingAccess] = useState(false);
   const [generatingLink, setGeneratingLink] = useState(false);
   const [formLinkDialogOpen, setFormLinkDialogOpen] = useState(false);
@@ -848,7 +850,10 @@ export default function ClientDetailPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>CEP</Label>
-                <Input value={editForm.zip_code} onChange={e => setEditForm({ ...editForm, zip_code: e.target.value })} placeholder="00000-000" maxLength={9} />
+                <div className="relative">
+                  <Input value={editForm.zip_code} onChange={e => handleCepChange(e.target.value, setEditForm)} placeholder="00000-000" maxLength={9} />
+                  {loadingCep && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />}
+                </div>
               </div>
             </div>
             <div>

@@ -15,7 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, MoreHorizontal, Trash2, Edit, Eye, Users2 } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, Trash2, Edit, Eye, Users2, Loader2 } from 'lucide-react';
+import { useCepLookup } from '@/hooks/useCepLookup';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -52,6 +53,8 @@ export default function ClientsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   
+  const { handleCepChange, loadingCep } = useCepLookup();
+
   const [formData, setFormData] = useState({
     name: '',
     company: '',
@@ -297,12 +300,15 @@ export default function ClientsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>CEP</Label>
-                    <Input
-                      value={formData.zip_code}
-                      onChange={e => setFormData({ ...formData, zip_code: e.target.value })}
-                      placeholder="00000-000"
-                      maxLength={9}
-                    />
+                    <div className="relative">
+                      <Input
+                        value={formData.zip_code}
+                        onChange={e => handleCepChange(e.target.value, setFormData)}
+                        placeholder="00000-000"
+                        maxLength={9}
+                      />
+                      {loadingCep && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />}
+                    </div>
                   </div>
                 </div>
                 <div>

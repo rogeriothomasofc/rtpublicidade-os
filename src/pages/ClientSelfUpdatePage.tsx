@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CheckCircle2, Loader2, AlertCircle, ExternalLink, Mail, KeyRound, LayoutDashboard } from 'lucide-react';
+import { useCepLookup } from '@/hooks/useCepLookup';
 
 type PersonType = 'pf' | 'pj';
 
@@ -39,6 +40,7 @@ const emptyForm = (): FormData => ({
 
 export default function ClientSelfUpdatePage() {
   const { token } = useParams<{ token: string }>();
+  const { handleCepChange, loadingCep } = useCepLookup();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [sendingAccess, setSendingAccess] = useState(false);
@@ -269,7 +271,10 @@ export default function ClientSelfUpdatePage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>CEP</Label>
-              <Input value={formData.zip_code} onChange={set('zip_code')} placeholder="00000-000" maxLength={9} />
+              <div className="relative">
+                <Input value={formData.zip_code} onChange={e => handleCepChange(e.target.value, setFormData)} placeholder="00000-000" maxLength={9} />
+                {loadingCep && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />}
+              </div>
             </div>
           </div>
 
