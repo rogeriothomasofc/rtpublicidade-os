@@ -378,7 +378,7 @@ export default function ClientPortalPage() {
         </div>
 
         {/* Announcements */}
-        {announcements && announcements.length > 0 && (
+        {activeTab === 'all' && announcements && announcements.length > 0 && (
           <Card className="border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-primary/5 to-background shadow-lg shadow-primary/10 overflow-hidden relative">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-primary/80 to-primary/40" />
             <CardHeader className="pb-3">
@@ -389,7 +389,8 @@ export default function ClientPortalPage() {
                 Avisos Importantes
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 pt-0">
+            <CardContent className="pt-0">
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
               {announcements.map(ann => (
                 <div
                   key={ann.id}
@@ -411,6 +412,7 @@ export default function ClientPortalPage() {
                   </div>
                 </div>
               ))}
+              </div>
             </CardContent>
           </Card>
         )}

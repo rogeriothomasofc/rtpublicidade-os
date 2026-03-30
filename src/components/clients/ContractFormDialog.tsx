@@ -51,7 +51,7 @@ export function ContractFormDialog({ open, onOpenChange, clientId }: ContractFor
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Novo Contrato</DialogTitle>
         </DialogHeader>
