@@ -61,8 +61,8 @@
       "typeVersion": 4.2,
       "position": [960, 300],
       "parameters": {
-        "method": "GET",
-        "url": "=https://nbzxofrllagqwwrwfskv.supabase.co/rest/v1/client_sales?client_id=eq.{{ $json.id }}&select=created_at&order=created_at.desc&limit=1",
+        "method": "POST",
+        "url": "https://nbzxofrllagqwwrwfskv.supabase.co/rest/v1/rpc/get_client_last_sale",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -73,9 +73,16 @@
             {
               "name": "Authorization",
               "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc1NjIwOSwiZXhwIjoyMDgxMzMyMjA5fQ.K6adJFAIVLHIj-3d_j_7jvzoYzYNvBzjeQbBhu5o_Bg"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_client_id: $json.id }) }}",
         "options": {
           "response": {
             "response": {
@@ -92,7 +99,7 @@
       "typeVersion": 2,
       "position": [1200, 300],
       "parameters": {
-        "jsCode": "const vendas = Array.isArray($input.item.json) ? $input.item.json : [];\nconst clientData = $('Loop por Cliente').item.json;\n\nconst ultimaVenda = vendas.length > 0 ? vendas[0].created_at : null;\n\nlet daysSinceLastSale;\nlet lastSaleDate;\n\nif (!ultimaVenda) {\n  // Nunca registrou venda — considera como muitos dias\n  daysSinceLastSale = 999;\n  lastSaleDate = null;\n} else {\n  const lastDate = new Date(ultimaVenda);\n  const today = new Date();\n  daysSinceLastSale = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));\n  lastSaleDate = lastDate.toLocaleDateString('pt-BR', {\n    day: '2-digit',\n    month: '2-digit',\n    year: 'numeric'\n  });\n}\n\nreturn [{\n  json: {\n    skip: daysSinceLastSale < 2,\n    days_since_sale: daysSinceLastSale,\n    last_sale_date: lastSaleDate,\n    never_registered: !ultimaVenda,\n    client_id: clientData.id,\n    client_name: clientData.name,\n    client_company: clientData.company,\n    whatsapp_group_id: clientData.whatsapp_group_id\n  }\n}];"
+        "jsCode": "// RPC retorna array [{created_at}] ou objeto de erro ou item vazio\nconst raw = $input.all();\nconst vendas = raw.length > 0 && Array.isArray(raw[0].json) ? raw[0].json : [];\nconst clientData = $('Loop por Cliente').item.json;\n\nconst ultimaVenda = vendas.length > 0 ? vendas[0].created_at : null;\n\nlet daysSinceLastSale;\nlet lastSaleDate;\n\nif (!ultimaVenda) {\n  // Nunca registrou venda — considera como muitos dias\n  daysSinceLastSale = 999;\n  lastSaleDate = null;\n} else {\n  const lastDate = new Date(ultimaVenda);\n  const today = new Date();\n  daysSinceLastSale = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));\n  lastSaleDate = lastDate.toLocaleDateString('pt-BR', {\n    day: '2-digit',\n    month: '2-digit',\n    year: 'numeric'\n  });\n}\n\nreturn [{\n  json: {\n    skip: daysSinceLastSale < 2,\n    days_since_sale: daysSinceLastSale,\n    last_sale_date: lastSaleDate,\n    never_registered: !ultimaVenda,\n    client_id: clientData.id,\n    client_name: clientData.name,\n    client_company: clientData.company,\n    whatsapp_group_id: clientData.whatsapp_group_id\n  }\n}];"
       }
     },
     {
