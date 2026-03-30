@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, AlertCircle, ExternalLink, Mail, KeyRound, LayoutDashboard } from 'lucide-react';
 
 type PersonType = 'pf' | 'pj';
 
@@ -29,6 +28,7 @@ interface FormData {
 }
 
 const EDGE_FN = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/client-self-update`;
+const PORTAL_URL = `${window.location.origin}/portal`;
 
 export default function ClientSelfUpdatePage() {
   const { token } = useParams<{ token: string }>();
@@ -36,6 +36,7 @@ export default function ClientSelfUpdatePage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [clientEmail, setClientEmail] = useState('');
   const [formData, setFormData] = useState<FormData>({
     name: '', company: '', email: '', phone: '',
     person_type: 'pj', cpf: '', rg: '', cnpj: '',
@@ -92,6 +93,7 @@ export default function ClientSelfUpdatePage() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
+      setClientEmail(formData.email);
       setSuccess(true);
     } catch (e: any) {
       alert('Erro ao salvar: ' + e.message);
@@ -115,7 +117,7 @@ export default function ClientSelfUpdatePage() {
           <CardContent className="pt-8 pb-8 space-y-3">
             <AlertCircle className="w-12 h-12 text-destructive mx-auto" />
             <p className="text-lg font-semibold">Link inválido ou expirado</p>
-            <p className="text-sm text-muted-foreground">Solicite um novo link para a agência.</p>
+            <p className="text-sm text-muted-foreground">Entre em contato com a agência para solicitar um novo link.</p>
           </CardContent>
         </Card>
       </div>
@@ -125,11 +127,36 @@ export default function ClientSelfUpdatePage() {
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md text-center">
-          <CardContent className="pt-8 pb-8 space-y-3">
-            <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto" />
-            <p className="text-lg font-semibold">Dados atualizados com sucesso!</p>
-            <p className="text-sm text-muted-foreground">Obrigado por manter seu cadastro atualizado.</p>
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-8 pb-8 space-y-5">
+            <div className="text-center space-y-2">
+              <CheckCircle2 className="w-14 h-14 text-green-500 mx-auto" />
+              <p className="text-xl font-bold">Cadastro concluído!</p>
+              <p className="text-sm text-muted-foreground">Seus dados foram enviados com sucesso.</p>
+            </div>
+
+            <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
+              <p className="text-sm font-semibold">Como acessar o Painel do Cliente:</p>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="flex items-start gap-2">
+                  <Mail className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
+                  <span>A agência enviará um email{clientEmail ? <> para <strong className="text-foreground">{clientEmail}</strong></> : ''} com suas credenciais de acesso.</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <KeyRound className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
+                  <span>No email você encontrará sua <strong className="text-foreground">senha temporária</strong>. Use-a junto com seu email para entrar no painel.</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <LayoutDashboard className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
+                  <span>No painel você acompanha tarefas, relatórios financeiros, planejamentos e muito mais.</span>
+                </div>
+              </div>
+            </div>
+
+            <Button className="w-full" onClick={() => window.open(PORTAL_URL, '_blank')}>
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Acessar Painel do Cliente
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -140,15 +167,16 @@ export default function ClientSelfUpdatePage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-lg">
         <CardHeader className="pb-4">
-          <CardTitle className="text-xl">Atualização de Cadastro</CardTitle>
-          <p className="text-sm text-muted-foreground">Preencha ou atualize seus dados abaixo.</p>
+          <CardTitle className="text-xl">Complete seu Cadastro</CardTitle>
+          <p className="text-sm text-muted-foreground">Preencha seus dados para começar. Essas informações são necessárias para a agência trabalhar com você.</p>
         </CardHeader>
         <CardContent className="space-y-4 max-h-[80vh] overflow-y-auto pr-2">
+
           {/* Nome + Empresa */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Nome</Label>
-              <Input value={formData.name} onChange={set('name')} placeholder="Nome do contato" />
+              <Input value={formData.name} onChange={set('name')} placeholder="Seu nome" />
             </div>
             <div>
               <Label>Empresa</Label>
@@ -160,7 +188,7 @@ export default function ClientSelfUpdatePage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Email</Label>
-              <Input type="email" value={formData.email} onChange={set('email')} placeholder="email@exemplo.com" />
+              <Input type="email" value={formData.email} onChange={set('email')} placeholder="seu@email.com" />
             </div>
             <div>
               <Label>Telefone</Label>
@@ -171,7 +199,7 @@ export default function ClientSelfUpdatePage() {
           {/* Instagram */}
           <div>
             <Label>Instagram</Label>
-            <Input value={formData.instagram_username} onChange={set('instagram_username')} placeholder="@usuario" />
+            <Input value={formData.instagram_username} onChange={set('instagram_username')} placeholder="@seuperfil" />
           </div>
 
           {/* Tipo de Pessoa */}
@@ -256,7 +284,7 @@ export default function ClientSelfUpdatePage() {
           </div>
 
           <Button onClick={handleSubmit} className="w-full" disabled={submitting}>
-            {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : 'Atualizar Cadastro'}
+            {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enviando...</> : 'Concluir Cadastro'}
           </Button>
         </CardContent>
       </Card>
