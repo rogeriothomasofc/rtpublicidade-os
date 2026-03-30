@@ -277,6 +277,7 @@ export type Database = {
           fee: number | null
           id: string
           inscricao_estadual: string | null
+          instagram_username: string | null
           meta_ads_account: string | null
           name: string
           notes: string | null
@@ -302,6 +303,7 @@ export type Database = {
           fee?: number | null
           id?: string
           inscricao_estadual?: string | null
+          instagram_username?: string | null
           meta_ads_account?: string | null
           name: string
           notes?: string | null
@@ -327,6 +329,7 @@ export type Database = {
           fee?: number | null
           id?: string
           inscricao_estadual?: string | null
+          instagram_username?: string | null
           meta_ads_account?: string | null
           name?: string
           notes?: string | null

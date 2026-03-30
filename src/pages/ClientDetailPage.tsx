@@ -145,7 +145,7 @@ export default function ClientDetailPage() {
   const [editForm, setEditForm] = useState({
     name: '', company: '', email: '', phone: '', status: 'Lead' as ClientStatus,
     fee: 0, person_type: 'pj' as PersonType, cnpj: '', cpf: '', rg: '', razao_social: '', inscricao_estadual: '',
-    address: '', city: '', state: '', zip_code: '', drive_link: '', meta_ads_account: '', whatsapp_group_id: '',
+    address: '', city: '', state: '', zip_code: '', drive_link: '', meta_ads_account: '', whatsapp_group_id: '', instagram_username: '',
   });
 
   const openEditDialog = () => {
@@ -160,6 +160,7 @@ export default function ClientDetailPage() {
       state: client.state || '', zip_code: client.zip_code || '',
       drive_link: (client as any).drive_link || '', meta_ads_account: (client as any).meta_ads_account || '',
       whatsapp_group_id: client.whatsapp_group_id || '',
+      instagram_username: client.instagram_username || '',
     });
     setEditDialogOpen(true);
   };
@@ -403,7 +404,7 @@ export default function ClientDetailPage() {
         </Card>
 
         {/* Quick Access Links */}
-        {((client as any).drive_link || (client as any).meta_ads_account) && (
+        {((client as any).drive_link || (client as any).meta_ads_account || client.instagram_username) && (
           <div className="flex gap-3 flex-wrap">
             {(client as any).drive_link && (
               <Button variant="outline" asChild>
@@ -419,6 +420,15 @@ export default function ClientDetailPage() {
                 <a href={`https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${(client as any).meta_ads_account.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer">
                   <Megaphone className="w-4 h-4 mr-2" />
                   Meta Ads ({(client as any).meta_ads_account})
+                  <ExternalLink className="w-3 h-3 ml-2" />
+                </a>
+              </Button>
+            )}
+            {client.instagram_username && (
+              <Button variant="outline" asChild>
+                <a href={`https://instagram.com/${client.instagram_username.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
+                  <span className="w-4 h-4 mr-2 text-base leading-none">📷</span>
+                  @{client.instagram_username.replace('@', '')}
                   <ExternalLink className="w-3 h-3 ml-2" />
                 </a>
               </Button>
@@ -834,6 +844,10 @@ export default function ClientDetailPage() {
               <div>
                 <Label>ID Grupo WhatsApp</Label>
                 <Input value={editForm.whatsapp_group_id} onChange={e => setEditForm({ ...editForm, whatsapp_group_id: e.target.value })} placeholder="120363401557449318@g.us" />
+              </div>
+              <div>
+                <Label>Instagram</Label>
+                <Input value={editForm.instagram_username} onChange={e => setEditForm({ ...editForm, instagram_username: e.target.value })} placeholder="@nomecliente" />
               </div>
             </div>
             <Button onClick={handleEditSubmit} className="w-full" disabled={updateClient.isPending}>

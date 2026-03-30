@@ -33,6 +33,7 @@ export interface Client {
   drive_link?: string;
   meta_ads_account?: string;
   whatsapp_group_id?: string;
+  instagram_username?: string;
   created_at: string;
   updated_at: string;
 }

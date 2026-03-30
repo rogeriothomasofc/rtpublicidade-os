@@ -1,0 +1,303 @@
+{
+  "name": "Instagram - Alerta Sem Postagem",
+  "nodes": [
+    {
+      "id": "ig-node-01",
+      "name": "Todo Dia às 9h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ig-node-02",
+      "name": "Buscar Clientes Ativos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://nbzxofrllagqwwrwfskv.supabase.co/rest/v1/clients?select=id,name,company,instagram_username,whatsapp_group_id&status=eq.Ativo&instagram_username=not.is.null&whatsapp_group_id=not.is.null",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3NTYyMDksImV4cCI6MjA4MTMzMjIwOX0.ZYqncurwo1osJcDw39Am0MaD9VJ_thnFBH5P0gEpzsY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3NTYyMDksImV4cCI6MjA4MTMzMjIwOX0.ZYqncurwo1osJcDw39Am0MaD9VJ_thnFBH5P0gEpzsY"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ig-node-03",
+      "name": "Loop por Cliente",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [720, 300],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "ig-node-04",
+      "name": "Buscar Último Post Instagram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://nbzxofrllagqwwrwfskv.supabase.co/functions/v1/check-instagram-last-post",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3NTYyMDksImV4cCI6MjA4MTMzMjIwOX0.ZYqncurwo1osJcDw39Am0MaD9VJ_thnFBH5P0gEpzsY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ username: $json.instagram_username }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ig-node-05",
+      "name": "Calcular Dias Sem Postar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 300],
+      "parameters": {
+        "jsCode": "const r = $input.item.json;\nconst clientData = $('Loop por Cliente').item.json;\n\n// Edge Function já retorna days_since_post e last_post_date prontos\nif (!r.has_posts || r.days_since_post === null) {\n  return [{ json: { skip: true, client_name: clientData.name } }];\n}\n\nreturn [{\n  json: {\n    skip: false,\n    days_since_post: r.days_since_post,\n    last_post_date: r.last_post_date,\n    client_id: clientData.id,\n    client_name: clientData.name,\n    client_company: clientData.company,\n    instagram_username: clientData.instagram_username,\n    whatsapp_group_id: clientData.whatsapp_group_id\n  }\n}];"
+      }
+    },
+    {
+      "id": "ig-node-06",
+      "name": "Mais de 5 Dias?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1440, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-skip",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "cond-days",
+              "leftValue": "={{ $json.days_since_post }}",
+              "rightValue": 5,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ig-node-07",
+      "name": "Gerar Sugestões com Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 180],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "SUBSTITUIR_ANTHROPIC_API_KEY"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 400, messages: [{ role: 'user', content: 'Você é um consultor de marketing digital da agência RT Publicidade.\\n\\nCliente: ' + $json.client_company + '\\nInstagram: @' + $json.instagram_username.replace('@', '') + '\\nÚltima postagem: ' + $json.last_post_date + '\\nDias sem postar: ' + $json.days_since_post + '\\n\\nGere exatamente 3 sugestões práticas de conteúdo para Instagram para esse negócio.\\nFormato obrigatório:\\n1️⃣ *Tema* — descrição de 1 linha do que postar\\n2️⃣ *Tema* — descrição de 1 linha do que postar\\n3️⃣ *Tema* — descrição de 1 linha do que postar\\n\\nResponda APENAS com as 3 sugestões numeradas, sem texto adicional.' }] }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "ig-node-08",
+      "name": "Montar Mensagens",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 180],
+      "parameters": {
+        "jsCode": "const claudeSuggestions = $json.content[0].text.trim();\nconst clientData = $('Mais de 5 Dias?').item.json;\n\nconst whatsappMsg = `📸 *Olá, ${clientData.client_name}!*\\n\\nSua última postagem no Instagram foi em *${clientData.last_post_date}* — já faz *${clientData.days_since_post} dias* sem novidades por lá.\\n\\nIsso pode afetar seu alcance orgânico e fazer você perder seguidores que ainda não viraram clientes. 📉\\n\\nQue tal postar hoje? Aqui vão 3 ideias para você:\\n\\n${claudeSuggestions}\\n\\nQualquer dúvida, a gente te ajuda a criar! 🚀\\n_RT Publicidade_`;\n\nconst portalMsg = `Sua última postagem no Instagram foi em ${clientData.last_post_date} — já faz ${clientData.days_since_post} dias sem novidades.\\n\\nIsso pode afetar seu alcance orgânico. 📉\\n\\nSugestões de conteúdo para hoje:\\n\\n${claudeSuggestions}\\n\\nQualquer dúvida, fale com a gente! 🚀`;\n\nreturn [{\n  json: {\n    whatsapp_message: whatsappMsg,\n    portal_title: `📸 Sua última postagem foi há ${clientData.days_since_post} dias`,\n    portal_message: portalMsg,\n    client_id: clientData.client_id,\n    whatsapp_group_id: clientData.whatsapp_group_id\n  }\n}];"
+      }
+    },
+    {
+      "id": "ig-node-09",
+      "name": "Criar Aviso no Portal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2160, 100],
+      "parameters": {
+        "method": "POST",
+        "url": "https://nbzxofrllagqwwrwfskv.supabase.co/rest/v1/portal_announcements",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3NTYyMDksImV4cCI6MjA4MTMzMjIwOX0.ZYqncurwo1osJcDw39Am0MaD9VJ_thnFBH5P0gEpzsY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3NTYyMDksImV4cCI6MjA4MTMzMjIwOX0.ZYqncurwo1osJcDw39Am0MaD9VJ_thnFBH5P0gEpzsY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ title: $json.portal_title, message: $json.portal_message, client_id: $json.client_id, is_global: false, is_read: false }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "ig-node-10",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [2160, 260],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendText",
+        "instanceName": "RTPUBLICIDADE",
+        "remoteJid": "={{ $('Montar Mensagens').item.json.whatsapp_group_id }}",
+        "messageText": "={{ $('Montar Mensagens').item.json.whatsapp_message }}"
+      },
+      "credentials": {
+        "evolutionApiCredentialsApi": {
+          "name": "Evolution API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Todo Dia às 9h": {
+      "main": [
+        [{ "node": "Buscar Clientes Ativos", "type": "main", "index": 0 }]
+      ]
+    },
+    "Buscar Clientes Ativos": {
+      "main": [
+        [{ "node": "Loop por Cliente", "type": "main", "index": 0 }]
+      ]
+    },
+    "Loop por Cliente": {
+      "main": [
+        [{ "node": "Buscar Último Post Instagram", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Buscar Último Post Instagram": {
+      "main": [
+        [{ "node": "Calcular Dias Sem Postar", "type": "main", "index": 0 }]
+      ]
+    },
+    "Calcular Dias Sem Postar": {
+      "main": [
+        [{ "node": "Mais de 5 Dias?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Mais de 5 Dias?": {
+      "main": [
+        [{ "node": "Gerar Sugestões com Claude", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Gerar Sugestões com Claude": {
+      "main": [
+        [{ "node": "Montar Mensagens", "type": "main", "index": 0 }]
+      ]
+    },
+    "Montar Mensagens": {
+      "main": [
+        [
+          { "node": "Criar Aviso no Portal", "type": "main", "index": 0 },
+          { "node": "Enviar WhatsApp", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Criar Aviso no Portal": {
+      "main": [[]]
+    },
+    "Enviar WhatsApp": {
+      "main": [[]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [
+    { "name": "instagram" },
+    { "name": "whatsapp" },
+    { "name": "automacao" },
+    { "name": "claude-ai" }
+  ]
+}

@@ -16,7 +16,7 @@ import { PortalNotificationBell } from '@/components/portal/PortalNotificationBe
 import { PortalAISummary } from '@/components/portal/PortalAISummary';
 import { ScheduleMeetingDialog } from '@/components/portal/ScheduleMeetingDialog';
 import { useCreatePortalAccessLog, useUpdatePortalAccessLog } from '@/hooks/usePortalAccessLogs';
-import { useClientAnnouncements } from '@/hooks/usePortalAnnouncements';
+import { useClientAnnouncements, useMarkAnnouncementRead } from '@/hooks/usePortalAnnouncements';
 import { SalesPortalPanel } from '@/components/portal/SalesPortalPanel';
 import { MetaAdsCard } from '@/components/clients/MetaAdsCard';
 
@@ -127,6 +127,7 @@ export default function ClientPortalPage() {
   const { data: comments } = useClientComments(clientId);
   const addComment = useAddClientComment();
   const { data: announcements } = useClientAnnouncements(clientId);
+  const markAnnouncementRead = useMarkAnnouncementRead();
 
   const [commentText, setCommentText] = useState('');
   const [commentTarget, setCommentTarget] = useState<{ entityType: string; entityId: string } | null>(null);
@@ -395,9 +396,18 @@ export default function ClientPortalPage() {
                   className="flex items-start gap-3 px-4 py-3 rounded-lg bg-background/60 border border-primary/15"
                 >
                   <AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground">{ann.title}</p>
                     <p className="text-sm text-muted-foreground whitespace-pre-wrap mt-0.5">{ann.message}</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-3 h-7 text-xs"
+                      onClick={() => markAnnouncementRead.mutate(ann.id)}
+                      disabled={markAnnouncementRead.isPending}
+                    >
+                      Entendido ✓
+                    </Button>
                   </div>
                 </div>
               ))}

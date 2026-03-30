@@ -37,9 +37,26 @@ export function useClientAnnouncements(clientId: string | undefined) {
         .from('portal_announcements')
         .select('*')
         .or(`is_global.eq.true,client_id.eq.${clientId}`)
+        .eq('is_read', false)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data as PortalAnnouncement[];
+    },
+  });
+}
+
+export function useMarkAnnouncementRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any)
+        .from('portal_announcements')
+        .update({ is_read: true })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['portal-announcements'] });
     },
   });
 }
