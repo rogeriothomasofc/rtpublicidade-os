@@ -13,6 +13,8 @@ export const ALL_PAGES = [
   { slug: 'projects',   label: 'Projetos' },
   { slug: 'tasks',      label: 'Tarefas' },
   { slug: 'planning',   label: 'Planejamentos' },
+  { slug: 'content',    label: 'Conteúdo' },
+  { slug: 'campaigns',  label: 'Campanhas' },
   { slug: 'settings',   label: 'Configurações' },
 ] as const;
 
