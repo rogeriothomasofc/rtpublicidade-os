@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Building2, Mail, Phone, Calendar, DollarSign, Briefcase, FileText, TrendingUp, Plus, CheckSquare, Edit, MapPin, Pencil, Send, Eye, Lightbulb, ExternalLink, FolderOpen, Megaphone, Loader2 } from 'lucide-react';
+import { ArrowLeft, Building2, Mail, Phone, Calendar, DollarSign, Briefcase, FileText, TrendingUp, Plus, CheckSquare, Edit, MapPin, Pencil, Send, Eye, Lightbulb, ExternalLink, FolderOpen, Megaphone, Loader2, Link2, Copy, Check } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { ClientStatus, TaskStatus, TaskPriority, PersonType } from '@/types/database';
@@ -117,6 +117,10 @@ export default function ClientDetailPage() {
   const [financeDialogOpen, setFinanceDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [sendingAccess, setSendingAccess] = useState(false);
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [formLinkDialogOpen, setFormLinkDialogOpen] = useState(false);
+  const [formLink, setFormLink] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const updateClient = useUpdateClient();
 
@@ -163,6 +167,32 @@ export default function ClientDetailPage() {
       instagram_username: client.instagram_username || '',
     });
     setEditDialogOpen(true);
+  };
+
+  const handleGenerateFormLink = async () => {
+    if (!client) return;
+    setGeneratingLink(true);
+    try {
+      const token = crypto.randomUUID();
+      const { error } = await supabase
+        .from('clients')
+        .update({ form_token: token } as any)
+        .eq('id', client.id);
+      if (error) throw error;
+      const link = `${window.location.origin}/form/${token}`;
+      setFormLink(link);
+      setFormLinkDialogOpen(true);
+    } catch (err: any) {
+      toast({ title: 'Erro ao gerar link', description: err.message, variant: 'destructive' });
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(formLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleEditSubmit = async () => {
@@ -239,6 +269,9 @@ export default function ClientDetailPage() {
           <div className="flex gap-2 flex-wrap">
             <Button size="icon" variant="outline" onClick={() => navigate(`/portal?client_id=${client.id}`)} title="Ver Portal do Cliente">
               <Eye className="w-4 h-4" />
+            </Button>
+            <Button size="icon" variant="outline" onClick={handleGenerateFormLink} disabled={generatingLink} title="Gerar link de atualização de cadastro">
+              {generatingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
             </Button>
             <Button size="icon" variant="outline" onClick={handleSendAccess} disabled={sendingAccess} title="Enviar acesso ao portal">
               {sendingAccess ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -853,6 +886,30 @@ export default function ClientDetailPage() {
             <Button onClick={handleEditSubmit} className="w-full" disabled={updateClient.isPending}>
               Salvar Alterações
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Form Link Dialog */}
+      <Dialog open={formLinkDialogOpen} onOpenChange={setFormLinkDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="w-4 h-4" />
+              Link de Atualização de Cadastro
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Envie este link para <strong>{client.name}</strong> preencher ou atualizar o próprio cadastro. Qualquer atualização feita pelo cliente será refletida automaticamente no sistema.
+            </p>
+            <div className="flex gap-2">
+              <Input value={formLink} readOnly className="text-xs font-mono" />
+              <Button size="icon" variant="outline" onClick={handleCopyLink} title="Copiar link">
+                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">O link anterior é invalidado ao gerar um novo.</p>
           </div>
         </DialogContent>
       </Dialog>

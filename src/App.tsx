@@ -28,6 +28,7 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const PlanningPage = lazy(() => import("./pages/PlanningPage"));
 const PlanningDetailPage = lazy(() => import("./pages/PlanningDetailPage"));
 const ContentPage = lazy(() => import("./pages/ContentPage"));
+const ClientSelfUpdatePage = lazy(() => import("./pages/ClientSelfUpdatePage"));
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,7 @@ const App = () => (
           <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
             <Routes>
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/form/:token" element={<P><ClientSelfUpdatePage /></P>} />
               <Route path="/portal" element={<ProtectedRoute allowClient><P><ClientPortalPage /></P></ProtectedRoute>} />
               <Route path="/offline" element={<OfflinePage />} />
               <Route path="/" element={<ProtectedRoute><P><Dashboard /></P></ProtectedRoute>} />
