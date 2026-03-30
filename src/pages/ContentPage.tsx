@@ -266,7 +266,7 @@ function ItemDialog({ open, onClose, defaultCategory, editing }: ItemDialogProps
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? 'Editar conteúdo' : 'Novo conteúdo'}</DialogTitle>
         </DialogHeader>
@@ -366,7 +366,7 @@ function ContentDetailModal({ item, onClose, onEdit }: { item: ContentItem | nul
 
   return (
     <Dialog open={!!item} onOpenChange={v => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="pr-6 leading-snug">{item.title}</DialogTitle>
         </DialogHeader>
