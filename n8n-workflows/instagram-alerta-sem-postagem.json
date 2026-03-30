@@ -73,6 +73,10 @@
             {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3NTYyMDksImV4cCI6MjA4MTMzMjIwOX0.ZYqncurwo1osJcDw39Am0MaD9VJ_thnFBH5P0gEpzsY"
             }
           ]
         },
