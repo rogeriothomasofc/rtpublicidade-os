@@ -1,0 +1,306 @@
+{
+  "name": "Vendas - Alerta Sem Registro",
+  "nodes": [
+    {
+      "id": "vd-node-01",
+      "name": "Todo Dia às 9h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "vd-node-02",
+      "name": "Buscar Clientes Ativos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://nbzxofrllagqwwrwfskv.supabase.co/rest/v1/clients?select=id,name,company,whatsapp_group_id&status=eq.Ativo&whatsapp_group_id=not.is.null",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc1NjIwOSwiZXhwIjoyMDgxMzMyMjA5fQ.K6adJFAIVLHIj-3d_j_7jvzoYzYNvBzjeQbBhu5o_Bg"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc1NjIwOSwiZXhwIjoyMDgxMzMyMjA5fQ.K6adJFAIVLHIj-3d_j_7jvzoYzYNvBzjeQbBhu5o_Bg"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "vd-node-03",
+      "name": "Loop por Cliente",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [720, 300],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "vd-node-04",
+      "name": "Buscar Última Venda",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://nbzxofrllagqwwrwfskv.supabase.co/rest/v1/client_sales?client_id=eq.{{ $json.id }}&select=created_at&order=created_at.desc&limit=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc1NjIwOSwiZXhwIjoyMDgxMzMyMjA5fQ.K6adJFAIVLHIj-3d_j_7jvzoYzYNvBzjeQbBhu5o_Bg"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc1NjIwOSwiZXhwIjoyMDgxMzMyMjA5fQ.K6adJFAIVLHIj-3d_j_7jvzoYzYNvBzjeQbBhu5o_Bg"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "vd-node-05",
+      "name": "Calcular Dias Sem Venda",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 300],
+      "parameters": {
+        "jsCode": "const vendas = Array.isArray($input.item.json) ? $input.item.json : [];\nconst clientData = $('Loop por Cliente').item.json;\n\nconst ultimaVenda = vendas.length > 0 ? vendas[0].created_at : null;\n\nlet daysSinceLastSale;\nlet lastSaleDate;\n\nif (!ultimaVenda) {\n  // Nunca registrou venda — considera como muitos dias\n  daysSinceLastSale = 999;\n  lastSaleDate = null;\n} else {\n  const lastDate = new Date(ultimaVenda);\n  const today = new Date();\n  daysSinceLastSale = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));\n  lastSaleDate = lastDate.toLocaleDateString('pt-BR', {\n    day: '2-digit',\n    month: '2-digit',\n    year: 'numeric'\n  });\n}\n\nreturn [{\n  json: {\n    skip: daysSinceLastSale < 2,\n    days_since_sale: daysSinceLastSale,\n    last_sale_date: lastSaleDate,\n    never_registered: !ultimaVenda,\n    client_id: clientData.id,\n    client_name: clientData.name,\n    client_company: clientData.company,\n    whatsapp_group_id: clientData.whatsapp_group_id\n  }\n}];"
+      }
+    },
+    {
+      "id": "vd-node-06",
+      "name": "Mais de 2 Dias?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1440, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-skip",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "vd-node-07",
+      "name": "Gerar Mensagem com Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 180],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "SUBSTITUIR_ANTHROPIC_API_KEY"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 300, messages: [{ role: 'user', content: 'Você é um assistente da agência RT Publicidade.\\n\\nCliente: ' + $json.client_name + '\\nEmpresa: ' + ($json.client_company || $json.client_name) + '\\n' + ($json.never_registered ? 'Situação: nunca registrou uma venda no portal.' : 'Última venda registrada: ' + $json.last_sale_date + ' (' + $json.days_since_sale + ' dias atrás)') + '\\n\\nEscreva uma mensagem WhatsApp curta (máximo 5 linhas), amigável e motivadora lembrando o cliente de registrar suas vendas no portal. Mencione que os dados são importantes para o relatório de desempenho. Termine com o link: https://portal.rtpublicidade.com\\n\\nResponda APENAS com a mensagem, sem explicações.' }] }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "vd-node-08",
+      "name": "Montar Mensagens",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 180],
+      "parameters": {
+        "jsCode": "const claudeMsg = $json.content[0].text.trim();\nconst clientData = $('Mais de 2 Dias?').item.json;\n\nconst whatsappMsg = `🛒 *Olá, ${clientData.client_name}!*\\n\\n${claudeMsg}`;\n\nconst portalTitle = clientData.never_registered\n  ? '🛒 Você ainda não registrou nenhuma venda no portal'\n  : `🛒 Sua última venda foi registrada há ${clientData.days_since_sale} dias`;\n\nconst portalMsg = clientData.never_registered\n  ? `Você ainda não registrou nenhuma venda no portal.\\n\\nMantenha seus dados atualizados para que seu relatório de desempenho fique completo! 📊\\n\\n${claudeMsg}`\n  : `Sua última venda registrada foi em ${clientData.last_sale_date}.\\n\\nMantenha seus dados atualizados para que seu relatório fique completo! 📊\\n\\n${claudeMsg}`;\n\nreturn [{\n  json: {\n    whatsapp_message: whatsappMsg,\n    portal_title: portalTitle,\n    portal_message: portalMsg,\n    client_id: clientData.client_id,\n    whatsapp_group_id: clientData.whatsapp_group_id\n  }\n}];"
+      }
+    },
+    {
+      "id": "vd-node-09",
+      "name": "Criar Aviso no Portal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2160, 100],
+      "parameters": {
+        "method": "POST",
+        "url": "https://nbzxofrllagqwwrwfskv.supabase.co/rest/v1/portal_announcements",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc1NjIwOSwiZXhwIjoyMDgxMzMyMjA5fQ.K6adJFAIVLHIj-3d_j_7jvzoYzYNvBzjeQbBhu5o_Bg"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc1NjIwOSwiZXhwIjoyMDgxMzMyMjA5fQ.K6adJFAIVLHIj-3d_j_7jvzoYzYNvBzjeQbBhu5o_Bg"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ title: $json.portal_title, message: $json.portal_message, client_id: $json.client_id, is_global: false, is_read: false }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "vd-node-10",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2160, 260],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.rtpublicidade.com/message/sendText/RELATORIO",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "CBED27042799-46B8-8B26-8954CD03FD5B"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $('Montar Mensagens').item.json.whatsapp_group_id, text: $('Montar Mensagens').item.json.whatsapp_message }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Todo Dia às 9h": {
+      "main": [
+        [{ "node": "Buscar Clientes Ativos", "type": "main", "index": 0 }]
+      ]
+    },
+    "Buscar Clientes Ativos": {
+      "main": [
+        [{ "node": "Loop por Cliente", "type": "main", "index": 0 }]
+      ]
+    },
+    "Loop por Cliente": {
+      "main": [
+        [{ "node": "Buscar Última Venda", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Buscar Última Venda": {
+      "main": [
+        [{ "node": "Calcular Dias Sem Venda", "type": "main", "index": 0 }]
+      ]
+    },
+    "Calcular Dias Sem Venda": {
+      "main": [
+        [{ "node": "Mais de 2 Dias?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Mais de 2 Dias?": {
+      "main": [
+        [{ "node": "Gerar Mensagem com Claude", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Gerar Mensagem com Claude": {
+      "main": [
+        [{ "node": "Montar Mensagens", "type": "main", "index": 0 }]
+      ]
+    },
+    "Montar Mensagens": {
+      "main": [
+        [
+          { "node": "Criar Aviso no Portal", "type": "main", "index": 0 },
+          { "node": "Enviar WhatsApp", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Criar Aviso no Portal": {
+      "main": [[]]
+    },
+    "Enviar WhatsApp": {
+      "main": [[]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [
+    { "name": "vendas" },
+    { "name": "whatsapp" },
+    { "name": "automacao" },
+    { "name": "claude-ai" }
+  ]
+}
