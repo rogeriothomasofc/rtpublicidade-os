@@ -97,8 +97,12 @@ serve(async (req) => {
           .maybeSingle();
 
         if (existingAccess?.user_id) {
-          // Reset password for existing user
-          await adminClient.auth.admin.updateUserById(existingAccess.user_id, { password: pwd });
+          // Sync email + reset password for existing user
+          await adminClient.auth.admin.updateUserById(existingAccess.user_id, {
+            email,
+            email_confirm: true,
+            password: pwd,
+          });
         } else {
           // Create new auth user
           let userId: string;
