@@ -62,6 +62,17 @@ export function useDeleteClientProduct(clientId?: string) {
   });
 }
 
+export function useDeleteClientSale(clientId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('client_sales').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['client_sales', clientId] }),
+  });
+}
+
 export function useCreateClientSale(clientId?: string) {
   const qc = useQueryClient();
   return useMutation({

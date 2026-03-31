@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ShoppingCart, Package, Plus, Trash2, TrendingUp, DollarSign, BarChart3, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
-import { useClientProducts, useClientSales, useCreateClientProduct, useDeleteClientProduct, useCreateClientSale } from '@/hooks/useClientSales';
+import { useClientProducts, useClientSales, useCreateClientProduct, useDeleteClientProduct, useCreateClientSale, useDeleteClientSale } from '@/hooks/useClientSales';
 
 type FilterKey = 'hoje' | 'semana' | 'mes' | 'ano' | 'tudo';
 
@@ -34,6 +34,7 @@ export function SalesPortalPanel({ clientId }: Props) {
   const createProduct = useCreateClientProduct(clientId);
   const deleteProduct = useDeleteClientProduct(clientId);
   const createSale = useCreateClientSale(clientId);
+  const deleteSale = useDeleteClientSale(clientId);
 
   const filteredSales = useMemo(() => {
     const now = new Date();
@@ -85,6 +86,15 @@ export function SalesPortalPanel({ clientId }: Props) {
       toast.success('Produto removido');
     } catch {
       toast.error('Erro ao remover produto');
+    }
+  };
+
+  const handleDeleteSale = async (id: string) => {
+    try {
+      await deleteSale.mutateAsync(id);
+      toast.success('Venda removida');
+    } catch {
+      toast.error('Erro ao remover venda');
     }
   };
 
@@ -219,6 +229,12 @@ export function SalesPortalPanel({ clientId }: Props) {
                         </p>
                       </div>
                       <span className="text-sm font-bold text-success shrink-0">{formatCurrency(Number(s.amount))}</span>
+                      <button
+                        onClick={() => handleDeleteSale(s.id)}
+                        className="w-7 h-7 rounded-md bg-destructive/10 border border-destructive/20 flex items-center justify-center text-destructive hover:bg-destructive/20 transition-colors shrink-0"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   ))}
                 </div>
