@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   ArrowLeft, RefreshCw, Megaphone, Image, Play,
-  ExternalLink, Eye, Layers, MoreHorizontal, Loader2,
+  ExternalLink, Eye, Layers, MoreHorizontal, Loader2, LayoutGrid,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -24,6 +24,7 @@ interface MetaAd {
   headline?: string;
   body?: string;
   image_url?: string;
+  video_url?: string;
   link_url?: string;
   cta_type?: string;
   meta_id?: string;
@@ -153,12 +154,23 @@ function AdPreviewDialog({ ad, open, onClose }: { ad: MetaAd | null; open: boole
 
           {ad.body && <p className="px-3 pb-2 text-sm leading-relaxed">{ad.body}</p>}
 
-          {ad.image_url ? (
-            ad.format === 'VIDEO' ? (
-              <video src={ad.image_url} controls className="w-full max-h-72 object-cover bg-black" />
-            ) : (
-              <img src={ad.image_url} alt={ad.name} className="w-full max-h-72 object-cover" />
-            )
+          {ad.format === 'VIDEO' && ad.video_url ? (
+            <video src={ad.video_url} controls className="w-full max-h-72 bg-black" poster={ad.image_url} />
+          ) : ad.format === 'CAROUSEL' ? (
+            <div className="w-full h-48 bg-muted flex flex-col items-center justify-center gap-2">
+              <LayoutGrid className="w-10 h-10 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Carrossel — múltiplos cards</span>
+              {ad.image_url && (
+                <img src={ad.image_url} alt="1º card" className="absolute inset-0 w-full h-full object-cover opacity-30" />
+              )}
+            </div>
+          ) : ad.image_url ? (
+            <img src={ad.image_url} alt={ad.name} className="w-full max-h-72 object-cover" />
+          ) : ad.format === 'VIDEO' ? (
+            <div className="w-full h-48 bg-zinc-900 flex flex-col items-center justify-center gap-2">
+              <Play className="w-10 h-10 text-white/60" />
+              <span className="text-xs text-white/50">Vídeo sem preview</span>
+            </div>
           ) : (
             <div className="w-full h-48 bg-muted flex flex-col items-center justify-center gap-2">
               <Image className="w-10 h-10 text-muted-foreground" />
@@ -213,7 +225,8 @@ function AdPreviewDialog({ ad, open, onClose }: { ad: MetaAd | null; open: boole
 
 // ─── Creative Card ────────────────────────────────────────────
 function CreativeCard({ ad, adsetName, onPreview }: { ad: MetaAd; adsetName: string; onPreview: (ad: MetaAd) => void }) {
-  const hasPreview = !!(ad.image_url || ad.headline || ad.body);
+  const hasPreview = !!(ad.image_url || ad.video_url || ad.headline || ad.body);
+  const mediaUrl = ad.image_url || ad.video_url;
 
   return (
     <div
@@ -222,14 +235,46 @@ function CreativeCard({ ad, adsetName, onPreview }: { ad: MetaAd; adsetName: str
     >
       {/* Thumbnail */}
       <div className="aspect-square bg-muted relative">
-        {ad.image_url ? (
-          ad.format === 'VIDEO' ? (
-            <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
-              <Play className="w-8 h-8 text-white" />
+        {ad.format === 'VIDEO' ? (
+          ad.video_url ? (
+            // Vídeo real — mostra thumbnail do vídeo
+            <video src={ad.video_url} className="w-full h-full object-cover" poster={ad.image_url} muted playsInline />
+          ) : ad.image_url ? (
+            // Thumbnail do vídeo vindo do Meta
+            <div className="w-full h-full relative">
+              <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center">
+                  <Play className="w-5 h-5 text-zinc-800 ml-0.5" />
+                </div>
+              </div>
             </div>
           ) : (
-            <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" />
+            <div className="w-full h-full bg-zinc-900 flex flex-col items-center justify-center gap-2">
+              <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+                <Play className="w-5 h-5 text-white ml-0.5" />
+              </div>
+              <span className="text-xs text-white/50">Vídeo</span>
+            </div>
           )
+        ) : ad.format === 'CAROUSEL' ? (
+          mediaUrl ? (
+            // Carrossel com imagem — mostra com indicador
+            <div className="w-full h-full relative">
+              <img src={mediaUrl} alt={ad.name} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/20" />
+              <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                <LayoutGrid className="w-3 h-3" /> Carrossel
+              </div>
+            </div>
+          ) : (
+            <div className="w-full h-full bg-muted flex flex-col items-center justify-center gap-2">
+              <LayoutGrid className="w-8 h-8 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Carrossel</span>
+            </div>
+          )
+        ) : ad.image_url ? (
+          <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
             <Image className="w-8 h-8 text-muted-foreground" />
@@ -349,10 +394,14 @@ export default function CampaignDetailPage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-bold truncate">{campaign.name}</h1>
+              {campaign.client?.name && (
+                <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                  {campaign.client.name}
+                </span>
+              )}
               <StatusBadge status={campaign.local_status} />
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {campaign.client?.name && <span>{campaign.client.name} · </span>}
               {objectiveLabel}
               {campaign.budget_value && ` · R$ ${Number(campaign.budget_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ${campaign.budget_type === 'daily' ? '/dia' : 'total'}`}
               {campaign.meta_id && <span className="font-mono text-xs ml-1">#{campaign.meta_id.slice(-6)}</span>}

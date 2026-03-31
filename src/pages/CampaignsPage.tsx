@@ -808,7 +808,9 @@ function CampaignCard({
             >
               <p className="font-semibold text-sm">{campaign.name}</p>
               {campaign.client && (
-                <span className="text-xs text-muted-foreground">{campaign.client.name}</span>
+                <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                  {campaign.client.name}
+                </span>
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5 cursor-pointer" onClick={() => setOpen(o => !o)}>
