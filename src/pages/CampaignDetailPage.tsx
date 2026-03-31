@@ -237,8 +237,18 @@ function CreativeCard({ ad, adsetName, onPreview }: { ad: MetaAd; adsetName: str
       <div className="aspect-square bg-muted relative">
         {ad.format === 'VIDEO' ? (
           ad.video_url ? (
-            // Vídeo real — mostra thumbnail do vídeo
-            <video src={ad.video_url} className="w-full h-full object-cover" poster={ad.image_url} muted playsInline />
+            // Vídeo real — mostra thumbnail (poster) com botão de play; play de verdade só no preview
+            <div className="w-full h-full relative">
+              {ad.image_url
+                ? <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" />
+                : <div className="w-full h-full bg-zinc-900" />
+              }
+              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                  <Play className="w-6 h-6 text-zinc-800 ml-1" />
+                </div>
+              </div>
+            </div>
           ) : ad.image_url ? (
             // Thumbnail do vídeo vindo do Meta
             <div className="w-full h-full relative">

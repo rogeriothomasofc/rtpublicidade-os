@@ -53,6 +53,17 @@ function detectCreativeFormat(creative: Record<string, unknown>): { format: "IMA
   return { format, imageUrl };
 }
 
+// Busca URL de reprodução do vídeo no Meta
+async function fetchVideoUrl(videoId: string, token: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${META_API}/${videoId}?fields=source&access_token=${token}`);
+    const data = await res.json();
+    return (data.source as string | null) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function metaError(msg: string, status = 400): Response {
   return new Response(JSON.stringify({ error: msg }), {
     status,
@@ -645,6 +656,9 @@ serve(async (req) => {
                   ad.effective_status === "ACTIVE" ? "Publicado" :
                   ad.effective_status === "PAUSED" ? "Pausado" : "Arquivado";
                 const { format, imageUrl } = detectCreativeFormat(creative);
+                const videoUrl = format === "VIDEO" && creative.video_id
+                  ? await fetchVideoUrl(creative.video_id as string, token)
+                  : null;
 
                 await supabase.from("meta_ads").insert({
                   adset_id: newAdset.id,
@@ -653,6 +667,7 @@ serve(async (req) => {
                   headline: creative.title ?? null,
                   body: creative.body ?? null,
                   image_url: imageUrl,
+                  video_url: videoUrl,
                   link_url: creative.link_url ?? null,
                   cta_type: creative.call_to_action_type ?? "LEARN_MORE",
                   meta_id: ad.id,
@@ -850,6 +865,9 @@ serve(async (req) => {
             ad.effective_status === "ACTIVE" ? "Publicado" :
             ad.effective_status === "PAUSED" ? "Pausado" : "Arquivado";
           const { format, imageUrl } = detectCreativeFormat(creative);
+          const videoUrl = format === "VIDEO" && creative.video_id
+            ? await fetchVideoUrl(creative.video_id as string, token)
+            : null;
 
           if (existingAd) {
             // Atualiza se mudou status, formato ou creative
@@ -868,6 +886,7 @@ serve(async (req) => {
                 headline: creative.title ?? null,
                 body: creative.body ?? null,
                 image_url: imageUrl,
+                video_url: videoUrl,
                 link_url: creative.link_url ?? null,
                 cta_type: creative.call_to_action_type ?? "LEARN_MORE",
                 meta_creative_id: creative.id ?? null,
@@ -883,6 +902,7 @@ serve(async (req) => {
               headline: creative.title ?? null,
               body: creative.body ?? null,
               image_url: imageUrl,
+              video_url: videoUrl,
               link_url: creative.link_url ?? null,
               cta_type: creative.call_to_action_type ?? "LEARN_MORE",
               meta_id: ad.id,
