@@ -41,6 +41,18 @@ async function getClientAccountId(
   return data.meta_ads_account.replace(/^act_/, "");
 }
 
+// Detecta formato e imagem/thumb a partir do objeto creative do Meta
+function detectCreativeFormat(creative: Record<string, unknown>): { format: "IMAGE" | "VIDEO" | "CAROUSEL"; imageUrl: string | null } {
+  const hasVideo = !!(creative.video_id);
+  const hasCarousel = !!(
+    (creative.object_story_spec as Record<string, unknown> | undefined)?.link_data &&
+    Array.isArray(((creative.object_story_spec as Record<string, unknown>)?.link_data as Record<string, unknown>)?.child_attachments)
+  );
+  const format = hasVideo ? "VIDEO" : hasCarousel ? "CAROUSEL" : "IMAGE";
+  const imageUrl = (creative.thumbnail_url as string | null) ?? (creative.image_url as string | null) ?? null;
+  return { format, imageUrl };
+}
+
 function metaError(msg: string, status = 400): Response {
   return new Response(JSON.stringify({ error: msg }), {
     status,
@@ -622,7 +634,7 @@ serve(async (req) => {
             if (!newAdset) continue;
 
             // Importa anúncios deste conjunto
-            const adsUrl = `${META_API}/${adset.id}/ads?fields=id,name,status,effective_status,creative{id,name,title,body,image_url,link_url,call_to_action_type}&limit=50&access_token=${token}`;
+            const adsUrl = `${META_API}/${adset.id}/ads?fields=id,name,status,effective_status,creative{id,name,title,body,image_url,thumbnail_url,video_id,link_url,call_to_action_type,object_story_spec}&limit=50&access_token=${token}`;
             const adsRes = await fetch(adsUrl);
             const adsData = await adsRes.json();
 
@@ -632,14 +644,15 @@ serve(async (req) => {
                 const adLocalStatus =
                   ad.effective_status === "ACTIVE" ? "Publicado" :
                   ad.effective_status === "PAUSED" ? "Pausado" : "Arquivado";
+                const { format, imageUrl } = detectCreativeFormat(creative);
 
                 await supabase.from("meta_ads").insert({
                   adset_id: newAdset.id,
                   name: ad.name,
-                  format: "IMAGE",
+                  format,
                   headline: creative.title ?? null,
                   body: creative.body ?? null,
-                  image_url: creative.image_url ?? null,
+                  image_url: imageUrl,
                   link_url: creative.link_url ?? null,
                   cta_type: creative.call_to_action_type ?? "LEARN_MORE",
                   meta_id: ad.id,
@@ -819,7 +832,7 @@ serve(async (req) => {
         }
 
         // Busca anúncios deste conjunto no Meta
-        const adsUrl = `${META_API}/${adset.id}/ads?fields=id,name,status,effective_status,creative{id,name,title,body,image_url,link_url,call_to_action_type}&limit=50&access_token=${token}`;
+        const adsUrl = `${META_API}/${adset.id}/ads?fields=id,name,status,effective_status,creative{id,name,title,body,image_url,thumbnail_url,video_id,link_url,call_to_action_type,object_story_spec}&limit=50&access_token=${token}`;
         const adsRes = await fetch(adsUrl);
         const adsData = await adsRes.json();
 
@@ -828,7 +841,7 @@ serve(async (req) => {
         for (const ad of (adsData.data ?? [])) {
           const { data: existingAd } = await supabase
             .from("meta_ads")
-            .select("id, local_status, image_url, headline, body")
+            .select("id, local_status, image_url, headline, body, format")
             .eq("meta_id", ad.id)
             .maybeSingle();
 
@@ -836,12 +849,14 @@ serve(async (req) => {
           const adLocalStatus =
             ad.effective_status === "ACTIVE" ? "Publicado" :
             ad.effective_status === "PAUSED" ? "Pausado" : "Arquivado";
+          const { format, imageUrl } = detectCreativeFormat(creative);
 
           if (existingAd) {
-            // Atualiza se mudou status ou creative
+            // Atualiza se mudou status, formato ou creative
             const hasChanges =
               existingAd.local_status !== adLocalStatus ||
-              existingAd.image_url !== (creative.image_url ?? null) ||
+              existingAd.format !== format ||
+              existingAd.image_url !== imageUrl ||
               existingAd.headline !== (creative.title ?? null) ||
               existingAd.body !== (creative.body ?? null);
 
@@ -849,9 +864,10 @@ serve(async (req) => {
               await supabase.from("meta_ads").update({
                 meta_status: ad.effective_status || ad.status,
                 local_status: adLocalStatus,
+                format,
                 headline: creative.title ?? null,
                 body: creative.body ?? null,
-                image_url: creative.image_url ?? null,
+                image_url: imageUrl,
                 link_url: creative.link_url ?? null,
                 cta_type: creative.call_to_action_type ?? "LEARN_MORE",
                 meta_creative_id: creative.id ?? null,
@@ -863,10 +879,10 @@ serve(async (req) => {
             await supabase.from("meta_ads").insert({
               adset_id: adsetLocalId,
               name: ad.name,
-              format: "IMAGE",
+              format,
               headline: creative.title ?? null,
               body: creative.body ?? null,
-              image_url: creative.image_url ?? null,
+              image_url: imageUrl,
               link_url: creative.link_url ?? null,
               cta_type: creative.call_to_action_type ?? "LEARN_MORE",
               meta_id: ad.id,
