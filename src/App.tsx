@@ -30,6 +30,7 @@ const PlanningDetailPage = lazy(() => import("./pages/PlanningDetailPage"));
 const ContentPage = lazy(() => import("./pages/ContentPage"));
 const ClientSelfUpdatePage = lazy(() => import("./pages/ClientSelfUpdatePage"));
 const CampaignsPage = lazy(() => import("./pages/CampaignsPage"));
+const CampaignDetailPage = lazy(() => import("./pages/CampaignDetailPage"));
 
 const queryClient = new QueryClient();
 
@@ -78,6 +79,7 @@ const App = () => (
               <Route path="/planning/:id" element={<ProtectedRoute><G slug="planning"><P><PlanningDetailPage /></P></G></ProtectedRoute>} />
               <Route path="/content" element={<ProtectedRoute><G slug="content"><P><ContentPage /></P></G></ProtectedRoute>} />
               <Route path="/campaigns" element={<ProtectedRoute><G slug="campaigns"><P><CampaignsPage /></P></G></ProtectedRoute>} />
+              <Route path="/campaigns/:id" element={<ProtectedRoute><G slug="campaigns"><P><CampaignDetailPage /></P></G></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><G slug="settings"><P><SettingsPage /></P></G></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

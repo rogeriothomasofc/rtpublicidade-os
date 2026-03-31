@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -755,6 +756,7 @@ function CampaignCard({
   onPreview: (ad: MetaAd) => void;
 }) {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
   const toggleMutation = useMutation({
@@ -799,14 +801,17 @@ function CampaignCard({
 
           <Megaphone className="w-5 h-5 text-primary shrink-0" />
 
-          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setOpen(o => !o)}>
-            <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex-1 min-w-0">
+            <div
+              className="flex items-center gap-2 flex-wrap cursor-pointer hover:text-primary transition-colors"
+              onClick={() => navigate(`/campaigns/${campaign.id}`)}
+            >
               <p className="font-semibold text-sm">{campaign.name}</p>
               {campaign.client && (
                 <span className="text-xs text-muted-foreground">{campaign.client.name}</span>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5 cursor-pointer" onClick={() => setOpen(o => !o)}>
               {objectiveLabel} · {adsets.length} conjunto{adsets.length !== 1 ? 's' : ''} · {totalAds} anúncio{totalAds !== 1 ? 's' : ''}
               {campaign.budget_value && ` · R$ ${Number(campaign.budget_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ${campaign.budget_type === 'daily' ? '/dia' : 'total'}`}
             </p>

@@ -731,6 +731,157 @@ serve(async (req) => {
       return ok({ campaign: full });
     }
 
+    // ── REFRESH campaign (atualiza adsets e ads existentes + insere novos) ──
+    if (action === "refresh-campaign") {
+      const { campaign_id } = body as { campaign_id: string };
+
+      const { data: campaign, error: campErr } = await supabase
+        .from("meta_campaigns")
+        .select("id, meta_id, meta_status, local_status")
+        .eq("id", campaign_id)
+        .single();
+
+      if (campErr || !campaign) throw new Error("Campanha não encontrada");
+      if (!campaign.meta_id) throw new Error("Campanha sem ID do Meta — não pode ser sincronizada");
+
+      let newAds = 0;
+      let updated = 0;
+
+      // Atualiza status da campanha
+      const campStatusRes = await fetch(`${META_API}/${campaign.meta_id}?fields=effective_status&access_token=${token}`);
+      const campStatusData = await campStatusRes.json();
+      if (!campStatusData.error && campStatusData.effective_status) {
+        const newLocalStatus =
+          campStatusData.effective_status === "ACTIVE" ? "Publicado" :
+          campStatusData.effective_status === "PAUSED" ? "Pausado" : "Arquivado";
+        if (newLocalStatus !== campaign.local_status) {
+          await supabase.from("meta_campaigns").update({
+            meta_status: campStatusData.effective_status,
+            local_status: newLocalStatus,
+          }).eq("id", campaign_id);
+          updated++;
+        }
+      }
+
+      // Busca conjuntos no Meta
+      const adsetsUrl = `${META_API}/${campaign.meta_id}/adsets?fields=id,name,status,effective_status,optimization_goal,billing_event,daily_budget,lifetime_budget,targeting&limit=50&access_token=${token}`;
+      const adsetsRes = await fetch(adsetsUrl);
+      const adsetsData = await adsetsRes.json();
+
+      if (adsetsData.error) throw new Error(adsetsData.error.message ?? "Erro ao buscar conjuntos no Meta");
+
+      for (const adset of (adsetsData.data ?? [])) {
+        // Verifica se o conjunto já existe localmente
+        const { data: existingAdset } = await supabase
+          .from("meta_adsets")
+          .select("id, local_status")
+          .eq("meta_id", adset.id)
+          .maybeSingle();
+
+        const adsetLocalStatus =
+          adset.effective_status === "ACTIVE" ? "Publicado" :
+          adset.effective_status === "PAUSED" ? "Pausado" : "Arquivado";
+        const adsetBudgetType = adset.daily_budget ? "daily" : "lifetime";
+        const adsetBudgetValue = adset.daily_budget
+          ? Number(adset.daily_budget) / 100
+          : adset.lifetime_budget ? Number(adset.lifetime_budget) / 100 : null;
+
+        let adsetLocalId: string;
+
+        if (existingAdset) {
+          // Atualiza status se mudou
+          if (existingAdset.local_status !== adsetLocalStatus) {
+            await supabase.from("meta_adsets").update({
+              meta_status: adset.effective_status || adset.status,
+              local_status: adsetLocalStatus,
+            }).eq("id", existingAdset.id);
+            updated++;
+          }
+          adsetLocalId = existingAdset.id;
+        } else {
+          // Insere novo conjunto
+          const { data: newAdset } = await supabase.from("meta_adsets").insert({
+            campaign_id,
+            name: adset.name,
+            optimization_goal: adset.optimization_goal || "LINK_CLICKS",
+            billing_event: adset.billing_event || "IMPRESSIONS",
+            budget_type: adsetBudgetType,
+            budget_value: adsetBudgetValue,
+            targeting: adset.targeting || {},
+            meta_id: adset.id,
+            meta_status: adset.effective_status || adset.status,
+            local_status: adsetLocalStatus,
+          }).select().single();
+
+          if (!newAdset) continue;
+          adsetLocalId = newAdset.id;
+          newAds++;
+        }
+
+        // Busca anúncios deste conjunto no Meta
+        const adsUrl = `${META_API}/${adset.id}/ads?fields=id,name,status,effective_status,creative{id,name,title,body,image_url,link_url,call_to_action_type}&limit=50&access_token=${token}`;
+        const adsRes = await fetch(adsUrl);
+        const adsData = await adsRes.json();
+
+        if (adsData.error) continue;
+
+        for (const ad of (adsData.data ?? [])) {
+          const { data: existingAd } = await supabase
+            .from("meta_ads")
+            .select("id, local_status, image_url, headline, body")
+            .eq("meta_id", ad.id)
+            .maybeSingle();
+
+          const creative = ad.creative ?? {};
+          const adLocalStatus =
+            ad.effective_status === "ACTIVE" ? "Publicado" :
+            ad.effective_status === "PAUSED" ? "Pausado" : "Arquivado";
+
+          if (existingAd) {
+            // Atualiza se mudou status ou creative
+            const hasChanges =
+              existingAd.local_status !== adLocalStatus ||
+              existingAd.image_url !== (creative.image_url ?? null) ||
+              existingAd.headline !== (creative.title ?? null) ||
+              existingAd.body !== (creative.body ?? null);
+
+            if (hasChanges) {
+              await supabase.from("meta_ads").update({
+                meta_status: ad.effective_status || ad.status,
+                local_status: adLocalStatus,
+                headline: creative.title ?? null,
+                body: creative.body ?? null,
+                image_url: creative.image_url ?? null,
+                link_url: creative.link_url ?? null,
+                cta_type: creative.call_to_action_type ?? "LEARN_MORE",
+                meta_creative_id: creative.id ?? null,
+              }).eq("id", existingAd.id);
+              updated++;
+            }
+          } else {
+            // Insere novo anúncio
+            await supabase.from("meta_ads").insert({
+              adset_id: adsetLocalId,
+              name: ad.name,
+              format: "IMAGE",
+              headline: creative.title ?? null,
+              body: creative.body ?? null,
+              image_url: creative.image_url ?? null,
+              link_url: creative.link_url ?? null,
+              cta_type: creative.call_to_action_type ?? "LEARN_MORE",
+              meta_id: ad.id,
+              meta_creative_id: creative.id ?? null,
+              meta_status: ad.effective_status || ad.status,
+              local_status: adLocalStatus,
+            });
+            newAds++;
+          }
+        }
+      }
+
+      return ok({ new_ads: newAds, updated });
+    }
+
     return metaError("Ação não reconhecida", 404);
   } catch (err) {
     console.error("meta-campaigns-manager error:", err);
