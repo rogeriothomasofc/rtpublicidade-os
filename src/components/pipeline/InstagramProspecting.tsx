@@ -19,7 +19,7 @@ import {
   analyzeInstagramProspect, PROSPECT_STATUSES, STATUS_COLORS,
   type InstagramProspect, type ProspectStatus,
 } from '@/hooks/useInstagramProspects';
-import { markFirstContactInCadence } from '@/hooks/useCrossedLeads';
+import { markFirstContactInCadence, generateLeadCadence } from '@/hooks/useCrossedLeads';
 import { LeadCadencePanel } from '@/components/pipeline/LeadCadencePanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -55,7 +55,7 @@ function AddProspectForm({ onClose }: AddProspectFormProps) {
     raw.replace('@', '').replace(/https?:\/\/(www\.)?instagram\.com\/?/, '').replace(/\/$/, '').trim();
 
   const doSave = async (result: Awaited<ReturnType<typeof analyzeInstagramProspect>>, uname: string) => {
-    await createProspect.mutateAsync({
+    const prospect = await createProspect.mutateAsync({
       username: uname,
       full_name: result.profile?.full_name ?? null,
       bio: result.profile?.bio ?? null,
@@ -79,6 +79,38 @@ function AddProspectForm({ onClose }: AddProspectFormProps) {
       meeting_date: null, loss_reason: null, notes: null,
       pipeline_lead_id: null, engagement_rate: null,
     });
+
+    // Gerar cadência em background sem bloquear o fechamento do modal
+    generateLeadCadence({
+      id: `ig_${prospect.id}`,
+      instagram_prospect: prospect,
+      gmb_lead: null,
+      website: (result.profile?.website ?? websiteUrl ?? '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''),
+      lead_name: result.profile?.full_name ?? uname,
+      phone: result.extracted_whatsapp ?? null,
+      email: result.extracted_email ?? null,
+      heat_score: 50,
+      instagram_score: 0,
+      gmb_score: 0,
+    }).then(async cadenceResult => {
+      await supabase.from('lead_cadence' as any).insert({
+        instagram_prospect_id: prospect.id,
+        gmb_lead_id: null,
+        lead_name: result.profile?.full_name ?? uname,
+        company: result.profile?.full_name ?? uname,
+        website: result.profile?.website ?? websiteUrl ?? null,
+        phone: result.extracted_whatsapp ?? null,
+        email: result.extracted_email ?? null,
+        heat_score: 50,
+        instagram_score: 0,
+        gmb_score: 0,
+        ai_unified_analysis: cadenceResult.analysis,
+        cadence_steps: cadenceResult.cadence_steps,
+        status: 'active',
+        current_step: 0,
+      });
+    }).catch(e => console.error('Auto-cadência Instagram falhou:', e));
+
     onClose();
   };
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -434,11 +434,46 @@ function GmbLeadCard({ lead, onClick }: { lead: GmbLead; onClick: () => void }) 
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 
+// ─── Auto-analisar leads novos em background ──────────────────────────────────
+function useAutoAnalyzeGmbLeads(leads: GmbLead[] | undefined) {
+  const updateLead = useUpdateGmbLead();
+  const analyzingRef = useRef(false);
+
+  useEffect(() => {
+    if (!leads || analyzingRef.current) return;
+
+    const pending = leads.filter(l => !l.ai_messages?.length && l.status === 'Novo');
+    if (!pending.length) return;
+
+    async function runNext(queue: GmbLead[]) {
+      for (const lead of queue) {
+        analyzingRef.current = true;
+        try {
+          const result = await analyzeGmbLead(lead);
+          updateLead.mutate({
+            id: lead.id,
+            ai_diagnosis: result.diagnosis,
+            ai_messages: result.messages,
+            website_issues: result.website_issues,
+          });
+        } catch (e) {
+          console.error(`Auto-análise falhou para ${lead.nome_empresa}:`, e);
+        }
+      }
+      analyzingRef.current = false;
+    }
+
+    runNext(pending);
+  }, [leads?.length]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 export function GmbLeads() {
   const { data: leads, isLoading } = useGmbLeads();
   const [selectedLead, setSelectedLead] = useState<GmbLead | null>(null);
   const [filterStatus, setFilterStatus] = useState<GmbLeadStatus | 'Todos'>('Todos');
   const [search, setSearch] = useState('');
+
+  useAutoAnalyzeGmbLeads(leads);
 
   const filtered = (leads || []).filter(l => {
     const matchStatus = filterStatus === 'Todos' || l.status === filterStatus;

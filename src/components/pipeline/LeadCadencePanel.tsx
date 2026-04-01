@@ -11,7 +11,7 @@
  * - Permitir marcar steps como feito/pulado
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Instagram, MapPin, Flame, Sparkles, Loader2,
@@ -130,6 +130,7 @@ interface LeadCadencePanelProps {
 export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePanelProps) {
   const [generating, setGenerating] = useState(false);
   const [localCadence, setLocalCadence] = useState<LeadCadence | null>(null);
+  const autoGenRef = useRef(false);
 
   const { data: allCadences = [] } = useLeadCadences();
   const { data: igLeads = [] } = useInstagramProspects();
@@ -163,7 +164,60 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
     ) ?? null
   );
 
-  // ── Gerar cadência ─────────────────────────────────────────────────────────
+  // ── Auto-gerar cadência quando tiver diagnóstico e ainda não houver cadência ─
+  const hasAnalysis = !!(
+    igData?.diagnosis_report ||
+    igData?.ai_dm_message ||
+    gmbData?.ai_diagnosis ||
+    gmbData?.ai_messages?.length
+  );
+
+  useEffect(() => {
+    if (cadence || autoGenRef.current || !hasAnalysis || generating) return;
+    autoGenRef.current = true;
+
+    const crossedLead: CrossedLead = {
+      id: `${igData?.id ?? ''}_${gmbData?.id ?? ''}`,
+      instagram_prospect: igData ?? null,
+      gmb_lead: gmbData ?? null,
+      website: currentSite,
+      lead_name: igData?.full_name ?? gmbData?.nome_empresa ?? 'Lead',
+      phone: instagramProspect?.whatsapp ?? gmbLead?.telefone ?? gmbLead?.whatsapp_jid ?? null,
+      email: instagramProspect?.email ?? null,
+      heat_score: heatScore,
+      instagram_score: 0,
+      gmb_score: 0,
+    };
+
+    setGenerating(true);
+    generateLeadCadence(crossedLead)
+      .then(result => {
+        return createCadence.mutateAsync({
+          instagram_prospect_id: igData?.id ?? null,
+          gmb_lead_id: gmbData?.id ?? null,
+          lead_name: crossedLead.lead_name,
+          company: gmbData?.nome_empresa ?? igData?.full_name ?? null,
+          website: currentSite || null,
+          phone: crossedLead.phone,
+          email: crossedLead.email,
+          heat_score: heatScore,
+          instagram_score: crossedLead.instagram_score,
+          gmb_score: crossedLead.gmb_score,
+          ai_unified_analysis: result.analysis,
+          cadence_steps: result.cadence_steps,
+          status: 'active',
+          current_step: 0,
+        });
+      })
+      .then(created => setLocalCadence(created))
+      .catch(e => {
+        console.error('Auto-geração de cadência falhou:', e);
+        autoGenRef.current = false;
+      })
+      .finally(() => setGenerating(false));
+  }, [hasAnalysis, !!cadence]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Gerar cadência (manual / regenerar) ────────────────────────────────────
   const handleGenerate = async () => {
     setGenerating(true);
     try {
@@ -296,40 +350,44 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
         </div>
       )}
 
-      {/* Botão gerar */}
-      <Button
-        size="sm"
-        variant={activeCadence ? 'outline' : 'default'}
-        onClick={handleGenerate}
-        disabled={generating}
-        className="w-full gap-1.5 text-xs"
-      >
-        {generating
-          ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Gerando cadência com IA...</>
-          : <><Sparkles className="w-3.5 h-3.5" /> {activeCadence ? 'Regenerar cadência' : 'Gerar fluxo de cadência com IA'}</>}
-      </Button>
+      {/* Botão regenerar (só aparece se já tiver cadência) */}
+      {activeCadence && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleGenerate}
+          disabled={generating}
+          className="w-full gap-1.5 text-xs"
+        >
+          {generating
+            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Regenerando...</>
+            : <><Sparkles className="w-3.5 h-3.5" /> Regenerar cadência</>}
+        </Button>
+      )}
 
       {/* Timeline */}
       {steps.length > 0 ? (
         <div className="space-y-3 pt-1">
-          {/* Barra de progresso */}
-          <div className="space-y-1">
-            <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary rounded-full transition-all"
-                style={{ width: steps.length ? `${(doneCount / steps.length) * 100}%` : '0%' }}
-              />
-            </div>
+          <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full transition-all"
+              style={{ width: steps.length ? `${(doneCount / steps.length) * 100}%` : '0%' }}
+            />
           </div>
           {steps.map((step, idx) => (
             <StepRow key={idx} step={step} onToggle={() => handleToggleStep(idx)} />
           ))}
         </div>
-      ) : !generating && (
+      ) : generating ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground py-4 justify-center">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          Gerando fluxo de cadência com IA...
+        </div>
+      ) : !hasAnalysis ? (
         <p className="text-xs text-muted-foreground text-center py-4">
-          Clique em "Gerar fluxo de cadência com IA" para criar a sequência de contatos personalizada.
+          O diagnóstico está sendo gerado. A cadência aparecerá automaticamente em seguida.
         </p>
-      )}
+      ) : null}
     </div>
   );
 }
