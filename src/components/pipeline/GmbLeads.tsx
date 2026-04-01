@@ -442,7 +442,7 @@ function useAutoAnalyzeGmbLeads(leads: GmbLead[] | undefined) {
   useEffect(() => {
     if (!leads || analyzingRef.current) return;
 
-    const pending = leads.filter(l => !l.ai_messages?.length && l.status === 'Novo');
+    const pending = leads.filter(l => !l.ai_messages?.length);
     if (!pending.length) return;
 
     async function runNext(queue: GmbLead[]) {

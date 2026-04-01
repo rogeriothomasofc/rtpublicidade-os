@@ -164,17 +164,12 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
     ) ?? null
   );
 
-  // ── Auto-gerar cadência quando tiver diagnóstico e ainda não houver cadência ─
-  const hasAnalysis = !!(
-    igData?.diagnosis_report ||
-    igData?.ai_dm_message ||
-    gmbData?.ai_diagnosis ||
-    gmbData?.ai_messages?.length
-  );
-
+  // ── Auto-gerar cadência assim que o painel abre, sem esperar diagnóstico ──────
   useEffect(() => {
-    // Aguardar o carregamento das cadências antes de decidir gerar
-    if (cadencesLoading || cadence || autoGenRef.current || !hasAnalysis || generating) return;
+    // Aguarda cadências carregarem para não gerar duplicata
+    if (cadencesLoading || cadence || autoGenRef.current || generating) return;
+    // Precisa ter pelo menos um lead identificado
+    if (!igData && !gmbData) return;
     autoGenRef.current = true;
 
     const crossedLead: CrossedLead = {
@@ -192,8 +187,8 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
 
     setGenerating(true);
     generateLeadCadence(crossedLead)
-      .then(result => {
-        return createCadence.mutateAsync({
+      .then(result =>
+        createCadence.mutateAsync({
           instagram_prospect_id: igData?.id ?? null,
           gmb_lead_id: gmbData?.id ?? null,
           lead_name: crossedLead.lead_name,
@@ -202,21 +197,21 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
           phone: crossedLead.phone,
           email: crossedLead.email,
           heat_score: heatScore,
-          instagram_score: crossedLead.instagram_score,
-          gmb_score: crossedLead.gmb_score,
+          instagram_score: 0,
+          gmb_score: 0,
           ai_unified_analysis: result.analysis,
           cadence_steps: result.cadence_steps,
           status: 'active',
           current_step: 0,
-        });
-      })
+        })
+      )
       .then(created => setLocalCadence(created))
       .catch(e => {
         console.error('Auto-geração de cadência falhou:', e);
         autoGenRef.current = false;
       })
       .finally(() => setGenerating(false));
-  }, [hasAnalysis, !!cadence, cadencesLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [!!cadence, cadencesLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Gerar cadência (manual / regenerar) ────────────────────────────────────
   const handleGenerate = async () => {
@@ -384,10 +379,6 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
           Gerando fluxo de cadência com IA...
         </div>
-      ) : !hasAnalysis ? (
-        <p className="text-xs text-muted-foreground text-center py-4">
-          O diagnóstico está sendo gerado. A cadência aparecerá automaticamente em seguida.
-        </p>
       ) : null}
     </div>
   );

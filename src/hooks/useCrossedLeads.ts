@@ -347,12 +347,8 @@ export function useLeadsWithoutCadence() {
   const cadIgIds = new Set(cadences.map(c => c.instagram_prospect_id).filter(Boolean));
   const cadGmbIds = new Set(cadences.map(c => c.gmb_lead_id).filter(Boolean));
 
-  const ig = igLeads.filter(p =>
-    !cadIgIds.has(p.id) && (!!p.diagnosis_report || !!p.ai_dm_message)
-  );
-  const gmb = gmbLeads.filter(l =>
-    !cadGmbIds.has(l.id) && (!!l.ai_diagnosis || !!l.ai_messages?.length)
-  );
+  const ig = igLeads.filter(p => !cadIgIds.has(p.id));
+  const gmb = gmbLeads.filter(l => !cadGmbIds.has(l.id));
 
   return { ig, gmb, isLoading: false };
 }
