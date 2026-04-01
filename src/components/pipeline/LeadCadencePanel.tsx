@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CheckCircle, Clock, SkipForward, Loader2 } from 'lucide-react';
-import { useLeadCadences, useUpdateCadence, CHANNEL_LABELS, CHANNEL_COLORS } from '@/hooks/useCrossedLeads';
+import { useLeadCadences, useCreateCadence, useUpdateCadence, generateLeadCadence, CHANNEL_LABELS, CHANNEL_COLORS } from '@/hooks/useCrossedLeads';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import type { InstagramProspect } from '@/hooks/useInstagramProspects';
 import type { GmbLead } from '@/hooks/useGmbLeads';
 import type { LeadCadence, CadenceStep } from '@/types/database';
@@ -38,6 +40,10 @@ function StepRow({ step, onToggle }: { step: CadenceStep; onToggle: () => void }
 
 export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePanelProps) {
   const [localCadence, setLocalCadence] = useState<LeadCadence | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const genRef = useRef(false);
+  const qc = useQueryClient();
+
   const { data: allCadences = [], isLoading } = useLeadCadences();
   const updateCadence = useUpdateCadence();
 
@@ -47,6 +53,50 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
       (gmbLead && c.gmb_lead_id === gmbLead.id)
     ) ?? null
   );
+
+  // Se não tiver cadência após carregar, gera silenciosamente
+  useEffect(() => {
+    if (isLoading || cadence || genRef.current || generating) return;
+    if (!instagramProspect && !gmbLead) return;
+    genRef.current = true;
+    setGenerating(true);
+
+    generateLeadCadence({
+      id: `${instagramProspect?.id ?? ''}_${gmbLead?.id ?? ''}`,
+      instagram_prospect: instagramProspect ?? null,
+      gmb_lead: gmbLead ?? null,
+      website: (instagramProspect?.website ?? gmbLead?.website ?? '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''),
+      lead_name: instagramProspect?.full_name ?? instagramProspect?.username ?? gmbLead?.nome_empresa ?? 'Lead',
+      phone: instagramProspect?.whatsapp ?? gmbLead?.telefone ?? gmbLead?.whatsapp_jid ?? null,
+      email: instagramProspect?.email ?? null,
+      heat_score: 50,
+      instagram_score: 0,
+      gmb_score: 0,
+    })
+      .then(async result => {
+        const { data } = await supabase.from('lead_cadence' as any).insert({
+          instagram_prospect_id: instagramProspect?.id ?? null,
+          gmb_lead_id: gmbLead?.id ?? null,
+          lead_name: instagramProspect?.full_name ?? instagramProspect?.username ?? gmbLead?.nome_empresa ?? 'Lead',
+          company: gmbLead?.nome_empresa ?? instagramProspect?.full_name ?? null,
+          website: instagramProspect?.website ?? gmbLead?.website ?? null,
+          phone: instagramProspect?.whatsapp ?? gmbLead?.telefone ?? gmbLead?.whatsapp_jid ?? null,
+          email: instagramProspect?.email ?? null,
+          heat_score: 50,
+          instagram_score: 0,
+          gmb_score: 0,
+          ai_unified_analysis: result.analysis,
+          cadence_steps: result.cadence_steps,
+          status: 'active',
+          current_step: 0,
+          started_at: null,
+        }).select().single();
+        if (data) setLocalCadence(data as LeadCadence);
+        qc.invalidateQueries({ queryKey: ['lead_cadence'] });
+      })
+      .catch(() => { genRef.current = false; })
+      .finally(() => setGenerating(false));
+  }, [isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleToggleStep = (idx: number) => {
     const target = localCadence ?? cadence;
@@ -62,7 +112,7 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
   const steps = activeCadence?.cadence_steps ?? [];
   const doneCount = steps.filter(s => s.status === 'done').length;
 
-  if (isLoading) {
+  if (isLoading || generating) {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground py-6 justify-center">
         <Loader2 className="w-3.5 h-3.5 animate-spin" /> Carregando...
@@ -70,28 +120,17 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
     );
   }
 
-  if (!activeCadence || steps.length === 0) {
-    return (
-      <p className="text-xs text-muted-foreground text-center py-6">
-        Cadência ainda sendo preparada. Aguarde e reabra o modal.
-      </p>
-    );
-  }
-
   return (
     <div className="space-y-3">
-      {/* Progresso */}
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">{doneCount} de {steps.length} toques realizados</span>
       </div>
       <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
         <div
           className="h-full bg-primary rounded-full transition-all"
-          style={{ width: `${(doneCount / steps.length) * 100}%` }}
+          style={{ width: steps.length ? `${(doneCount / steps.length) * 100}%` : '0%' }}
         />
       </div>
-
-      {/* Timeline de passos */}
       <div className="space-y-4 pt-1">
         {steps.map((step, idx) => (
           <StepRow key={idx} step={step} onToggle={() => handleToggleStep(idx)} />
