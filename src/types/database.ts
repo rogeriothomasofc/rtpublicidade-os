@@ -132,6 +132,35 @@ export interface Bank {
   updated_at: string;
 }
 
+export type CadenceStatus = 'pending' | 'active' | 'completed' | 'paused';
+
+export interface CadenceStep {
+  day: number;
+  channel: 'instagram_dm' | 'whatsapp' | 'email' | 'ligacao';
+  message: string;
+  status: 'pending' | 'done' | 'skipped';
+}
+
+export interface LeadCadence {
+  id: string;
+  instagram_prospect_id: string | null;
+  gmb_lead_id: string | null;
+  lead_name: string;
+  company: string | null;
+  website: string | null;
+  phone: string | null;
+  email: string | null;
+  heat_score: number;
+  instagram_score: number;
+  gmb_score: number;
+  ai_unified_analysis: string | null;
+  cadence_steps: CadenceStep[];
+  status: CadenceStatus;
+  current_step: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface FinanceCategoryRecord {
   id: string;
   name: string;

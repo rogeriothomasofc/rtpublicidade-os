@@ -19,6 +19,8 @@ import {
   analyzeInstagramProspect, PROSPECT_STATUSES, STATUS_COLORS,
   type InstagramProspect, type ProspectStatus,
 } from '@/hooks/useInstagramProspects';
+import { markFirstContactInCadence } from '@/hooks/useCrossedLeads';
+import { LeadCadencePanel } from '@/components/pipeline/LeadCadencePanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -219,7 +221,7 @@ function DiagnosisBadges({ prospect }: { prospect: InstagramProspect }) {
 
 function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
   const [expanded, setExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<'diagnostico' | 'mensagens' | 'proposal' | 'creative'>('diagnostico');
+  const [activeTab, setActiveTab] = useState<'diagnostico' | 'mensagens' | 'proposal' | 'creative' | 'cadencia'>('diagnostico');
   const updateProspect = useUpdateProspect();
   const deleteProspect = useDeleteProspect();
   const queryClient = useQueryClient();
@@ -253,6 +255,10 @@ function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
       queryClient.invalidateQueries({ queryKey: ['sales-pipeline'] });
     }
     updateProspect.mutate({ id: prospect.id, status: 'Mensagem Enviada', pipeline_lead_id: pipelineLeadId });
+
+    // Registrar primeiro contato na cadência
+    await markFirstContactInCadence(null, prospect.id, 'instagram_dm');
+
     toast.success('Instagram aberto! Mensagem 1 copiada — cole e envie. Depois copie a mensagem 2.');
   };
 
@@ -346,6 +352,7 @@ function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
                 { key: 'mensagens', label: 'Mensagens', icon: <Instagram className="w-3 h-3" /> },
                 { key: 'proposal', label: 'Proposta', icon: <FileText className="w-3 h-3" /> },
                 { key: 'creative', label: 'Criativo', icon: <Lightbulb className="w-3 h-3" /> },
+                { key: 'cadencia', label: 'Cadência', icon: <TrendingUp className="w-3 h-3" /> },
               ].map(tab => (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key as typeof activeTab)}
                   className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${activeTab === tab.key ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
@@ -433,6 +440,9 @@ function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
                 <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
                   onClick={() => copyToClipboard(prospect.ai_creative_concept!, 'Conceito criativo')}><Copy className="w-3 h-3" /></Button>
               </div>
+            )}
+            {activeTab === 'cadencia' && (
+              <LeadCadencePanel instagramProspect={prospect} />
             )}
           </div>
         )}

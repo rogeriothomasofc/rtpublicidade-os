@@ -17,6 +17,8 @@ import {
   analyzeGmbLead, sendWhatsAppMessages, GMB_STATUSES, GMB_STATUS_COLORS,
   type GmbLead, type GmbLeadStatus,
 } from '@/hooks/useGmbLeads';
+import { markFirstContactInCadence } from '@/hooks/useCrossedLeads';
+import { LeadCadencePanel } from '@/components/pipeline/LeadCadencePanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -38,7 +40,7 @@ function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () 
   const [lead, setLead] = useState(initialLead);
   const [sending, setSending] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'info' | 'diagnostico' | 'mensagem'>(
+  const [activeTab, setActiveTab] = useState<'info' | 'diagnostico' | 'mensagem' | 'cadencia'>(
     initialLead.ai_messages?.length ? 'mensagem' : 'info'
   );
   const updateLead = useUpdateGmbLead();
@@ -105,6 +107,10 @@ function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () 
       }
 
       updateLead.mutate({ id: lead.id, status: 'Contatado', pipeline_lead_id: pipelineLeadId });
+
+      // Registrar primeiro contato na cadência
+      await markFirstContactInCadence(lead.id, null, 'whatsapp');
+
       toast.success('3 mensagens enviadas! Lead adicionado ao Pipeline.');
       onClose();
     } catch (e) {
@@ -119,6 +125,7 @@ function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () 
     { key: 'info' as const, label: 'Informações' },
     { key: 'diagnostico' as const, label: 'Diagnóstico' },
     { key: 'mensagem' as const, label: 'Mensagem' },
+    { key: 'cadencia' as const, label: 'Cadência' },
   ];
 
   return (
@@ -315,6 +322,11 @@ function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () 
               </div>
             )}
           </div>
+        )}
+
+        {/* Aba Cadência */}
+        {activeTab === 'cadencia' && (
+          <LeadCadencePanel gmbLead={lead} />
         )}
 
         {/* Ações */}
