@@ -11,7 +11,7 @@
  * - Permitir marcar steps como feito/pulado
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Instagram, MapPin, Flame, Sparkles, Loader2,
@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  useLeadCadences, useCreateCadence, useUpdateCadence,
+  useLeadCadences, useUpdateCadence,
   generateLeadCadence, CHANNEL_LABELS, CHANNEL_COLORS,
   type CrossedLead,
 } from '@/hooks/useCrossedLeads';
@@ -130,12 +130,10 @@ interface LeadCadencePanelProps {
 export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePanelProps) {
   const [generating, setGenerating] = useState(false);
   const [localCadence, setLocalCadence] = useState<LeadCadence | null>(null);
-  const autoGenRef = useRef(false);
 
   const { data: allCadences = [], isLoading: cadencesLoading } = useLeadCadences();
   const { data: igLeads = [] } = useInstagramProspects();
   const { data: gmbLeads = [] } = useGmbLeads();
-  const createCadence = useCreateCadence();
   const updateCadence = useUpdateCadence();
 
   // ── Encontrar o cross-match ────────────────────────────────────────────────
@@ -163,55 +161,6 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
       (matchedGmb && c.gmb_lead_id === matchedGmb.id)
     ) ?? null
   );
-
-  // ── Auto-gerar cadência assim que o painel abre, sem esperar diagnóstico ──────
-  useEffect(() => {
-    // Aguarda cadências carregarem para não gerar duplicata
-    if (cadencesLoading || cadence || autoGenRef.current || generating) return;
-    // Precisa ter pelo menos um lead identificado
-    if (!igData && !gmbData) return;
-    autoGenRef.current = true;
-
-    const crossedLead: CrossedLead = {
-      id: `${igData?.id ?? ''}_${gmbData?.id ?? ''}`,
-      instagram_prospect: igData ?? null,
-      gmb_lead: gmbData ?? null,
-      website: currentSite,
-      lead_name: igData?.full_name ?? gmbData?.nome_empresa ?? 'Lead',
-      phone: instagramProspect?.whatsapp ?? gmbLead?.telefone ?? gmbLead?.whatsapp_jid ?? null,
-      email: instagramProspect?.email ?? null,
-      heat_score: heatScore,
-      instagram_score: 0,
-      gmb_score: 0,
-    };
-
-    setGenerating(true);
-    generateLeadCadence(crossedLead)
-      .then(result =>
-        createCadence.mutateAsync({
-          instagram_prospect_id: igData?.id ?? null,
-          gmb_lead_id: gmbData?.id ?? null,
-          lead_name: crossedLead.lead_name,
-          company: gmbData?.nome_empresa ?? igData?.full_name ?? null,
-          website: currentSite || null,
-          phone: crossedLead.phone,
-          email: crossedLead.email,
-          heat_score: heatScore,
-          instagram_score: 0,
-          gmb_score: 0,
-          ai_unified_analysis: result.analysis,
-          cadence_steps: result.cadence_steps,
-          status: 'active',
-          current_step: 0,
-        })
-      )
-      .then(created => setLocalCadence(created))
-      .catch(e => {
-        console.error('Auto-geração de cadência falhou:', e);
-        autoGenRef.current = false;
-      })
-      .finally(() => setGenerating(false));
-  }, [!!cadence, cadencesLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Gerar cadência (manual / regenerar) ────────────────────────────────────
   const handleGenerate = async () => {
@@ -374,12 +323,16 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
             <StepRow key={idx} step={step} onToggle={() => handleToggleStep(idx)} />
           ))}
         </div>
-      ) : generating ? (
+      ) : cadencesLoading ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground py-4 justify-center">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          Gerando fluxo de cadência com IA...
+          Carregando...
         </div>
-      ) : null}
+      ) : (
+        <p className="text-xs text-muted-foreground text-center py-4">
+          Cadência sendo preparada em background. Aguarde alguns instantes e reabra o modal.
+        </p>
+      )}
     </div>
   );
 }
