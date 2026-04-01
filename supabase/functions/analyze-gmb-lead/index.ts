@@ -100,17 +100,46 @@ Site: ${lead.website ?? 'não possui'}
 ${websiteSnippet ? `Dados coletados do site:\n${websiteSnippet}` : 'Site não disponível para análise.'}
 `.trim();
 
-    // PASSO 1: Diagnóstico do site
+    // PASSO 1: Diagnóstico completo no mesmo formato do Instagram
     const diagRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 800,
-        system: "Você é especialista em auditoria de presença digital e marketing de performance. Analise os dados do lead e gere um diagnóstico conciso. Responda SOMENTE com JSON válido.",
+        max_tokens: 1400,
+        system: `Você é especialista em auditoria de presença digital e marketing de performance da agência RT PUBLICIDADE.
+Analise os dados do lead e gere um diagnóstico COMPLETO e DETALHADO. Responda SOMENTE com JSON válido.
+
+O campo "diagnosis" deve ser um relatório formatado exatamente assim (use quebras de linha \\n):
+
+🔥 DIAGNÓSTICO COMPLETO — [Nome da Empresa]
+
+📍 Localização: [endereço ou "não identificada nos dados coletados"]
+⭐ Google: [X]/5 ([N] avaliações) ou "não analisado"
+📱 Instagram: [se disponível] ou "não identificado"
+🌐 Site: [URL] ou "não possui site próprio"
+
+─────────────────────────
+🔴 PROBLEMAS CRÍTICOS:
+🔴 [problema crítico real e específico desta empresa, com dados concretos]
+(repita para cada problema crítico encontrado)
+
+⚠️ ALERTAS:
+⚠️ [alerta específico]
+(repita para cada alerta)
+
+✅ PONTOS POSITIVOS:
+✅ [ponto positivo real]
+(repita para cada positivo)
+
+─────────────────────────
+💡 OPORTUNIDADE PARA A RT PUBLICIDADE:
+[Parágrafo específico explicando como a RT Publicidade pode ajudar ESTA empresa, citando serviços concretos: site, tráfego pago, Google Business, Instagram Ads, gestão de conteúdo, etc. Mencione potencial de crescimento com dados reais do lead.]
+
+IMPORTANTE: Seja específico. Use os dados reais do lead. Não seja genérico.`,
         messages: [{
           role: "user",
-          content: `Analise esta empresa e retorne diagnóstico em JSON:\n\n${leadContext}\n\nRetorne:\n{\n  "diagnosis": "3-4 linhas descrevendo pontos críticos reais da presença digital desta empresa específica, citando dados concretos",\n  "website_issues": {\n    "critical": ["problema crítico real 1"],\n    "warnings": ["alerta real 1"],\n    "positives": ["ponto positivo real 1"],\n    "score": 0\n  }\n}`,
+          content: `Analise esta empresa e retorne diagnóstico em JSON:\n\n${leadContext}\n\nRetorne SOMENTE este JSON:\n{\n  "diagnosis": "relatório completo formatado conforme instruções do sistema",\n  "website_issues": {\n    "critical": ["problema crítico real 1", "problema crítico real 2"],\n    "warnings": ["alerta real 1"],\n    "positives": ["ponto positivo real 1"],\n    "score": 0\n  }\n}\n\nO score deve ser de 0 a 100 baseado na qualidade da presença digital geral (não só do site).`,
         }],
       }),
     });
