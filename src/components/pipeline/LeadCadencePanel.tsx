@@ -74,7 +74,7 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
       gmb_score: 0,
     })
       .then(async result => {
-        const { data } = await supabase.from('lead_cadence' as any).insert({
+        const { data, error: insertError } = await supabase.from('lead_cadence' as any).insert({
           instagram_prospect_id: instagramProspect?.id ?? null,
           gmb_lead_id: gmbLead?.id ?? null,
           lead_name: instagramProspect?.full_name ?? instagramProspect?.username ?? gmbLead?.nome_empresa ?? 'Lead',
@@ -91,6 +91,7 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
           current_step: 0,
           started_at: null,
         }).select().single();
+        if (insertError) console.error('Erro ao salvar cadência:', insertError);
         if (data) setLocalCadence(data as LeadCadence);
         qc.invalidateQueries({ queryKey: ['lead_cadence'] });
       })
@@ -112,7 +113,7 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
   const steps = activeCadence?.cadence_steps ?? [];
   const doneCount = steps.filter(s => s.status === 'done').length;
 
-  if (isLoading || generating) {
+  if (isLoading || generating || steps.length === 0) {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground py-6 justify-center">
         <Loader2 className="w-3.5 h-3.5 animate-spin" /> Carregando...
@@ -128,7 +129,7 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
       <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
         <div
           className="h-full bg-primary rounded-full transition-all"
-          style={{ width: steps.length ? `${(doneCount / steps.length) * 100}%` : '0%' }}
+          style={{ width: `${(doneCount / steps.length) * 100}%` }}
         />
       </div>
       <div className="space-y-4 pt-1">
