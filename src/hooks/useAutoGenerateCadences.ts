@@ -54,6 +54,7 @@ export function useAutoGenerateCadences() {
             current_step: 0,
             started_at: null,
           });
+          qc.invalidateQueries({ queryKey: ['lead_cadence'] });
         } catch (e) {
           console.error(`Auto-cadência Instagram falhou (${prospect.username}):`, e);
         }
@@ -91,12 +92,12 @@ export function useAutoGenerateCadences() {
             current_step: 0,
             started_at: null,
           });
+          qc.invalidateQueries({ queryKey: ['lead_cadence'] });
         } catch (e) {
           console.error(`Auto-cadência GMB falhou (${lead.nome_empresa}):`, e);
         }
       }
 
-      qc.invalidateQueries({ queryKey: ['lead_cadence'] });
       runningRef.current = false;
     }
 
