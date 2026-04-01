@@ -105,20 +105,29 @@ Diagnóstico: ${gmb.ai_diagnosis || "não gerado"}
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 1200,
-        system: `Você é especialista em fluxos de cadência de prospecção B2B para agências de marketing digital.
-Crie sequências de contato personalizadas que:
-- Usem os canais disponíveis de forma estratégica (Instagram DM, WhatsApp, E-mail)
-- Respeitem intervalos realistas entre contatos
-- Escalonem o nível de urgência gradualmente
-- Sejam personalizadas para a realidade do lead
-- Foquem em diagnóstico e consultoria, não em venda direta
+        max_tokens: 2000,
+        system: `Você é especialista em prospecção consultiva para agências de marketing digital.
+Crie uma sequência de mensagens COMPLETAS e PRONTAS PARA ENVIAR — não descreva o que escrever, escreva a mensagem real que será copiada e enviada ao lead.
 
-PROIBIDO: pressão excessiva, promessas irreais, linguagem automatizada, mais de uma pergunta por mensagem.
+Cada mensagem deve:
+- Ser curta (40-80 palavras), direta e humana
+- Ser 100% personalizada com dados reais do lead (nome da empresa, nicho, rating, número de avaliações, problemas específicos do site)
+- Ter tom consultivo, não comercial
+- Terminar com UMA pergunta aberta simples ou call-to-action claro
+- Ser natural para o canal (DM do Instagram ≠ WhatsApp ≠ E-mail)
+
+Distribuição dos 5 passos ao longo de ~14 dias:
+- Dia 1: primeiro contato (canal principal disponível)
+- Dia 2: segundo canal disponível com mensagem complementar
+- Dia 5: follow-up leve, sem pressão
+- Dia 8: nova perspectiva ou dado novo
+- Dia 12: último toque com proposta rápida de diagnóstico gratuito
+
+PROIBIDO: "oi tudo bem?", promessas de ROI, emojis em excesso, pressão, linguagem robótica, mais de uma pergunta por mensagem.
 Responda SOMENTE com JSON válido, sem markdown.`,
         messages: [{
           role: "user",
-          content: `Contexto do lead:\n${leadContext}\n\nAnálise unificada: ${analysisResult.analysis}\n\nCanais disponíveis: ${canais.join(", ") || "apenas WhatsApp"}\n\nCrie um fluxo de cadência de 5 a 7 passos usando os canais disponíveis. Retorne SOMENTE este JSON:\n[\n  {\n    "day": 1,\n    "channel": "instagram_dm",\n    "message": "mensagem personalizada aqui",\n    "status": "pending"\n  }\n]\n\nUse apenas os valores de channel: instagram_dm, whatsapp, email, ligacao\nDistribua os contatos ao longo de ~14 dias.`,
+          content: `Dados do lead:\n${leadContext}\n\nAnálise unificada: ${analysisResult.analysis}\n\nCanais disponíveis: ${canais.join(", ") || "apenas WhatsApp"}\n\nGere exatamente 5 mensagens com o texto COMPLETO e PRONTO PARA ENVIAR. Retorne SOMENTE este JSON:\n[\n  {\n    "day": 1,\n    "channel": "instagram_dm",\n    "message": "Olá [Nome/Empresa]! Vi que vocês têm [X avaliações] no Google com nota [X] — ótima reputação. Dei uma olhada no site de vocês e notei [problema específico real]. Trabalho com agências de marketing digital e ajudo negócios como o de vocês a converter melhor online. Posso te mostrar em 15 min o que encontrei?",\n    "status": "pending"\n  }\n]\n\nValues válidos para channel: instagram_dm, whatsapp, email, ligacao\nSUBSTITUA os colchetes pelos dados reais do lead.`,
         }],
       }),
     });

@@ -132,7 +132,7 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
   const [localCadence, setLocalCadence] = useState<LeadCadence | null>(null);
   const autoGenRef = useRef(false);
 
-  const { data: allCadences = [] } = useLeadCadences();
+  const { data: allCadences = [], isLoading: cadencesLoading } = useLeadCadences();
   const { data: igLeads = [] } = useInstagramProspects();
   const { data: gmbLeads = [] } = useGmbLeads();
   const createCadence = useCreateCadence();
@@ -173,7 +173,8 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
   );
 
   useEffect(() => {
-    if (cadence || autoGenRef.current || !hasAnalysis || generating) return;
+    // Aguardar o carregamento das cadências antes de decidir gerar
+    if (cadencesLoading || cadence || autoGenRef.current || !hasAnalysis || generating) return;
     autoGenRef.current = true;
 
     const crossedLead: CrossedLead = {
@@ -215,7 +216,7 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
         autoGenRef.current = false;
       })
       .finally(() => setGenerating(false));
-  }, [hasAnalysis, !!cadence]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hasAnalysis, !!cadence, cadencesLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Gerar cadência (manual / regenerar) ────────────────────────────────────
   const handleGenerate = async () => {

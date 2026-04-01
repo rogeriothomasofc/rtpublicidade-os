@@ -157,6 +157,7 @@ export interface LeadCadence {
   cadence_steps: CadenceStep[];
   status: CadenceStatus;
   current_step: number;
+  started_at: string | null;
   created_at: string;
   updated_at: string;
 }

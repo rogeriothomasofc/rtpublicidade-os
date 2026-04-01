@@ -302,7 +302,6 @@ export async function markFirstContactInCadence(
   instagramProspectId: string | null,
   channel: string
 ): Promise<void> {
-  // Buscar cadência existente para este lead
   const filters: string[] = [];
   if (gmbLeadId) filters.push(`gmb_lead_id.eq.${gmbLeadId}`);
   if (instagramProspectId) filters.push(`instagram_prospect_id.eq.${instagramProspectId}`);
@@ -315,23 +314,96 @@ export async function markFirstContactInCadence(
     .limit(1)
     .single();
 
-  if (!data) return; // sem cadência criada, nada a fazer
+  if (!data) return;
   const cadence = data as LeadCadence;
 
   const steps = [...(cadence.cadence_steps || [])];
   const firstPendingIdx = steps.findIndex(s => s.status === 'pending');
-  if (firstPendingIdx === -1) return; // todos já marcados
+  if (firstPendingIdx === -1) return;
 
   steps[firstPendingIdx] = { ...steps[firstPendingIdx], status: 'done' };
 
+  const now = new Date().toISOString();
   await supabase
     .from('lead_cadence' as any)
     .update({
       cadence_steps: steps,
       status: 'active',
       current_step: firstPendingIdx + 1,
+      // started_at só é definido no primeiro contato
+      ...(cadence.started_at ? {} : { started_at: now }),
     })
     .eq('id', cadence.id);
+}
+
+// ─── Leads com diagnóstico mas sem cadência (para auto-geração bulk) ──────────
+export function useLeadsWithoutCadence() {
+  const { data: igLeads = [], isLoading: igLoading } = useInstagramProspects();
+  const { data: gmbLeads = [], isLoading: gmbLoading } = useGmbLeads();
+  const { data: cadences = [], isLoading: cadLoading } = useLeadCadences();
+
+  if (igLoading || gmbLoading || cadLoading) return { ig: [], gmb: [], isLoading: true };
+
+  const cadIgIds = new Set(cadences.map(c => c.instagram_prospect_id).filter(Boolean));
+  const cadGmbIds = new Set(cadences.map(c => c.gmb_lead_id).filter(Boolean));
+
+  const ig = igLeads.filter(p =>
+    !cadIgIds.has(p.id) && (!!p.diagnosis_report || !!p.ai_dm_message)
+  );
+  const gmb = gmbLeads.filter(l =>
+    !cadGmbIds.has(l.id) && (!!l.ai_diagnosis || !!l.ai_messages?.length)
+  );
+
+  return { ig, gmb, isLoading: false };
+}
+
+// ─── Passos da cadência vencendo hoje ────────────────────────────────────────
+export interface CadenceDueItem {
+  cadenceId: string;
+  leadName: string;
+  step: CadenceStep;
+  stepIndex: number;
+  dueDate: Date;
+  overdue: boolean;
+}
+
+export function useCadenceDueToday() {
+  const { data: cadences = [], isLoading } = useLeadCadences();
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const due: CadenceDueItem[] = [];
+
+  for (const cadence of cadences) {
+    if (!cadence.started_at || cadence.status === 'completed' || cadence.status === 'paused') continue;
+    const startedAt = new Date(cadence.started_at);
+    startedAt.setHours(0, 0, 0, 0);
+
+    cadence.cadence_steps.forEach((step, idx) => {
+      if (step.status !== 'pending') return;
+      const dueDate = new Date(startedAt);
+      dueDate.setDate(dueDate.getDate() + step.day - 1);
+
+      const overdue = dueDate < today;
+      const dueToday = dueDate >= today && dueDate < tomorrow;
+
+      if (dueToday || overdue) {
+        due.push({
+          cadenceId: cadence.id,
+          leadName: cadence.lead_name,
+          step,
+          stepIndex: idx,
+          dueDate,
+          overdue,
+        });
+      }
+    });
+  }
+
+  return { due, isLoading };
 }
 
 export const CHANNEL_LABELS: Record<string, string> = {

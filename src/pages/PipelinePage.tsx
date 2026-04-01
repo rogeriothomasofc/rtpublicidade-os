@@ -3,7 +3,9 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { PipelineBoard } from '@/components/pipeline/PipelineBoard';
 import { InstagramProspecting } from '@/components/pipeline/InstagramProspecting';
 import { GmbLeads } from '@/components/pipeline/GmbLeads';
+import { CadenceReminders } from '@/components/pipeline/CadenceReminders';
 import { ProspectionDashboard } from '@/components/pipeline/ProspectionDashboard';
+import { useAutoGenerateCadences } from '@/hooks/useAutoGenerateCadences';
 import { useSalesPipeline } from '@/hooks/useSalesPipeline';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -11,6 +13,7 @@ import { TrendingUp, Instagram, MapPin, LayoutDashboard } from 'lucide-react';
 
 export default function PipelinePage() {
   const { data: leads, isLoading } = useSalesPipeline();
+  useAutoGenerateCadences(); // gera cadências em background para leads existentes sem cadência
 
   if (isLoading) {
     return (
@@ -32,6 +35,7 @@ export default function PipelinePage() {
   return (
     <MainLayout>
       <div className="space-y-4 animate-fade-in">
+        <CadenceReminders />
         <Tabs defaultValue="dashboard">
           <TabsList className="h-9">
             <TabsTrigger value="dashboard" className="gap-1.5 text-sm">
