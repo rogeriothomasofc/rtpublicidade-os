@@ -82,7 +82,7 @@ serve(async (req) => {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")!;
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 
     // Buscar site se disponível
     const websiteSnippet = lead.website ? await fetchWebsiteSnippet(lead.website) : null;
@@ -101,7 +101,13 @@ ${websiteSnippet ? `Dados coletados do site:\n${websiteSnippet}` : 'Site não di
 `.trim();
 
     // PASSO 1: Diagnóstico completo no mesmo formato do Instagram
-    const diagSystemPrompt = `Você é especialista em auditoria de presença digital e marketing de performance da agência RT PUBLICIDADE.
+    const diagRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1400,
+        system: `Você é especialista em auditoria de presença digital e marketing de performance da agência RT PUBLICIDADE.
 Analise os dados do lead e gere um diagnóstico COMPLETO e DETALHADO. Responda SOMENTE com JSON válido.
 
 O campo "diagnosis" deve ser um relatório formatado exatamente assim (use quebras de linha \\n):
@@ -130,35 +136,28 @@ O campo "diagnosis" deve ser um relatório formatado exatamente assim (use quebr
 💡 OPORTUNIDADE PARA A RT PUBLICIDADE:
 [Parágrafo específico explicando como a RT Publicidade pode ajudar ESTA empresa, citando serviços concretos: site, tráfego pago, Google Business, Instagram Ads, gestão de conteúdo, etc. Mencione potencial de crescimento com dados reais do lead.]
 
-IMPORTANTE: Seja específico. Use os dados reais do lead. Não seja genérico.`;
-
-    const diagRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: diagSystemPrompt }] },
-          contents: [{
-            role: "user",
-            parts: [{ text: `Analise esta empresa e retorne diagnóstico em JSON:\n\n${leadContext}\n\nRetorne SOMENTE este JSON:\n{\n  "diagnosis": "relatório completo formatado conforme instruções do sistema",\n  "website_issues": {\n    "critical": ["problema crítico real 1", "problema crítico real 2"],\n    "warnings": ["alerta real 1"],\n    "positives": ["ponto positivo real 1"],\n    "score": 0\n  }\n}\n\nO score deve ser de 0 a 100 baseado na qualidade da presença digital geral (não só do site).` }],
-          }],
-          generationConfig: { maxOutputTokens: 1400 },
-        }),
-      }
-    );
-    if (!diagRes.ok) {
-      if (diagRes.status === 429) return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      throw new Error(`Gemini error: ${diagRes.status}`);
-    }
+IMPORTANTE: Seja específico. Use os dados reais do lead. Não seja genérico.`,
+        messages: [{
+          role: "user",
+          content: `Analise esta empresa e retorne diagnóstico em JSON:\n\n${leadContext}\n\nRetorne SOMENTE este JSON:\n{\n  "diagnosis": "relatório completo formatado conforme instruções do sistema",\n  "website_issues": {\n    "critical": ["problema crítico real 1", "problema crítico real 2"],\n    "warnings": ["alerta real 1"],\n    "positives": ["ponto positivo real 1"],\n    "score": 0\n  }\n}\n\nO score deve ser de 0 a 100 baseado na qualidade da presença digital geral (não só do site).`,
+        }],
+      }),
+    });
+    if (!diagRes.ok) throw new Error(`Anthropic error: ${diagRes.status}`);
     const diagData = await diagRes.json();
-    const diagRaw = diagData.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
+    const diagRaw = diagData.content?.[0]?.text ?? '{}';
     let diagResult: { diagnosis: string; website_issues: { critical: string[]; warnings: string[]; positives: string[]; score: number } };
     try { diagResult = JSON.parse(diagRaw); }
     catch { const m = diagRaw.match(/\{[\s\S]*\}/); diagResult = m ? JSON.parse(m[0]) : { diagnosis: '', website_issues: { critical: [], warnings: [], positives: [], score: 0 } }; }
 
     // PASSO 2: Sequência de 3 mensagens WhatsApp personalizadas
-    const msgSystemPrompt = `Você é um estrategista sênior em marketing digital e tráfego pago, com mais de 10 anos de experiência em aquisição de clientes, performance e crescimento previsível. Sua personalidade combina visão analítica com comunicação consultiva — você pensa como um gestor de negócios, analisa como um media buyer experiente e se comunica de forma clara, humana e persuasiva.
+    const msgRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1000,
+        system: `Você é um estrategista sênior em marketing digital e tráfego pago, com mais de 10 anos de experiência em aquisição de clientes, performance e crescimento previsível. Sua personalidade combina visão analítica com comunicação consultiva — você pensa como um gestor de negócios, analisa como um media buyer experiente e se comunica de forma clara, humana e persuasiva.
 
 Crie sequências de mensagens WhatsApp altamente personalizadas que:
 - Estabeleçam conexão imediata com empresas qualificadas
@@ -185,30 +184,17 @@ PROIBIDO:
 ❌ Pitch de venda direta
 ❌ Emojis em excesso ou no início de frases
 
-Responda SOMENTE com JSON válido, sem markdown.`;
+Responda SOMENTE com JSON válido, sem markdown.`,
+        messages: [{
+          role: "user",
+          content: `Dados da empresa para prospecção:\n\n${leadContext}\n\nDiagnóstico identificado: ${diagResult.diagnosis}\n\nProblemas críticos: ${diagResult.website_issues?.critical?.join(', ') || 'nenhum identificado'}\n\nCrie uma sequência de exatamente 3 mensagens WhatsApp (40-70 tokens cada) para prospecção consultiva. Retorne SOMENTE este JSON:\n[\n  {\n    "part": 1,\n    "message": "Mensagem 1 — Conexão + Autoridade: cumprimento personalizado, menção específica ao negócio, reconhecimento sutil de oportunidade"\n  },\n  {\n    "part": 2,\n    "message": "Mensagem 2 — Problema + Contexto: desafio real de aquisição de forma empática, conectar com perdas potenciais, introduzir tráfego pago estratégico"\n  },\n  {\n    "part": 3,\n    "message": "Mensagem 3 — Benefício + Engajamento: benefício central, pergunta aberta consultiva, tom de parceria estratégica"\n  }\n]`,
+        }],
+      }),
+    });
 
-    const msgRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: msgSystemPrompt }] },
-          contents: [{
-            role: "user",
-            parts: [{ text: `Dados da empresa para prospecção:\n\n${leadContext}\n\nDiagnóstico identificado: ${diagResult.diagnosis}\n\nProblemas críticos: ${diagResult.website_issues?.critical?.join(', ') || 'nenhum identificado'}\n\nCrie uma sequência de exatamente 3 mensagens WhatsApp (40-70 tokens cada) para prospecção consultiva. Retorne SOMENTE este JSON:\n[\n  {\n    "part": 1,\n    "message": "Mensagem 1 — Conexão + Autoridade: cumprimento personalizado, menção específica ao negócio, reconhecimento sutil de oportunidade"\n  },\n  {\n    "part": 2,\n    "message": "Mensagem 2 — Problema + Contexto: desafio real de aquisição de forma empática, conectar com perdas potenciais, introduzir tráfego pago estratégico"\n  },\n  {\n    "part": 3,\n    "message": "Mensagem 3 — Benefício + Engajamento: benefício central, pergunta aberta consultiva, tom de parceria estratégica"\n  }\n]` }],
-          }],
-          generationConfig: { maxOutputTokens: 1000 },
-        }),
-      }
-    );
-
-    if (!msgRes.ok) {
-      if (msgRes.status === 429) return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      throw new Error(`Gemini messages error: ${msgRes.status}`);
-    }
+    if (!msgRes.ok) throw new Error(`Anthropic messages error: ${msgRes.status}`);
     const msgData = await msgRes.json();
-    const msgRaw = msgData.candidates?.[0]?.content?.parts?.[0]?.text ?? '[]';
+    const msgRaw = msgData.content?.[0]?.text ?? '[]';
     let messages: Array<{ part: number; message: string }>;
     try { messages = JSON.parse(msgRaw); }
     catch { const m = msgRaw.match(/\[[\s\S]*\]/); messages = m ? JSON.parse(m[0]) : []; }

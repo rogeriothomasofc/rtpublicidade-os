@@ -13,45 +13,33 @@ serve(async (req) => {
   try {
     const { messages, context } = await req.json();
 
-    const apiKey = Deno.env.get('GEMINI_API_KEY');
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
     if (!apiKey) {
-      throw new Error('GEMINI_API_KEY não configurada nos secrets do Supabase.');
+      throw new Error('ANTHROPIC_API_KEY não configurada nos secrets do Supabase.');
     }
 
-    const geminiMessages = messages.map((m: { role: string; content: string }) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }));
-    const geminiBody: Record<string, unknown> = {
-      contents: geminiMessages,
-      generationConfig: { maxOutputTokens: 1024 },
-    };
-    if (context) {
-      geminiBody.system_instruction = { parts: [{ text: context }] };
-    }
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(geminiBody),
-      }
-    );
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        system: context,
+        messages,
+      }),
+    });
 
     const data = await response.json();
 
     if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: 'Limite de requisições excedido. Tente novamente em alguns segundos.' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      throw new Error(data?.error?.message || 'Erro na API Gemini');
+      throw new Error(data?.error?.message || 'Erro na API Anthropic');
     }
 
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'Sem resposta.';
+    const text = data.content?.[0]?.text ?? 'Sem resposta.';
 
     return new Response(JSON.stringify({ text }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
