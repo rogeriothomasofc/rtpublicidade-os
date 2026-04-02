@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { CheckCircle, Clock, SkipForward, Loader2 } from 'lucide-react';
-import { useLeadCadences, useCreateCadence, useUpdateCadence, generateLeadCadence, CHANNEL_LABELS, CHANNEL_COLORS } from '@/hooks/useCrossedLeads';
-import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useLeadCadences, useCreateCadence, useUpdateCadence, CHANNEL_LABELS, CHANNEL_COLORS } from '@/hooks/useCrossedLeads';
 import type { InstagramProspect } from '@/hooks/useInstagramProspects';
 import type { GmbLead } from '@/hooks/useGmbLeads';
 import type { LeadCadence, CadenceStep } from '@/types/database';
@@ -10,6 +8,48 @@ import type { LeadCadence, CadenceStep } from '@/types/database';
 interface LeadCadencePanelProps {
   instagramProspect?: InstagramProspect;
   gmbLead?: GmbLead;
+}
+
+// Cria passos fixos baseados nos canais disponíveis — sem IA
+function buildDefaultSteps(
+  hasWhatsApp: boolean,
+  hasInstagram: boolean,
+  hasEmail: boolean,
+  leadName: string
+): CadenceStep[] {
+  const steps: CadenceStep[] = [];
+
+  // Dia 1 — canal principal
+  if (hasWhatsApp) {
+    steps.push({ day: 1, channel: 'whatsapp', message: `Olá! Vi o perfil de ${leadName} e gostaria de apresentar como podemos ajudar a crescer a presença digital de vocês. Posso te mostrar em 15 minutos o que encontrei?`, status: 'pending' });
+  } else if (hasInstagram) {
+    steps.push({ day: 1, channel: 'instagram_dm', message: `Oi! Vi o perfil de ${leadName} e tenho algumas ideias para melhorar os resultados de vocês online. Posso compartilhar?`, status: 'pending' });
+  }
+
+  // Dia 2 — segundo canal
+  if (hasInstagram && hasWhatsApp) {
+    steps.push({ day: 2, channel: 'instagram_dm', message: `Passei pelo perfil de ${leadName} — o conteúdo de vocês tem potencial. Já mandei uma mensagem no WhatsApp, mas queria reforçar por aqui também. Tem interesse em conversar?`, status: 'pending' });
+  } else if (hasEmail) {
+    steps.push({ day: 2, channel: 'email', message: `Olá, equipe ${leadName}! Analisei a presença digital de vocês e identifiquei oportunidades de melhoria. Posso te enviar um diagnóstico gratuito?`, status: 'pending' });
+  }
+
+  // Dia 5 — follow-up
+  if (hasWhatsApp) {
+    steps.push({ day: 5, channel: 'whatsapp', message: `Olá! Só queria saber se tiveram a chance de ver minha mensagem anterior sobre ${leadName}. Sem pressa — fico à disposição quando for conveniente.`, status: 'pending' });
+  } else if (hasInstagram) {
+    steps.push({ day: 5, channel: 'instagram_dm', message: `Oi! Não sei se viu minha mensagem anterior. Tenho algumas sugestões rápidas para ${leadName} — leva só 10 minutinhos. Topa?`, status: 'pending' });
+  }
+
+  // Dia 8 — nova perspectiva
+  if (hasWhatsApp) {
+    steps.push({ day: 8, channel: 'whatsapp', message: `Vi que ${leadName} tem uma boa reputação na região. Empresas como a de vocês costumam multiplicar o número de clientes com tráfego pago bem direcionado. Vale uma conversa rápida?`, status: 'pending' });
+  }
+
+  // Dia 12 — último toque
+  const lastChannel = hasWhatsApp ? 'whatsapp' : hasInstagram ? 'instagram_dm' : hasEmail ? 'email' : 'ligacao';
+  steps.push({ day: 12, channel: lastChannel, message: `Último contato por aqui. Se algum dia quiserem entender melhor como atrair mais clientes para ${leadName} com marketing digital, estou à disposição. Boa sorte nos negócios!`, status: 'pending' });
+
+  return steps;
 }
 
 function StepRow({ step, onToggle }: { step: CadenceStep; onToggle: () => void }) {
@@ -40,11 +80,11 @@ function StepRow({ step, onToggle }: { step: CadenceStep; onToggle: () => void }
 
 export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePanelProps) {
   const [localCadence, setLocalCadence] = useState<LeadCadence | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const genRef = useRef(false);
-  const qc = useQueryClient();
+  const [saving, setSaving] = useState(false);
+  const creatingRef = useRef(false);
 
   const { data: allCadences = [], isLoading } = useLeadCadences();
+  const createCadence = useCreateCadence();
   const updateCadence = useUpdateCadence();
 
   const cadence: LeadCadence | null = localCadence ?? (
@@ -54,49 +94,39 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
     ) ?? null
   );
 
-  // Se não tiver cadência após carregar, gera silenciosamente
+  // Cria cadência padrão imediatamente se não existir — sem IA
   useEffect(() => {
-    if (isLoading || cadence || genRef.current || generating) return;
+    if (isLoading || cadence || creatingRef.current) return;
     if (!instagramProspect && !gmbLead) return;
-    genRef.current = true;
-    setGenerating(true);
+    creatingRef.current = true;
+    setSaving(true);
 
-    generateLeadCadence({
-      id: `${instagramProspect?.id ?? ''}_${gmbLead?.id ?? ''}`,
-      instagram_prospect: instagramProspect ?? null,
-      gmb_lead: gmbLead ?? null,
-      website: (instagramProspect?.website ?? gmbLead?.website ?? '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''),
-      lead_name: instagramProspect?.full_name ?? instagramProspect?.username ?? gmbLead?.nome_empresa ?? 'Lead',
+    const leadName = instagramProspect?.full_name ?? instagramProspect?.username ?? gmbLead?.nome_empresa ?? 'o lead';
+    const hasWhatsApp = !!(instagramProspect?.whatsapp ?? gmbLead?.telefone ?? gmbLead?.whatsapp_jid);
+    const hasInstagram = !!instagramProspect;
+    const hasEmail = !!instagramProspect?.email;
+
+    const steps = buildDefaultSteps(hasWhatsApp, hasInstagram, hasEmail, leadName);
+
+    createCadence.mutateAsync({
+      instagram_prospect_id: instagramProspect?.id ?? null,
+      gmb_lead_id: gmbLead?.id ?? null,
+      lead_name: leadName,
+      company: gmbLead?.nome_empresa ?? instagramProspect?.full_name ?? null,
+      website: instagramProspect?.website ?? gmbLead?.website ?? null,
       phone: instagramProspect?.whatsapp ?? gmbLead?.telefone ?? gmbLead?.whatsapp_jid ?? null,
       email: instagramProspect?.email ?? null,
       heat_score: 50,
       instagram_score: 0,
       gmb_score: 0,
+      ai_unified_analysis: null,
+      cadence_steps: steps,
+      status: 'active',
+      current_step: 0,
     })
-      .then(async result => {
-        const { data, error: insertError } = await supabase.from('lead_cadence' as any).insert({
-          instagram_prospect_id: instagramProspect?.id ?? null,
-          gmb_lead_id: gmbLead?.id ?? null,
-          lead_name: instagramProspect?.full_name ?? instagramProspect?.username ?? gmbLead?.nome_empresa ?? 'Lead',
-          company: gmbLead?.nome_empresa ?? instagramProspect?.full_name ?? null,
-          website: instagramProspect?.website ?? gmbLead?.website ?? null,
-          phone: instagramProspect?.whatsapp ?? gmbLead?.telefone ?? gmbLead?.whatsapp_jid ?? null,
-          email: instagramProspect?.email ?? null,
-          heat_score: 50,
-          instagram_score: 0,
-          gmb_score: 0,
-          ai_unified_analysis: result.analysis,
-          cadence_steps: result.cadence_steps,
-          status: 'active',
-          current_step: 0,
-          started_at: null,
-        }).select().single();
-        if (insertError) console.error('Erro ao salvar cadência:', insertError);
-        if (data) setLocalCadence(data as LeadCadence);
-        qc.invalidateQueries({ queryKey: ['lead_cadence'] });
-      })
-      .catch(() => { genRef.current = false; })
-      .finally(() => setGenerating(false));
+      .then(created => setLocalCadence(created))
+      .catch(() => { creatingRef.current = false; })
+      .finally(() => setSaving(false));
   }, [isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleToggleStep = (idx: number) => {
@@ -113,7 +143,7 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
   const steps = activeCadence?.cadence_steps ?? [];
   const doneCount = steps.filter(s => s.status === 'done').length;
 
-  if (isLoading || generating || steps.length === 0) {
+  if (isLoading || saving) {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground py-6 justify-center">
         <Loader2 className="w-3.5 h-3.5 animate-spin" /> Carregando...
@@ -129,7 +159,7 @@ export function LeadCadencePanel({ instagramProspect, gmbLead }: LeadCadencePane
       <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
         <div
           className="h-full bg-primary rounded-full transition-all"
-          style={{ width: `${(doneCount / steps.length) * 100}%` }}
+          style={{ width: steps.length ? `${(doneCount / steps.length) * 100}%` : '0%' }}
         />
       </div>
       <div className="space-y-4 pt-1">
