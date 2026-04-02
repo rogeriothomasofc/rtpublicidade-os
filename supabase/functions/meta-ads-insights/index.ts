@@ -15,19 +15,7 @@ async function generateSummary(
   apiKey: string,
 ): Promise<string | null> {
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 150,
-        messages: [{
-          role: "user",
-          content: `Analise estas métricas de Meta Ads dos últimos ${period === "30d" ? "30" : "7"} dias e gere um resumo executivo em 2 frases curtas em português. Seja direto e destaque o ponto mais relevante (positivo ou negativo). Não use markdown.
+    const userMessage = `Analise estas métricas de Meta Ads dos últimos ${period === "30d" ? "30" : "7"} dias e gere um resumo executivo em 2 frases curtas em português. Seja direto e destaque o ponto mais relevante (positivo ou negativo). Não use markdown.
 
 Métricas:
 - Investimento: R$ ${Number(insights.spend || 0).toFixed(2)}
@@ -37,14 +25,23 @@ Métricas:
 - CPC: R$ ${Number(insights.cpc || 0).toFixed(2)}
 - Alcance: ${Number(insights.reach || 0).toLocaleString("pt-BR")}
 - Resultado (${resultLabel}): ${resultValue}
-- Custo por resultado: ${costPerResult > 0 ? `R$ ${costPerResult.toFixed(2)}` : "sem resultados"}`,
-        }],
-      }),
-    });
+- Custo por resultado: ${costPerResult > 0 ? `R$ ${costPerResult.toFixed(2)}` : "sem resultados"}`;
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: userMessage }] }],
+          generationConfig: { maxOutputTokens: 150 },
+        }),
+      }
+    );
 
     if (!res.ok) return null;
     const data = await res.json();
-    return data.content?.[0]?.text || null;
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
   } catch {
     return null;
   }
@@ -91,18 +88,18 @@ serve(async (req) => {
     };
 
     const { period = "7d" } = body;
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
     // Summary-only mode — no Meta API call needed
     if (body.summary_only && body.insights) {
-      const summary = ANTHROPIC_API_KEY
+      const summary = GEMINI_API_KEY
         ? await generateSummary(
             body.insights,
             body.result_label || "Resultado",
             body.result_value || 0,
             body.cost_per_result || 0,
             period,
-            ANTHROPIC_API_KEY,
+            GEMINI_API_KEY,
           )
         : null;
 
@@ -180,7 +177,7 @@ serve(async (req) => {
 
     // Generate initial summary with "Conversas iniciadas" as default result
     let summary: string | null = null;
-    if (insights && ANTHROPIC_API_KEY) {
+    if (insights && GEMINI_API_KEY) {
       const defaultResultTypes = [
         "onsite_conversion.messaging_conversation_started_7d",
         "onsite_conversion.messaging_first_reply",
@@ -200,7 +197,7 @@ serve(async (req) => {
         defaultResultValue,
         costPerResult,
         period,
-        ANTHROPIC_API_KEY,
+        GEMINI_API_KEY,
       );
     }
 

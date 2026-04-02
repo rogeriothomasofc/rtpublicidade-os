@@ -219,27 +219,25 @@ ${html.slice(0, 8000)}
   `.trim();
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1000,
-        system: "Você é um especialista em auditoria de sites e marketing digital. Analise o site fornecido e identifique problemas críticos, alertas e pontos positivos. Responda SOMENTE com JSON válido.",
-        messages: [{
-          role: "user",
-          content: `Analise este site e retorne um JSON com problemas encontrados:\n\n${snippet}\n\nRetorne SOMENTE este JSON:\n{\n  "critical": ["problema crítico 1", "problema crítico 2"],\n  "warnings": ["alerta 1", "alerta 2"],\n  "positives": ["ponto positivo 1"],\n  "score": 45\n}\n\nOnde score é de 0-100 (presença digital geral). critical = problemas graves que prejudicam vendas. warnings = melhorias importantes. positives = o que está bem.`,
-        }],
-      }),
-    });
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: "Você é um especialista em auditoria de sites e marketing digital. Analise o site fornecido e identifique problemas críticos, alertas e pontos positivos. Responda SOMENTE com JSON válido." }] },
+          contents: [{
+            role: "user",
+            parts: [{ text: `Analise este site e retorne um JSON com problemas encontrados:\n\n${snippet}\n\nRetorne SOMENTE este JSON:\n{\n  "critical": ["problema crítico 1", "problema crítico 2"],\n  "warnings": ["alerta 1", "alerta 2"],\n  "positives": ["ponto positivo 1"],\n  "score": 45\n}\n\nOnde score é de 0-100 (presença digital geral). critical = problemas graves que prejudicam vendas. warnings = melhorias importantes. positives = o que está bem.` }],
+          }],
+          generationConfig: { maxOutputTokens: 1000 },
+        }),
+      }
+    );
 
     if (!res.ok) return null;
     const data = await res.json();
-    const raw = data.content?.[0]?.text ?? "{}";
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
     try {
       return JSON.parse(raw) as WebsiteAudit;
     } catch {
@@ -307,7 +305,7 @@ serve(async (req) => {
       });
     }
 
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")!;
     const GOOGLE_API_KEY = Deno.env.get("GOOGLE_PLACES_API_KEY") ?? "";
     const INSTAGRAM_ACCESS_TOKEN = Deno.env.get("INSTAGRAM_ACCESS_TOKEN") ?? "";
     const INSTAGRAM_USER_ID = Deno.env.get("INSTAGRAM_USER_ID") ?? "";
@@ -343,7 +341,7 @@ serve(async (req) => {
 
     // 2. Análise do site + Google em paralelo
     const [websiteAudit, googleData] = await Promise.all([
-      websiteToAudit ? analyzeWebsite(websiteToAudit, ANTHROPIC_API_KEY) : Promise.resolve(null),
+      websiteToAudit ? analyzeWebsite(websiteToAudit, GEMINI_API_KEY) : Promise.resolve(null),
       profile.full_name
         ? fetchGoogleBusiness(`${profile.full_name}`, GOOGLE_API_KEY)
         : Promise.resolve(null),
@@ -398,25 +396,23 @@ Retorne exatamente este JSON:
   "extracted_email": "email da bio se encontrado, senão null"
 }`;
 
-    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 3000,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userMessage }],
-      }),
-    });
+    const aiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: "user", parts: [{ text: userMessage }] }],
+          generationConfig: { maxOutputTokens: 3000 },
+        }),
+      }
+    );
 
-    if (!aiRes.ok) throw new Error(`Anthropic API error: ${aiRes.status}`);
+    if (!aiRes.ok) throw new Error(`Gemini API error: ${aiRes.status}`);
 
     const aiData = await aiRes.json();
-    const raw = aiData.content?.[0]?.text ?? "{}";
+    const raw = aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
 
     let aiResult: {
       diagnosis_report: string;

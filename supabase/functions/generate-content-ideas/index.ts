@@ -27,8 +27,8 @@ serve(async (req) => {
 
     const { platform, format, context } = await req.json() as { platform?: string; format?: string; context?: string };
 
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
     const platformText = platform && platform !== "all" ? `para ${platform}` : "para redes sociais";
     const formatText = format ? ` no formato ${format}` : "";
@@ -56,29 +56,27 @@ Retorne um array JSON com este formato exato:
 
 As ideias devem ser variadas e práticas. O best_day e best_time devem ser baseados em dados reais de engajamento para ${finalPlatform} no Brasil, considerando o tipo de conteúdo e o público B2B/agências.`;
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 2000,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userMessage }],
-      }),
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: "user", parts: [{ text: userMessage }] }],
+          generationConfig: { maxOutputTokens: 2000 },
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Anthropic API error:", response.status, errorText);
-      throw new Error(`Anthropic API error: ${response.status}`);
+      console.error("Gemini API error:", response.status, errorText);
+      throw new Error(`Gemini API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const raw = data.content?.[0]?.text ?? "[]";
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
 
     let ideas: { title: string; description: string; platform: string; format: string; best_day: string; best_time: string }[] = [];
     try {

@@ -32,7 +32,13 @@ serve(async (req) => {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY not set");
+      return new Response(JSON.stringify({ error: "GEMINI_API_KEY not configured" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Montar contexto completo do lead
     const canais: string[] = [];
@@ -70,43 +76,31 @@ Diagnóstico: ${gmb.ai_diagnosis || "não gerado"}
 `.trim();
 
     // PASSO 1: Análise unificada
-    const analysisRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 600,
-        system: "Você é especialista em prospecção de marketing digital. Analise os dados combinados de Instagram e Google Maps de uma empresa e gere um diagnóstico unificado conciso. Responda SOMENTE com JSON válido.",
-        messages: [{
-          role: "user",
-          content: `Analise este lead e retorne um diagnóstico unificado em JSON:\n\n${leadContext}\n\nRetorne:\n{\n  "analysis": "3-5 linhas identificando as principais oportunidades e dores desta empresa com base nos dados de ambas as plataformas. Seja específico e cite dados concretos."\n}`,
-        }],
-      }),
-    });
+    const analysisRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: "Você é especialista em prospecção de marketing digital. Analise os dados combinados de Instagram e Google Maps de uma empresa e gere um diagnóstico unificado conciso. Responda SOMENTE com JSON válido." }] },
+          contents: [{
+            role: "user",
+            parts: [{ text: `Analise este lead e retorne um diagnóstico unificado em JSON:\n\n${leadContext}\n\nRetorne:\n{\n  "analysis": "3-5 linhas identificando as principais oportunidades e dores desta empresa com base nos dados de ambas as plataformas. Seja específico e cite dados concretos."\n}` }],
+          }],
+          generationConfig: { maxOutputTokens: 600 },
+        }),
+      }
+    );
 
-    if (!analysisRes.ok) throw new Error(`Anthropic error: ${analysisRes.status}`);
+    if (!analysisRes.ok) throw new Error(`Gemini error: ${analysisRes.status}`);
     const analysisData = await analysisRes.json();
-    const analysisRaw = analysisData.content?.[0]?.text ?? '{}';
+    const analysisRaw = analysisData.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
     let analysisResult: { analysis: string };
     try { analysisResult = JSON.parse(analysisRaw); }
     catch { const m = analysisRaw.match(/\{[\s\S]*\}/); analysisResult = m ? JSON.parse(m[0]) : { analysis: '' }; }
 
     // PASSO 2: Gerar fluxo de cadência multicanal
-    const cadenceRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 2000,
-        system: `Você é especialista em prospecção consultiva para agências de marketing digital.
+    const cadenceSystemPrompt = `Você é especialista em prospecção consultiva para agências de marketing digital.
 Crie uma sequência de mensagens COMPLETAS e PRONTAS PARA ENVIAR — não descreva o que escrever, escreva a mensagem real que será copiada e enviada ao lead.
 
 Cada mensagem deve:
@@ -124,17 +118,27 @@ Distribuição dos 5 passos ao longo de ~14 dias:
 - Dia 12: último toque com proposta rápida de diagnóstico gratuito
 
 PROIBIDO: "oi tudo bem?", promessas de ROI, emojis em excesso, pressão, linguagem robótica, mais de uma pergunta por mensagem.
-Responda SOMENTE com JSON válido, sem markdown.`,
-        messages: [{
-          role: "user",
-          content: `Dados do lead:\n${leadContext}\n\nAnálise unificada: ${analysisResult.analysis}\n\nCanais disponíveis: ${canais.join(", ") || "apenas WhatsApp"}\n\nGere exatamente 5 mensagens com o texto COMPLETO e PRONTO PARA ENVIAR. Retorne SOMENTE este JSON:\n[\n  {\n    "day": 1,\n    "channel": "instagram_dm",\n    "message": "Olá [Nome/Empresa]! Vi que vocês têm [X avaliações] no Google com nota [X] — ótima reputação. Dei uma olhada no site de vocês e notei [problema específico real]. Trabalho com agências de marketing digital e ajudo negócios como o de vocês a converter melhor online. Posso te mostrar em 15 min o que encontrei?",\n    "status": "pending"\n  }\n]\n\nValues válidos para channel: instagram_dm, whatsapp, email, ligacao\nSUBSTITUA os colchetes pelos dados reais do lead.`,
-        }],
-      }),
-    });
+Responda SOMENTE com JSON válido, sem markdown.`;
 
-    if (!cadenceRes.ok) throw new Error(`Anthropic cadence error: ${cadenceRes.status}`);
+    const cadenceRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: cadenceSystemPrompt }] },
+          contents: [{
+            role: "user",
+            parts: [{ text: `Dados do lead:\n${leadContext}\n\nAnálise unificada: ${analysisResult.analysis}\n\nCanais disponíveis: ${canais.join(", ") || "apenas WhatsApp"}\n\nGere exatamente 5 mensagens com o texto COMPLETO e PRONTO PARA ENVIAR. Retorne SOMENTE este JSON:\n[\n  {\n    "day": 1,\n    "channel": "instagram_dm",\n    "message": "Olá [Nome/Empresa]! Vi que vocês têm [X avaliações] no Google com nota [X] — ótima reputação. Dei uma olhada no site de vocês e notei [problema específico real]. Trabalho com agências de marketing digital e ajudo negócios como o de vocês a converter melhor online. Posso te mostrar em 15 min o que encontrei?",\n    "status": "pending"\n  }\n]\n\nValues válidos para channel: instagram_dm, whatsapp, email, ligacao\nSUBSTITUA os colchetes pelos dados reais do lead.` }],
+          }],
+          generationConfig: { maxOutputTokens: 2000 },
+        }),
+      }
+    );
+
+    if (!cadenceRes.ok) throw new Error(`Gemini cadence error: ${cadenceRes.status}`);
     const cadenceData = await cadenceRes.json();
-    const cadenceRaw = cadenceData.content?.[0]?.text ?? '[]';
+    const cadenceRaw = cadenceData.candidates?.[0]?.content?.parts?.[0]?.text ?? '[]';
     let cadenceSteps: Array<{ day: number; channel: string; message: string; status: string }>;
     try { cadenceSteps = JSON.parse(cadenceRaw); }
     catch { const m = cadenceRaw.match(/\[[\s\S]*\]/); cadenceSteps = m ? JSON.parse(m[0]) : []; }

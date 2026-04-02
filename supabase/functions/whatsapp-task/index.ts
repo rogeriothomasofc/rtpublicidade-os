@@ -88,8 +88,8 @@ serve(async (req) => {
       .join("\n");
 
     // Usa Claude para extrair os campos da tarefa
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY não configurada");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY não configurada");
 
     const today = new Date().toISOString().split("T")[0];
 
@@ -120,27 +120,25 @@ Extraia as informações e retorne JSON neste formato:
   "client_name": "nome do cliente ou omitir"
 }`;
 
-    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 500,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userMessage }],
-      }),
-    });
+    const aiResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: "user", parts: [{ text: userMessage }] }],
+          generationConfig: { maxOutputTokens: 500 },
+        }),
+      }
+    );
 
     if (!aiResponse.ok) {
-      throw new Error(`Anthropic API error: ${aiResponse.status}`);
+      throw new Error(`Gemini API error: ${aiResponse.status}`);
     }
 
     const aiData = await aiResponse.json();
-    const raw = aiData.content?.[0]?.text ?? "{}";
+    const raw = aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
 
     let extracted: ExtractedTask;
     try {
