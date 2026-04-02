@@ -409,7 +409,10 @@ Retorne exatamente este JSON:
       }
     );
 
-    if (!aiRes.ok) throw new Error(`Gemini API error: ${aiRes.status}`);
+    if (!aiRes.ok) {
+      if (aiRes.status === 429) return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      throw new Error(`Gemini API error: ${aiRes.status}`);
+    }
 
     const aiData = await aiRes.json();
     const raw = aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";

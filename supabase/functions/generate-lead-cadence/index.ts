@@ -92,7 +92,10 @@ Diagnóstico: ${gmb.ai_diagnosis || "não gerado"}
       }
     );
 
-    if (!analysisRes.ok) throw new Error(`Gemini error: ${analysisRes.status}`);
+    if (!analysisRes.ok) {
+      if (analysisRes.status === 429) return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      throw new Error(`Gemini error: ${analysisRes.status}`);
+    }
     const analysisData = await analysisRes.json();
     const analysisRaw = analysisData.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
     let analysisResult: { analysis: string };
@@ -136,7 +139,10 @@ Responda SOMENTE com JSON válido, sem markdown.`;
       }
     );
 
-    if (!cadenceRes.ok) throw new Error(`Gemini cadence error: ${cadenceRes.status}`);
+    if (!cadenceRes.ok) {
+      if (cadenceRes.status === 429) return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      throw new Error(`Gemini cadence error: ${cadenceRes.status}`);
+    }
     const cadenceData = await cadenceRes.json();
     const cadenceRaw = cadenceData.candidates?.[0]?.content?.parts?.[0]?.text ?? '[]';
     let cadenceSteps: Array<{ day: number; channel: string; message: string; status: string }>;

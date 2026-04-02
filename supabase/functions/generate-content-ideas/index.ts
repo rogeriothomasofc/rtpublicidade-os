@@ -70,6 +70,9 @@ As ideias devem ser variadas e práticas. O best_day e best_time devem ser basea
     );
 
     if (!response.ok) {
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos.", ideas: [] }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       const errorText = await response.text();
       console.error("Gemini API error:", response.status, errorText);
       throw new Error(`Gemini API error: ${response.status}`);

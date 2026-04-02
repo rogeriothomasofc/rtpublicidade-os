@@ -42,6 +42,12 @@ serve(async (req) => {
     const data = await response.json();
 
     if (!response.ok) {
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: 'Limite de requisições excedido. Tente novamente em alguns segundos.' }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       throw new Error(data?.error?.message || 'Erro na API Gemini');
     }
 

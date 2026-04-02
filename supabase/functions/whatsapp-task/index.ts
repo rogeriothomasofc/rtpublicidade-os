@@ -134,6 +134,9 @@ Extraia as informações e retorne JSON neste formato:
     );
 
     if (!aiResponse.ok) {
+      if (aiResponse.status === 429) {
+        return new Response(JSON.stringify({ success: false, error: "Limite de requisições. Tente novamente.", reply: "❌ Limite de IA atingido. Tente novamente em instantes." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       throw new Error(`Gemini API error: ${aiResponse.status}`);
     }
 

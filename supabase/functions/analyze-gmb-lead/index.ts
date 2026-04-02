@@ -147,7 +147,10 @@ IMPORTANTE: Seja específico. Use os dados reais do lead. Não seja genérico.`;
         }),
       }
     );
-    if (!diagRes.ok) throw new Error(`Gemini error: ${diagRes.status}`);
+    if (!diagRes.ok) {
+      if (diagRes.status === 429) return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      throw new Error(`Gemini error: ${diagRes.status}`);
+    }
     const diagData = await diagRes.json();
     const diagRaw = diagData.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
     let diagResult: { diagnosis: string; website_issues: { critical: string[]; warnings: string[]; positives: string[]; score: number } };
@@ -200,7 +203,10 @@ Responda SOMENTE com JSON válido, sem markdown.`;
       }
     );
 
-    if (!msgRes.ok) throw new Error(`Gemini messages error: ${msgRes.status}`);
+    if (!msgRes.ok) {
+      if (msgRes.status === 429) return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      throw new Error(`Gemini messages error: ${msgRes.status}`);
+    }
     const msgData = await msgRes.json();
     const msgRaw = msgData.candidates?.[0]?.content?.parts?.[0]?.text ?? '[]';
     let messages: Array<{ part: number; message: string }>;
