@@ -343,7 +343,7 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
   const handleSaveFollowup = (dateStr: string) => {
     const value = dateStr ? new Date(dateStr + 'T09:00:00').toISOString() : null;
     if (ig) updateProspect.mutate({ id: ig.id, followup_at: value } as any);
-    if (gmb) updateGmb.mutate({ id: gmb.id, followup_at: value } as any);
+    if (gmbLead) updateGmb.mutate({ id: gmbLead.id, followup_at: value } as any);
     toast.success(value ? 'Lembrete salvo!' : 'Lembrete removido.');
   };
 
@@ -360,7 +360,7 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
   ];
 
   // Follow-up state
-  const currentFollowup = ig?.followup_at || gmb?.followup_at || null;
+  const currentFollowup = ig?.followup_at || gmbLead?.followup_at || null;
   const [followupDate, setFollowupDate] = useState<string>(
     currentFollowup ? new Date(currentFollowup).toISOString().split('T')[0] : ''
   );
