@@ -58,7 +58,13 @@ function useAutoAnalyzeGmbLeads(leads: CrossedLead[] | undefined) {
         if (!item.gmb_lead) continue;
         analyzingRef.current = true;
         try {
-          const result = await analyzeGmbLead(item.gmb_lead);
+          const igData = item.instagram_prospect ? {
+            username: item.instagram_prospect.username,
+            bio: item.instagram_prospect.bio,
+            followers_count: item.instagram_prospect.followers_count,
+            niche: item.instagram_prospect.niche,
+          } : null;
+          const result = await analyzeGmbLead(item.gmb_lead, igData);
           updateGmb.mutate({
             id: item.gmb_lead.id,
             ai_diagnosis: result.diagnosis,
@@ -349,7 +355,9 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
   };
 
   // Diagnóstico primário: GMB preferred (mais estruturado: website + Google), else Instagram
-  const primaryDiagnosis = gmbLead?.ai_diagnosis || ig?.diagnosis_report || null;
+  const primaryDiagnosis = (gmbLead?.ai_diagnosis?.trim() || '') !== ''
+    ? gmbLead!.ai_diagnosis
+    : ig?.diagnosis_report || null;
   const primaryIssues = gmbLead?.website_issues || ig?.website_issues || null;
   const canRegenerateDiagnosis = !!gmbLead; // regenerar via GMB Edge Function
 
