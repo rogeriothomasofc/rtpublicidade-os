@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Search, Plus, Loader2, Users, Building2, Star, Phone, Globe, Trash2,
   Sparkles, Copy, MessageCircle, ExternalLink, AlertTriangle, XCircle,
-  CheckCircle, TrendingUp, Stethoscope, Kanban, MapPin, ChevronRight,
-  Instagram, Briefcase, FileText, Lightbulb, Flame,
+  CheckCircle, Stethoscope, Kanban, MapPin, ChevronRight,
+  Instagram, Briefcase, FileText, Lightbulb, Flame, Bell, BellOff, CalendarClock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -27,7 +27,6 @@ import {
   GMB_STATUSES, GMB_STATUS_COLORS,
   type GmbLeadStatus, type GmbLead,
 } from '@/hooks/useGmbLeads';
-import { LeadCadencePanel } from '@/components/pipeline/LeadCadencePanel';
 import { AddProspectForm } from '@/components/pipeline/InstagramProspecting';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -77,12 +76,31 @@ function useAutoAnalyzeGmbLeads(leads: CrossedLead[] | undefined) {
   }, [leads?.length]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
+// ─── Helpers de follow-up ─────────────────────────────────────────────────────
+function getFollowupStatus(followupAt: string | null | undefined): 'overdue' | 'today' | 'upcoming' | null {
+  if (!followupAt) return null;
+  const due = new Date(followupAt);
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(todayStart.getTime() + 86400000);
+  if (due < todayStart) return 'overdue';
+  if (due < todayEnd) return 'today';
+  return 'upcoming';
+}
+
+function formatFollowupDate(followupAt: string): string {
+  const d = new Date(followupAt);
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
 // ─── Card compacto do lead ────────────────────────────────────────────────────
 function LeadCard({ lead, onClick }: { lead: CrossedLead; onClick: () => void }) {
   const ig = lead.instagram_prospect;
   const gmb = lead.gmb_lead;
   const isUnified = !!(ig && gmb);
   const issues = ig?.website_issues || gmb?.website_issues;
+  const followupAt = ig?.followup_at || gmb?.followup_at;
+  const followupStatus = getFollowupStatus(followupAt);
 
   return (
     <Card
@@ -191,6 +209,21 @@ function LeadCard({ lead, onClick }: { lead: CrossedLead; onClick: () => void })
             )}
           </div>
         )}
+
+
+        {/* Badge de follow-up */}
+        {followupStatus && followupAt && (
+          <div className={`flex items-center gap-1.5 mt-1 text-xs font-medium rounded-full px-2 py-0.5 w-fit ${
+            followupStatus === 'overdue' ? 'bg-red-500/15 text-red-600 dark:text-red-400' :
+            followupStatus === 'today'   ? 'bg-orange-500/15 text-orange-600 dark:text-orange-400' :
+                                          'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+          }`}>
+            <Bell className="w-3 h-3" />
+            {followupStatus === 'overdue' && `Follow-up vencido (${formatFollowupDate(followupAt)})`}
+            {followupStatus === 'today'   && 'Follow-up hoje!'}
+            {followupStatus === 'upcoming' && `Follow-up em ${formatFollowupDate(followupAt)}`}
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="px-4 pb-3">
@@ -208,8 +241,8 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
   const [gmbLead, setGmbLead] = useState<GmbLead | null>(lead.gmb_lead);
   const isUnified = !!(ig && gmbLead);
 
-  // Tabs planos — diagnóstico sempre único
-  type MainTab = 'info' | 'diagnostico' | 'mensagens' | 'proposta' | 'cadencia';
+  // Tabs planos — sem cadência
+  type MainTab = 'info' | 'diagnostico' | 'mensagens' | 'proposta';
   const [mainTab, setMainTab] = useState<MainTab>('diagnostico');
   const [analyzing, setAnalyzing] = useState(false);
   const [sendingDM, setSendingDM] = useState(false);
@@ -307,6 +340,13 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
     }
   };
 
+  const handleSaveFollowup = (dateStr: string) => {
+    const value = dateStr ? new Date(dateStr + 'T09:00:00').toISOString() : null;
+    if (ig) updateProspect.mutate({ id: ig.id, followup_at: value } as any);
+    if (gmb) updateGmb.mutate({ id: gmb.id, followup_at: value } as any);
+    toast.success(value ? 'Lembrete salvo!' : 'Lembrete removido.');
+  };
+
   // Diagnóstico primário: GMB preferred (mais estruturado: website + Google), else Instagram
   const primaryDiagnosis = gmbLead?.ai_diagnosis || ig?.diagnosis_report || null;
   const primaryIssues = gmbLead?.website_issues || ig?.website_issues || null;
@@ -317,8 +357,14 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
     { key: 'diagnostico', label: 'Diagnóstico', icon: <Stethoscope className="w-3 h-3" /> },
     { key: 'mensagens', label: 'Mensagens', icon: <MessageCircle className="w-3 h-3" /> },
     ...(ig?.ai_proposal_brief ? [{ key: 'proposta' as MainTab, label: 'Proposta', icon: <FileText className="w-3 h-3" /> }] : []),
-    { key: 'cadencia', label: 'Cadência', icon: <TrendingUp className="w-3 h-3" /> },
   ];
+
+  // Follow-up state
+  const currentFollowup = ig?.followup_at || gmb?.followup_at || null;
+  const [followupDate, setFollowupDate] = useState<string>(
+    currentFollowup ? new Date(currentFollowup).toISOString().split('T')[0] : ''
+  );
+  const followupStatus = getFollowupStatus(currentFollowup);
 
   const siteUrl = ig?.website || gmbLead?.website;
 
@@ -440,6 +486,42 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
               {ig?.bio && (
                 <div className="text-xs text-muted-foreground bg-secondary/50 rounded-lg p-2.5">{ig.bio}</div>
               )}
+            </div>
+
+            {/* ── Lembrete de follow-up ── */}
+            <div className="pt-1 border-t border-border space-y-2">
+              <p className="text-xs font-medium flex items-center gap-1.5">
+                <Bell className="w-3.5 h-3.5 text-primary" /> Lembrete de follow-up
+              </p>
+              {followupStatus && currentFollowup && (
+                <div className={`flex items-center gap-1.5 text-xs font-medium rounded-lg px-3 py-2 ${
+                  followupStatus === 'overdue' ? 'bg-red-500/10 text-red-600 dark:text-red-400' :
+                  followupStatus === 'today'   ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' :
+                                                'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                }`}>
+                  <CalendarClock className="w-3.5 h-3.5 flex-shrink-0" />
+                  {followupStatus === 'overdue' && `Vencido em ${formatFollowupDate(currentFollowup)}`}
+                  {followupStatus === 'today'   && 'Hoje é o dia do follow-up!'}
+                  {followupStatus === 'upcoming' && `Agendado para ${formatFollowupDate(currentFollowup)}`}
+                </div>
+              )}
+              <div className="flex gap-2 items-center">
+                <input
+                  type="date"
+                  value={followupDate}
+                  onChange={e => setFollowupDate(e.target.value)}
+                  className="flex-1 h-8 text-xs rounded-md border border-input bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                <Button size="sm" className="h-8 text-xs gap-1" onClick={() => handleSaveFollowup(followupDate)} disabled={!followupDate}>
+                  <Bell className="w-3 h-3" /> Salvar
+                </Button>
+                {currentFollowup && (
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" title="Remover lembrete"
+                    onClick={() => { setFollowupDate(''); handleSaveFollowup(''); }}>
+                    <BellOff className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+              </div>
             </div>
 
             <div className="space-y-2 pt-1 border-t border-border">
@@ -654,14 +736,6 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
               </>
             )}
           </div>
-        )}
-
-        {/* ── Cadência ── */}
-        {mainTab === 'cadencia' && (
-          <LeadCadencePanel
-            instagramProspect={ig || undefined}
-            gmbLead={gmbLead || undefined}
-          />
         )}
 
         {/* Ações no rodapé */}

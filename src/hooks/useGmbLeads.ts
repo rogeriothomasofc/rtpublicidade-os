@@ -29,6 +29,7 @@ export interface GmbLead {
   ai_messages: Array<{ part: number; message: string }> | null;
   website_issues: { critical: string[]; warnings: string[]; positives: string[]; score: number } | null;
   pipeline_lead_id: string | null;
+  followup_at: string | null;
   created_at: string;
   updated_at: string;
 }

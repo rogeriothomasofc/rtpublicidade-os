@@ -40,6 +40,7 @@ export interface InstagramProspect {
   loss_reason: string | null;
   notes: string | null;
   pipeline_lead_id: string | null;
+  followup_at: string | null;
   created_at: string;
   updated_at: string;
 }
