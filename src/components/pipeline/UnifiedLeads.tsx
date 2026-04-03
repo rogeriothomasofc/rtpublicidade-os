@@ -208,11 +208,9 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
   const [gmbLead, setGmbLead] = useState<GmbLead | null>(lead.gmb_lead);
   const isUnified = !!(ig && gmbLead);
 
-  const [mainTab, setMainTab] = useState<string>(
-    ig ? 'instagram' : 'gmb'
-  );
-  const [igSubTab, setIgSubTab] = useState<'diagnostico' | 'mensagens' | 'proposta' | 'criativo'>('diagnostico');
-  const [gmbSubTab, setGmbSubTab] = useState<'diagnostico' | 'mensagem'>('diagnostico');
+  // Tabs planos — diagnóstico sempre único
+  type MainTab = 'info' | 'diagnostico' | 'mensagens' | 'proposta' | 'cadencia';
+  const [mainTab, setMainTab] = useState<MainTab>('diagnostico');
   const [analyzing, setAnalyzing] = useState(false);
   const [sendingDM, setSendingDM] = useState(false);
   const [sendingWA, setSendingWA] = useState(false);
@@ -233,8 +231,7 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
       const updated = { ...gmbLead, ai_diagnosis: result.diagnosis, ai_messages: result.messages, website_issues: result.website_issues };
       setGmbLead(updated);
       updateGmb.mutate({ id: gmbLead.id, ai_diagnosis: result.diagnosis, ai_messages: result.messages, website_issues: result.website_issues });
-      setGmbSubTab('mensagem');
-      toast.success('Diagnóstico GMB gerado!');
+      toast.success(isUnified ? 'Diagnóstico unificado gerado!' : 'Diagnóstico gerado!');
     } catch (e) {
       console.error(e);
       toast.error('Erro ao gerar diagnóstico.');
@@ -310,23 +307,17 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
     }
   };
 
-  const mainTabs = [
+  // Diagnóstico primário: GMB preferred (mais estruturado: website + Google), else Instagram
+  const primaryDiagnosis = gmbLead?.ai_diagnosis || ig?.diagnosis_report || null;
+  const primaryIssues = gmbLead?.website_issues || ig?.website_issues || null;
+  const canRegenerateDiagnosis = !!gmbLead; // regenerar via GMB Edge Function
+
+  const mainTabs: { key: MainTab; label: string; icon?: JSX.Element }[] = [
     { key: 'info', label: 'Informações' },
-    ...(ig ? [{ key: 'instagram', label: 'Instagram', icon: <Instagram className="w-3 h-3" /> }] : []),
-    ...(gmbLead ? [{ key: 'gmb', label: 'Google Maps', icon: <MapPin className="w-3 h-3" /> }] : []),
+    { key: 'diagnostico', label: 'Diagnóstico', icon: <Stethoscope className="w-3 h-3" /> },
+    { key: 'mensagens', label: 'Mensagens', icon: <MessageCircle className="w-3 h-3" /> },
+    ...(ig?.ai_proposal_brief ? [{ key: 'proposta' as MainTab, label: 'Proposta', icon: <FileText className="w-3 h-3" /> }] : []),
     { key: 'cadencia', label: 'Cadência', icon: <TrendingUp className="w-3 h-3" /> },
-  ];
-
-  const igSubTabs = [
-    { key: 'diagnostico', label: 'Diagnóstico', icon: <Stethoscope className="w-3 h-3" /> },
-    { key: 'mensagens', label: 'Mensagens', icon: <Instagram className="w-3 h-3" /> },
-    ...(ig?.ai_proposal_brief ? [{ key: 'proposta', label: 'Proposta', icon: <FileText className="w-3 h-3" /> }] : []),
-    ...(ig?.ai_creative_concept ? [{ key: 'criativo', label: 'Criativo', icon: <Lightbulb className="w-3 h-3" /> }] : []),
-  ];
-
-  const gmbSubTabs = [
-    { key: 'diagnostico', label: 'Diagnóstico', icon: <Stethoscope className="w-3 h-3" /> },
-    { key: 'mensagem', label: 'WhatsApp', icon: <MessageCircle className="w-3 h-3" /> },
   ];
 
   const siteUrl = ig?.website || gmbLead?.website;
@@ -354,7 +345,7 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
           </DialogTitle>
         </DialogHeader>
 
-        {/* Badges de fonte + métricas */}
+        {/* Badges de fonte */}
         <div className="flex flex-wrap gap-2 -mt-1">
           {ig && (
             <span className="flex items-center gap-1 text-xs bg-pink-500/10 text-pink-600 dark:text-pink-400 rounded-full px-2.5 py-1 font-medium">
@@ -371,16 +362,8 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
               <Flame className="w-3 h-3" /> Heat {lead.heat_score}
             </span>
           )}
-          {ig && (
-            <Badge className={`${STATUS_COLORS[ig.status]} text-white text-xs`}>
-              IG: {ig.status}
-            </Badge>
-          )}
-          {gmbLead && (
-            <Badge className={`${GMB_STATUS_COLORS[gmbLead.status]} text-white text-xs`}>
-              GMB: {gmbLead.status}
-            </Badge>
-          )}
+          {ig && <Badge className={`${STATUS_COLORS[ig.status]} text-white text-xs`}>IG: {ig.status}</Badge>}
+          {gmbLead && <Badge className={`${GMB_STATUS_COLORS[gmbLead.status]} text-white text-xs`}>GMB: {gmbLead.status}</Badge>}
           {(ig?.pipeline_lead_id || gmbLead?.pipeline_lead_id) && (
             <span className="flex items-center gap-1 text-xs bg-violet-500/15 text-violet-600 dark:text-violet-400 rounded-full px-2.5 py-1 font-medium">
               <Kanban className="w-3 h-3" /> No Pipeline
@@ -388,17 +371,8 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
           )}
         </div>
 
-        {/* Botão gerar diagnóstico GMB */}
-        {gmbLead && !gmbLead.ai_messages?.length && (
-          <Button className="w-full gap-2" onClick={handleAnalyzeGmb} disabled={analyzing}>
-            {analyzing
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Analisando site + dados Google...</>
-              : <><Sparkles className="w-4 h-4" /> Gerar Diagnóstico Google Maps com IA</>}
-          </Button>
-        )}
-
-        {/* Tabs principais */}
-        <div className="flex gap-1 border-b border-border overflow-x-auto">
+        {/* Tabs planos */}
+        <div className="flex gap-0 border-b border-border overflow-x-auto">
           {mainTabs.map(tab => (
             <button key={tab.key} onClick={() => setMainTab(tab.key)}
               className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${mainTab === tab.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
@@ -407,10 +381,9 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
           ))}
         </div>
 
-        {/* Aba: Informações */}
+        {/* ── Informações ── */}
         {mainTab === 'info' && (
           <div className="space-y-4 text-sm">
-            {/* Dados gerais */}
             <div className="space-y-2.5">
               {gmbLead?.endereco && (
                 <div className="flex items-start gap-2">
@@ -425,9 +398,9 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
                 </div>
               )}
               {lead.email && (
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground text-xs">✉</span>
-                  <span className="text-xs">{lead.email}</span>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-muted-foreground">✉</span>
+                  <span>{lead.email}</span>
                 </div>
               )}
               {siteUrl && (
@@ -441,25 +414,34 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
                 </div>
               )}
               {ig?.niche && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-xs">
                   <TrendingUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <span className="text-xs">{ig.niche}</span>
+                  <span>{ig.niche}</span>
+                </div>
+              )}
+              {ig?.followers_count && (
+                <div className="flex items-center gap-2 text-xs">
+                  <Users className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <span>{ig.followers_count.toLocaleString('pt-BR')} seguidores</span>
+                </div>
+              )}
+              {gmbLead?.rating && (
+                <div className="flex items-center gap-2 text-xs">
+                  <Star className="w-4 h-4 text-yellow-500 fill-current flex-shrink-0" />
+                  <span>{gmbLead.rating}/5 ({gmbLead.reviews?.toLocaleString('pt-BR') ?? 0} avaliações)</span>
                 </div>
               )}
               {gmbLead?.especialidades && (
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2 text-xs">
                   <Briefcase className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <span className="text-xs text-muted-foreground">{gmbLead.especialidades}</span>
+                  <span className="text-muted-foreground">{gmbLead.especialidades}</span>
                 </div>
               )}
               {ig?.bio && (
-                <div className="text-xs text-muted-foreground bg-secondary/50 rounded-lg p-2.5">
-                  {ig.bio}
-                </div>
+                <div className="text-xs text-muted-foreground bg-secondary/50 rounded-lg p-2.5">{ig.bio}</div>
               )}
             </div>
 
-            {/* Alterar status */}
             <div className="space-y-2 pt-1 border-t border-border">
               {ig && (
                 <div>
@@ -469,9 +451,7 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
                     <SelectContent>
                       {PROSPECT_STATUSES.map(s => (
                         <SelectItem key={s} value={s}>
-                          <div className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full ${STATUS_COLORS[s]}`} /> {s}
-                          </div>
+                          <div className="flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${STATUS_COLORS[s]}`} />{s}</div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -486,9 +466,7 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
                     <SelectContent>
                       {GMB_STATUSES.map(s => (
                         <SelectItem key={s} value={s}>
-                          <div className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full ${GMB_STATUS_COLORS[s]}`} /> {s}
-                          </div>
+                          <div className="flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${GMB_STATUS_COLORS[s]}`} />{s}</div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -497,204 +475,188 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
               )}
             </div>
 
-            {/* Excluir */}
             <div className="flex gap-2 pt-1 border-t border-border">
               {ig && (
                 <Button size="sm" variant="ghost" className="gap-1 text-destructive hover:text-destructive text-xs"
                   onClick={() => { deleteProspect.mutate(ig.id); onClose(); }}>
-                  <Trash2 className="w-3 h-3" /> Excluir lead Instagram
+                  <Trash2 className="w-3 h-3" /> Excluir Instagram
                 </Button>
               )}
               {gmbLead && (
                 <Button size="sm" variant="ghost" className="gap-1 text-destructive hover:text-destructive text-xs"
                   onClick={() => { deleteGmb.mutate(gmbLead.id); onClose(); }}>
-                  <Trash2 className="w-3 h-3" /> Excluir lead GMB
+                  <Trash2 className="w-3 h-3" /> Excluir GMB
                 </Button>
               )}
             </div>
           </div>
         )}
 
-        {/* Aba: Instagram */}
-        {mainTab === 'instagram' && ig && (
-          <div className="space-y-2">
-            {/* Sub-tabs */}
-            <div className="flex gap-1 flex-wrap">
-              {igSubTabs.map(tab => (
-                <button key={tab.key} onClick={() => setIgSubTab(tab.key as typeof igSubTab)}
-                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${igSubTab === tab.key ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
-                  {tab.icon}{tab.label}
-                </button>
-              ))}
-            </div>
+        {/* ── Diagnóstico (único, independente da fonte) ── */}
+        {mainTab === 'diagnostico' && (
+          <div className="space-y-3">
+            {/* Label informando as fontes do diagnóstico */}
+            {isUnified && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/60 rounded-lg px-3 py-2">
+                <Flame className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+                Diagnóstico unificado — dados do site, Google Maps e Instagram combinados.
+                {canRegenerateDiagnosis && ' Clique em "Regenerar" para atualizar.'}
+              </div>
+            )}
 
-            {igSubTab === 'diagnostico' && (
-              <div className="space-y-2">
-                {ig.diagnosis_report ? (
-                  <>
-                    {ig.website_issues && (
-                      <div className="flex gap-1.5 flex-wrap">
-                        {(ig.website_issues.critical?.length ?? 0) > 0 && (
-                          <span className="flex items-center gap-1 text-xs bg-red-500/15 text-red-600 rounded-full px-2 py-0.5">
-                            <XCircle className="w-3 h-3" /> {ig.website_issues.critical.length} crítico{ig.website_issues.critical.length > 1 ? 's' : ''}
-                          </span>
-                        )}
-                        {(ig.website_issues.warnings?.length ?? 0) > 0 && (
-                          <span className="flex items-center gap-1 text-xs bg-yellow-500/15 text-yellow-600 rounded-full px-2 py-0.5">
-                            <AlertTriangle className="w-3 h-3" /> {ig.website_issues.warnings.length} alerta{ig.website_issues.warnings.length > 1 ? 's' : ''}
-                          </span>
-                        )}
-                        {(ig.website_issues.positives?.length ?? 0) > 0 && (
-                          <span className="flex items-center gap-1 text-xs bg-green-500/15 text-green-600 rounded-full px-2 py-0.5">
-                            <CheckCircle className="w-3 h-3" /> {ig.website_issues.positives.length} positivo{ig.website_issues.positives.length > 1 ? 's' : ''}
-                          </span>
-                        )}
-                      </div>
+            {/* Botão gerar — só se não tem diagnóstico E tem GMB */}
+            {!primaryDiagnosis && canRegenerateDiagnosis && (
+              <Button className="w-full gap-2" onClick={handleAnalyzeGmb} disabled={analyzing}>
+                {analyzing
+                  ? <><Loader2 className="w-4 h-4 animate-spin" />Analisando site + dados Google...</>
+                  : <><Sparkles className="w-4 h-4" />Gerar Diagnóstico com IA</>}
+              </Button>
+            )}
+
+            {primaryDiagnosis ? (
+              <>
+                {/* Badges de issues */}
+                {primaryIssues && (
+                  <div className="flex gap-1.5 flex-wrap">
+                    {(primaryIssues.critical?.length ?? 0) > 0 && (
+                      <span className="flex items-center gap-1 text-xs bg-red-500/15 text-red-600 dark:text-red-400 rounded-full px-2 py-0.5">
+                        <XCircle className="w-3 h-3" /> {primaryIssues.critical.length} crítico{primaryIssues.critical.length > 1 ? 's' : ''}
+                      </span>
                     )}
-                    <div className="relative">
-                      <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">{ig.diagnosis_report}</pre>
-                      <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
-                        onClick={() => copyText(ig.diagnosis_report!, 'Diagnóstico')}>
-                        <Copy className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-xs text-muted-foreground text-center py-6">Diagnóstico não disponível</p>
+                    {(primaryIssues.warnings?.length ?? 0) > 0 && (
+                      <span className="flex items-center gap-1 text-xs bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 rounded-full px-2 py-0.5">
+                        <AlertTriangle className="w-3 h-3" /> {primaryIssues.warnings.length} alerta{primaryIssues.warnings.length > 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {(primaryIssues.positives?.length ?? 0) > 0 && (
+                      <span className="flex items-center gap-1 text-xs bg-green-500/15 text-green-600 dark:text-green-400 rounded-full px-2 py-0.5">
+                        <CheckCircle className="w-3 h-3" /> {primaryIssues.positives.length} positivo{primaryIssues.positives.length > 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {primaryIssues.score !== undefined && (
+                      <span className={`flex items-center gap-1 text-xs rounded-full px-2 py-0.5 ${primaryIssues.score >= 70 ? 'bg-green-500/15 text-green-600' : primaryIssues.score >= 40 ? 'bg-yellow-500/15 text-yellow-600' : 'bg-red-500/15 text-red-600'}`}>
+                        <Globe className="w-3 h-3" /> Site {primaryIssues.score}/100
+                      </span>
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
 
-            {igSubTab === 'mensagens' && (
+                <div className="relative">
+                  <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">
+                    {primaryDiagnosis}
+                  </pre>
+                  <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
+                    onClick={() => copyText(primaryDiagnosis, 'Diagnóstico')}>
+                    <Copy className="w-3 h-3" />
+                  </Button>
+                </div>
+
+                {canRegenerateDiagnosis && (
+                  <Button variant="outline" size="sm" className="w-full gap-2 text-xs" onClick={handleAnalyzeGmb} disabled={analyzing}>
+                    {analyzing
+                      ? <><Loader2 className="w-3 h-3 animate-spin" />Regenerando...</>
+                      : <><Sparkles className="w-3 h-3" />{isUnified ? 'Regenerar diagnóstico unificado' : 'Regenerar diagnóstico'}</>}
+                  </Button>
+                )}
+              </>
+            ) : !canRegenerateDiagnosis ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Stethoscope className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                <p className="text-sm">Diagnóstico não disponível</p>
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* ── Mensagens (DM Instagram e/ou WhatsApp) ── */}
+        {mainTab === 'mensagens' && (
+          <div className="space-y-4">
+            {/* Instagram DM */}
+            {ig?.ai_dm_message && (
               <div className="space-y-2">
-                {ig.ai_dm_message ? (
-                  <>
-                    <p className="text-xs text-muted-foreground">Envie as 2 mensagens em sequência pelo Instagram DM:</p>
-                    {[
-                      { part: 1, message: ig.ai_dm_message },
-                      { part: 2, message: ig.diagnosis_report || '' },
-                    ].filter(m => m.message).map(m => (
-                      <div key={m.part} className="relative">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <span className="text-xs font-semibold text-primary bg-primary/10 rounded-full w-5 h-5 flex items-center justify-center">{m.part}</span>
-                          <span className="text-xs text-muted-foreground">Mensagem {m.part}</span>
-                        </div>
-                        <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">{m.message}</pre>
-                        <Button size="sm" variant="ghost" className="absolute top-6 right-2 h-6 w-6 p-0"
-                          onClick={() => copyText(m.message, `Mensagem ${m.part}`)}><Copy className="w-3 h-3" /></Button>
-                      </div>
-                    ))}
-                  </>
-                ) : (
-                  <p className="text-xs text-muted-foreground text-center py-6">Gere o diagnóstico primeiro</p>
-                )}
+                <p className="text-xs font-semibold text-pink-600 dark:text-pink-400 flex items-center gap-1">
+                  <Instagram className="w-3 h-3" /> Instagram DM — envie as 2 mensagens em sequência
+                </p>
+                {[
+                  { part: 1, message: ig.ai_dm_message },
+                  { part: 2, message: ig.diagnosis_report || '' },
+                ].filter(m => m.message).map(m => (
+                  <div key={m.part} className="relative">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-xs font-semibold text-primary bg-primary/10 rounded-full w-5 h-5 flex items-center justify-center">{m.part}</span>
+                      <span className="text-xs text-muted-foreground">Mensagem {m.part}</span>
+                    </div>
+                    <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">{m.message}</pre>
+                    <Button size="sm" variant="ghost" className="absolute top-6 right-2 h-6 w-6 p-0"
+                      onClick={() => copyText(m.message, `Mensagem ${m.part}`)}><Copy className="w-3 h-3" /></Button>
+                  </div>
+                ))}
               </div>
             )}
 
-            {igSubTab === 'proposta' && ig.ai_proposal_brief && (
-              <div className="relative">
-                <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">{ig.ai_proposal_brief}</pre>
-                <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
-                  onClick={() => copyText(ig.ai_proposal_brief!, 'Proposta')}><Copy className="w-3 h-3" /></Button>
-              </div>
+            {/* Divisor se tem os dois */}
+            {ig?.ai_dm_message && gmbLead?.ai_messages?.length && (
+              <div className="border-t border-border" />
             )}
 
-            {igSubTab === 'criativo' && ig.ai_creative_concept && (
-              <div className="relative">
-                <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">{ig.ai_creative_concept}</pre>
-                <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
-                  onClick={() => copyText(ig.ai_creative_concept!, 'Criativo')}><Copy className="w-3 h-3" /></Button>
+            {/* WhatsApp */}
+            {gmbLead?.ai_messages?.length ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-green-600 dark:text-green-400 flex items-center gap-1">
+                  <MessageCircle className="w-3 h-3" /> WhatsApp — {gmbLead.ai_messages.length} mensagens com intervalo de 3,5s
+                </p>
+                {gmbLead.ai_messages.map(m => (
+                  <div key={m.part} className="relative">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-xs font-semibold text-primary bg-primary/10 rounded-full w-5 h-5 flex items-center justify-center">{m.part}</span>
+                      <span className="text-xs text-muted-foreground">Mensagem {m.part}</span>
+                    </div>
+                    <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">{m.message}</pre>
+                    <Button size="sm" variant="ghost" className="absolute top-6 right-2 h-6 w-6 p-0"
+                      onClick={() => copyText(m.message, `Mensagem ${m.part}`)}><Copy className="w-3 h-3" /></Button>
+                  </div>
+                ))}
               </div>
+            ) : gmbLead && !gmbLead.ai_messages?.length ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <MessageCircle className="w-6 h-6 mx-auto mb-2 opacity-30" />
+                <p className="text-xs mb-2">Nenhuma mensagem WhatsApp gerada ainda</p>
+                <Button size="sm" className="gap-2" onClick={handleAnalyzeGmb} disabled={analyzing}>
+                  {analyzing ? <><Loader2 className="w-3 h-3 animate-spin" />Gerando...</> : <><Sparkles className="w-3 h-3" />Gerar mensagens</>}
+                </Button>
+              </div>
+            ) : null}
+
+            {!ig?.ai_dm_message && !gmbLead && (
+              <p className="text-xs text-muted-foreground text-center py-6">Nenhuma mensagem disponível</p>
             )}
           </div>
         )}
 
-        {/* Aba: Google Maps */}
-        {mainTab === 'gmb' && gmbLead && (
+        {/* ── Proposta ── */}
+        {mainTab === 'proposta' && ig?.ai_proposal_brief && (
           <div className="space-y-2">
-            {/* Sub-tabs */}
-            <div className="flex gap-1 flex-wrap">
-              {gmbSubTabs.map(tab => (
-                <button key={tab.key} onClick={() => setGmbSubTab(tab.key as typeof gmbSubTab)}
-                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${gmbSubTab === tab.key ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
-                  {tab.icon}{tab.label}
-                </button>
-              ))}
+            <div className="relative">
+              <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">{ig.ai_proposal_brief}</pre>
+              <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
+                onClick={() => copyText(ig.ai_proposal_brief!, 'Proposta')}><Copy className="w-3 h-3" /></Button>
             </div>
-
-            {gmbSubTab === 'diagnostico' && (
-              <div className="space-y-2">
-                {gmbLead.ai_diagnosis ? (
-                  <>
-                    {gmbLead.website_issues && (
-                      <div className="flex gap-1.5 flex-wrap">
-                        {(gmbLead.website_issues.critical?.length ?? 0) > 0 && (
-                          <span className="flex items-center gap-1 text-xs bg-red-500/15 text-red-600 rounded-full px-2 py-0.5">
-                            <XCircle className="w-3 h-3" /> {gmbLead.website_issues.critical.length} crítico{gmbLead.website_issues.critical.length > 1 ? 's' : ''}
-                          </span>
-                        )}
-                        {(gmbLead.website_issues.warnings?.length ?? 0) > 0 && (
-                          <span className="flex items-center gap-1 text-xs bg-yellow-500/15 text-yellow-600 rounded-full px-2 py-0.5">
-                            <AlertTriangle className="w-3 h-3" /> {gmbLead.website_issues.warnings.length} alerta{gmbLead.website_issues.warnings.length > 1 ? 's' : ''}
-                          </span>
-                        )}
-                        {(gmbLead.website_issues.positives?.length ?? 0) > 0 && (
-                          <span className="flex items-center gap-1 text-xs bg-green-500/15 text-green-600 rounded-full px-2 py-0.5">
-                            <CheckCircle className="w-3 h-3" /> {gmbLead.website_issues.positives.length} positivo{gmbLead.website_issues.positives.length > 1 ? 's' : ''}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    <div className="relative">
-                      <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">{gmbLead.ai_diagnosis}</pre>
-                      <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
-                        onClick={() => copyText(gmbLead.ai_diagnosis!, 'Diagnóstico')}><Copy className="w-3 h-3" /></Button>
-                    </div>
-                    <Button variant="outline" size="sm" className="w-full gap-2 text-xs" onClick={handleAnalyzeGmb} disabled={analyzing}>
-                      {analyzing ? <><Loader2 className="w-3 h-3 animate-spin" />Gerando...</> : <><Sparkles className="w-3 h-3" />Regenerar</>}
-                    </Button>
-                  </>
-                ) : (
-                  <div className="text-center py-6 text-muted-foreground">
-                    <Sparkles className="w-6 h-6 mx-auto mb-2 opacity-30" />
-                    <p className="text-xs">Clique em "Gerar Diagnóstico" acima</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {gmbSubTab === 'mensagem' && (
-              <div className="space-y-2">
-                {gmbLead.ai_messages?.length ? (
-                  <>
-                    <p className="text-xs text-muted-foreground">Sequência de {gmbLead.ai_messages.length} mensagens com intervalo de 3,5s:</p>
-                    {gmbLead.ai_messages.map(m => (
-                      <div key={m.part} className="relative">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <span className="text-xs font-semibold text-primary bg-primary/10 rounded-full w-5 h-5 flex items-center justify-center">{m.part}</span>
-                          <span className="text-xs text-muted-foreground">Mensagem {m.part}</span>
-                        </div>
-                        <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">{m.message}</pre>
-                        <Button size="sm" variant="ghost" className="absolute top-6 right-2 h-6 w-6 p-0"
-                          onClick={() => copyText(m.message, `Mensagem ${m.part}`)}><Copy className="w-3 h-3" /></Button>
-                      </div>
-                    ))}
-                    <Button variant="outline" size="sm" className="w-full gap-2 text-xs" onClick={handleAnalyzeGmb} disabled={analyzing}>
-                      {analyzing ? <><Loader2 className="w-3 h-3 animate-spin" />Gerando...</> : <><Sparkles className="w-3 h-3" />Regenerar mensagens</>}
-                    </Button>
-                  </>
-                ) : (
-                  <div className="text-center py-6 text-muted-foreground">
-                    <MessageCircle className="w-6 h-6 mx-auto mb-2 opacity-30" />
-                    <p className="text-xs">Gere o diagnóstico para criar as mensagens</p>
-                  </div>
-                )}
-              </div>
+            {ig.ai_creative_concept && (
+              <>
+                <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mt-3">
+                  <Lightbulb className="w-3 h-3" /> Conceito criativo
+                </p>
+                <div className="relative">
+                  <pre className="text-xs bg-secondary/50 rounded-lg p-3 pr-8 whitespace-pre-wrap font-sans leading-relaxed">{ig.ai_creative_concept}</pre>
+                  <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 w-6 p-0"
+                    onClick={() => copyText(ig.ai_creative_concept!, 'Criativo')}><Copy className="w-3 h-3" /></Button>
+                </div>
+              </>
             )}
           </div>
         )}
 
-        {/* Aba: Cadência */}
+        {/* ── Cadência ── */}
         {mainTab === 'cadencia' && (
           <LeadCadencePanel
             instagramProspect={ig || undefined}
@@ -705,29 +667,25 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
         {/* Ações no rodapé */}
         <div className="flex gap-2 pt-2 border-t border-border flex-wrap">
           {ig?.ai_dm_message && (
-            <Button
-              className="gap-1.5 bg-gradient-to-r from-pink-500 to-orange-400 hover:from-pink-600 hover:to-orange-500 text-white border-0 flex-1"
+            <Button className="gap-1.5 bg-gradient-to-r from-pink-500 to-orange-400 hover:from-pink-600 hover:to-orange-500 text-white border-0 flex-1"
               onClick={handleSendDM} disabled={sendingDM}>
               <Instagram className="w-4 h-4" /> Enviar DM
             </Button>
           )}
           {gmbLead?.ai_messages?.length && phone ? (
-            <Button
-              className="gap-1.5 bg-green-600 hover:bg-green-700 text-white border-0 flex-1"
+            <Button className="gap-1.5 bg-green-600 hover:bg-green-700 text-white border-0 flex-1"
               onClick={handleSendWA} disabled={sendingWA}>
               {sendingWA ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
               {sendingWA ? 'Enviando...' : 'Enviar WhatsApp'}
             </Button>
           ) : null}
           {ig && (
-            <Button variant="outline" className="gap-1"
-              onClick={() => window.open(`https://instagram.com/${ig.username}`, '_blank')}>
+            <Button variant="outline" onClick={() => window.open(`https://instagram.com/${ig.username}`, '_blank')}>
               <ExternalLink className="w-4 h-4" />
             </Button>
           )}
           {siteUrl && (
-            <Button variant="outline" className="gap-1"
-              onClick={() => window.open(siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`, '_blank')}>
+            <Button variant="outline" onClick={() => window.open(siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`, '_blank')}>
               <Globe className="w-4 h-4" />
             </Button>
           )}
