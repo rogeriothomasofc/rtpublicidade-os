@@ -43,7 +43,7 @@ function openInstagramDM(username: string) {
 
 interface AddProspectFormProps { onClose: () => void; }
 
-function AddProspectForm({ onClose }: AddProspectFormProps) {
+export function AddProspectForm({ onClose }: AddProspectFormProps) {
   const createProspect = useCreateProspect();
   const [step, setStep] = useState<'idle' | 'fetching' | 'analyzing' | 'needs_bio'>('idle');
   const [username, setUsername] = useState('');
@@ -251,7 +251,7 @@ function DiagnosisBadges({ prospect }: { prospect: InstagramProspect }) {
   );
 }
 
-function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
+export function ProspectCard({ prospect, showSource }: { prospect: InstagramProspect; showSource?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<'diagnostico' | 'mensagens' | 'proposal' | 'creative' | 'cadencia'>('diagnostico');
   const updateProspect = useUpdateProspect();
@@ -330,6 +330,11 @@ function ProspectCard({ prospect }: { prospect: InstagramProspect }) {
 
         {/* Métricas rápidas */}
         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
+          {showSource && (
+            <span className="flex items-center gap-1 bg-pink-500/10 text-pink-600 dark:text-pink-400 rounded-full px-2 py-0.5 font-medium">
+              <Instagram className="w-3 h-3" /> Instagram
+            </span>
+          )}
           {prospect.niche && <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" />{prospect.niche}</span>}
           {prospect.followers_count && <span className="flex items-center gap-1"><Users className="w-3 h-3" />{prospect.followers_count.toLocaleString('pt-BR')}</span>}
           {prospect.google_rating && (
