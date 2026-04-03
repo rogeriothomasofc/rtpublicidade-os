@@ -16,6 +16,17 @@ function normalizeWebsite(url: string | null): string {
     .trim();
 }
 
+// ─── Normalização de nome ─────────────────────────────────────────────────────
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // ─── Cálculo de heat score ────────────────────────────────────────────────────
 function calcHeatScore(ig: InstagramProspect | null, gmb: GmbLead | null): {
   heat_score: number;
@@ -121,6 +132,43 @@ export function useCrossedLeads() {
         instagram_prospect: ig,
         gmb_lead: matchedGmb,
         website: igSite,
+        lead_name: ig.full_name || matchedGmb.nome_empresa,
+        phone: ig.whatsapp || matchedGmb.telefone || matchedGmb.whatsapp_jid,
+        email: ig.email,
+        cadence,
+        ...scores,
+      });
+    }
+  }
+
+  // Second pass: match por nome (para leads sem website em comum)
+  for (const ig of igLeads) {
+    if (usedIg.has(ig.id)) continue;
+    const igName = normalizeName(ig.full_name || ig.username);
+    if (!igName || igName.length < 4) continue;
+
+    const matchedGmb = gmbLeads.find(g => {
+      if (usedGmb.has(g.id)) return false;
+      const gmbName = normalizeName(g.nome_empresa);
+      return (
+        gmbName === igName ||
+        (igName.length >= 5 && gmbName.includes(igName)) ||
+        (gmbName.length >= 5 && igName.includes(gmbName))
+      );
+    });
+
+    if (matchedGmb) {
+      usedGmb.add(matchedGmb.id);
+      usedIg.add(ig.id);
+      const scores = calcHeatScore(ig, matchedGmb);
+      const cadence = cadences.find(
+        c => c.instagram_prospect_id === ig.id || c.gmb_lead_id === matchedGmb.id
+      );
+      crossed.push({
+        id: `${ig.id}_${matchedGmb.id}`,
+        instagram_prospect: ig,
+        gmb_lead: matchedGmb,
+        website: normalizeWebsite(ig.website || matchedGmb.website),
         lead_name: ig.full_name || matchedGmb.nome_empresa,
         phone: ig.whatsapp || matchedGmb.telefone || matchedGmb.whatsapp_jid,
         email: ig.email,
