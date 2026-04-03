@@ -65,7 +65,7 @@ serve(async (req) => {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-    const { lead } = await req.json() as {
+    const { lead, instagram } = await req.json() as {
       lead: {
         id: string;
         nome_empresa: string;
@@ -76,6 +76,12 @@ serve(async (req) => {
         especialidades: string | null;
         telefone: string | null;
       };
+      instagram?: {
+        username: string | null;
+        bio: string | null;
+        followers_count: number | null;
+        niche: string | null;
+      } | null;
     };
 
     if (!lead?.nome_empresa) return new Response(JSON.stringify({ error: "lead is required" }), {
@@ -96,6 +102,7 @@ Google Meu Negócio:
   - Avaliação: ${lead.rating ? `${lead.rating}/5` : 'não encontrado'}
   - Número de avaliações: ${lead.reviews?.toLocaleString('pt-BR') ?? 'não encontrado'}
 Site: ${lead.website ?? 'não possui'}
+📱 Instagram: ${instagram?.username ? `@${instagram.username}${instagram.followers_count ? ` | ${instagram.followers_count.toLocaleString('pt-BR')} seguidores` : ''}${instagram.niche ? ` | Nicho: ${instagram.niche}` : ''}${instagram.bio ? ` | Bio: ${instagram.bio}` : ''}` : 'não identificado'}
 
 ${websiteSnippet ? `Dados coletados do site:\n${websiteSnippet}` : 'Site não disponível para análise.'}
 `.trim();

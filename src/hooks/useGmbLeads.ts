@@ -40,8 +40,11 @@ export interface GmbAnalyzeResult {
   messages: Array<{ part: number; message: string }>;
 }
 
-export async function analyzeGmbLead(lead: Pick<GmbLead, 'id' | 'nome_empresa' | 'endereco' | 'website' | 'rating' | 'reviews' | 'especialidades' | 'telefone'>): Promise<GmbAnalyzeResult> {
-  const res = await supabase.functions.invoke('analyze-gmb-lead', { body: { lead } });
+export async function analyzeGmbLead(
+  lead: Pick<GmbLead, 'id' | 'nome_empresa' | 'endereco' | 'website' | 'rating' | 'reviews' | 'especialidades' | 'telefone'>,
+  instagram?: { username: string | null; bio: string | null; followers_count: number | null; niche: string | null } | null
+): Promise<GmbAnalyzeResult> {
+  const res = await supabase.functions.invoke('analyze-gmb-lead', { body: { lead, instagram: instagram ?? null } });
   if (res.error) throw res.error;
   return res.data as GmbAnalyzeResult;
 }

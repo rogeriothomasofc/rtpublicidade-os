@@ -260,7 +260,8 @@ function LeadDetailModal({ lead, onClose }: { lead: CrossedLead; onClose: () => 
     if (!gmbLead) return;
     setAnalyzing(true);
     try {
-      const result = await analyzeGmbLead(gmbLead);
+      const igData = ig ? { username: ig.username, bio: ig.bio, followers_count: ig.followers_count, niche: ig.niche } : null;
+      const result = await analyzeGmbLead(gmbLead, igData);
       const updated = { ...gmbLead, ai_diagnosis: result.diagnosis, ai_messages: result.messages, website_issues: result.website_issues };
       setGmbLead(updated);
       updateGmb.mutate({ id: gmbLead.id, ai_diagnosis: result.diagnosis, ai_messages: result.messages, website_issues: result.website_issues });
