@@ -370,8 +370,10 @@ export function UnifiedLeads() {
   useAutoAnalyzeGmbLeads(leads);
 
   const filtered = (leads || []).filter(l => {
-    // Ocultar leads que já foram movidos para o Pipeline (já foram prospectados)
+    // Ocultar leads que já foram movidos para o Pipeline ou que já receberam mensagem
     if (l.instagram_prospect?.pipeline_lead_id || l.gmb_lead?.pipeline_lead_id) return false;
+    if (l.instagram_prospect && l.instagram_prospect.status !== 'Identificado') return false;
+    if (l.gmb_lead && l.gmb_lead.status !== 'Novo') return false;
     if (sourceFilter === 'Instagram' && !l.instagram_prospect) return false;
     if (sourceFilter === 'Google Maps' && !l.gmb_lead) return false;
     if (sourceFilter === 'Unificado' && !(l.instagram_prospect && l.gmb_lead)) return false;
