@@ -789,6 +789,8 @@ export function UnifiedLeads() {
   useAutoAnalyzeGmbLeads(leads);
 
   const filtered = (leads || []).filter(l => {
+    // Ocultar leads que já foram movidos para o Pipeline (já foram prospectados)
+    if (l.instagram_prospect?.pipeline_lead_id || l.gmb_lead?.pipeline_lead_id) return false;
     if (sourceFilter === 'Instagram' && !l.instagram_prospect) return false;
     if (sourceFilter === 'Google Maps' && !l.gmb_lead) return false;
     if (sourceFilter === 'Unificado' && !(l.instagram_prospect && l.gmb_lead)) return false;
