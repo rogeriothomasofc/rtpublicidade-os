@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PipelineBoard } from '@/components/pipeline/PipelineBoard';
 import { UnifiedLeads } from '@/components/pipeline/UnifiedLeads';
@@ -9,6 +10,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { TrendingUp, Users, LayoutDashboard } from 'lucide-react';
 
 export default function PipelinePage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'dashboard';
   const { data: leads, isLoading } = useSalesPipeline();
 
   if (isLoading) {
@@ -32,7 +35,7 @@ export default function PipelinePage() {
     <MainLayout>
       <div className="space-y-4 animate-fade-in">
         <CadenceReminders />
-        <Tabs defaultValue="dashboard">
+        <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })}>
           <TabsList className="h-9">
             <TabsTrigger value="dashboard" className="gap-1.5 text-sm">
               <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard

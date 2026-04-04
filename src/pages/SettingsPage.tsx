@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plug, User, Building2, Target, Megaphone } from 'lucide-react';
@@ -8,10 +9,12 @@ import { MonthlyGoalsTab } from '@/components/settings/MonthlyGoalsTab';
 import { AnnouncementsTab } from '@/components/settings/AnnouncementsTab';
 
 export default function SettingsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'integrations';
   return (
     <MainLayout>
       <div className="space-y-6">
-        <Tabs defaultValue="integrations" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })} className="space-y-6">
           <div className="overflow-x-auto pb-1">
             <TabsList className="h-auto gap-1 justify-start flex-nowrap min-w-max">
               <TabsTrigger value="integrations" className="gap-1.5 shrink-0">
