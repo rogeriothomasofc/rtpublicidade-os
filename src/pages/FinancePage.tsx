@@ -58,7 +58,12 @@ const recurrenceLabels: Record<FinanceRecurrence, string> = {
 
 export default function FinancePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'movimentacoes';
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'movimentacoes');
+
+  const handleTabChange = (v: string) => {
+    setActiveTab(v);
+    setSearchParams({ tab: v }, { replace: true });
+  };
   const { data: finance, isLoading } = useFinance();
   const { data: clients } = useClients();
   const { data: banks } = useBanks();
@@ -281,7 +286,7 @@ export default function FinancePage() {
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })} className="space-y-4">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
           <TabsList className="bg-secondary/50">
             <TabsTrigger value="movimentacoes" className="gap-2">
               <LayoutList className="h-4 w-4" />

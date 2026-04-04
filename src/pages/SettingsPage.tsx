@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,11 +11,16 @@ import { AnnouncementsTab } from '@/components/settings/AnnouncementsTab';
 
 export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'integrations';
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'integrations');
+
+  const handleTabChange = (v: string) => {
+    setActiveTab(v);
+    setSearchParams({ tab: v }, { replace: true });
+  };
   return (
     <MainLayout>
       <div className="space-y-6">
-        <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })} className="space-y-6">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <div className="overflow-x-auto pb-1">
             <TabsList className="h-auto gap-1 justify-start flex-nowrap min-w-max">
               <TabsTrigger value="integrations" className="gap-1.5 shrink-0">

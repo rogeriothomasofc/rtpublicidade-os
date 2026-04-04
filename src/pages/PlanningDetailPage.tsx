@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -17,7 +18,12 @@ export default function PlanningDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'overview';
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
+
+  const handleTabChange = (v: string) => {
+    setActiveTab(v);
+    setSearchParams({ tab: v }, { replace: true });
+  };
   const { data: campaign, isLoading } = usePlanningCampaign(id!);
 
   if (isLoading) {
@@ -55,7 +61,7 @@ export default function PlanningDetailPage() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="w-full justify-start flex-wrap h-auto gap-1 bg-transparent p-0 border-b rounded-none">
             <TabsTrigger value="overview" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">📌 Overview</TabsTrigger>
             <TabsTrigger value="structures" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">🎯 Estrutura</TabsTrigger>
