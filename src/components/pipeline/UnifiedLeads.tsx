@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Search, Plus, Loader2, Users, Building2, Star, Phone, Globe, Trash2,
   Sparkles, Copy, MessageCircle, ExternalLink, AlertTriangle, XCircle,
-  CheckCircle, Stethoscope, Kanban, MapPin, ChevronRight,
+  CheckCircle, Stethoscope, Kanban, MapPin, ChevronRight, TrendingUp,
   Instagram, Briefcase, FileText, Lightbulb, Flame, Bell, BellOff, CalendarClock,
 } from 'lucide-react';
 import { toast } from 'sonner';
