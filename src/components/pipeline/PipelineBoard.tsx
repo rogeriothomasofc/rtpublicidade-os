@@ -3,7 +3,9 @@ import { SalesPipeline, PipelineStage } from '@/types/database';
 import { PipelineColumn } from './PipelineColumn';
 
 import { LeadProfileDialog } from './LeadProfileDialog';
+import { LeadDetailModal } from './LeadDetailModal';
 import { useUpdateLead } from '@/hooks/useSalesPipeline';
+import { useCrossedLeads, type CrossedLead } from '@/hooks/useCrossedLeads';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCreateClient, createOnboardingParentTask, ONBOARDING_SUBTASKS } from '@/hooks/useClients';
@@ -38,8 +40,22 @@ export function PipelineBoard({ leads }: PipelineBoardProps) {
   const createSubtasks = useCreateManySubtasks();
   const createContract = useCreateContract();
   const createFinance = useCreateFinance();
+  const { data: crossedLeads } = useCrossedLeads();
   const [profileLead, setProfileLead] = useState<SalesPipeline | null>(null);
+  const [crossedProfileLead, setCrossedProfileLead] = useState<CrossedLead | null>(null);
   const [lossReasonDialog, setLossReasonDialog] = useState<{ leadId: string; leadName: string } | null>(null);
+
+  const handleOpenProfile = (lead: SalesPipeline) => {
+    const crossed = (crossedLeads || []).find(cl =>
+      cl.instagram_prospect?.pipeline_lead_id === lead.id ||
+      cl.gmb_lead?.pipeline_lead_id === lead.id
+    );
+    if (crossed) {
+      setCrossedProfileLead(crossed);
+    } else {
+      setProfileLead(lead);
+    }
+  };
   const [lossReason, setLossReason] = useState('');
 
   const handleMoveLead = async (leadId: string, newStage: PipelineStage) => {
@@ -166,7 +182,7 @@ export function PipelineBoard({ leads }: PipelineBoardProps) {
               leads={leads.filter((lead) => lead.stage === stage.name)}
               totalValue={calculateStageValue(stage.name)}
               onMoveLead={handleMoveLead}
-              onOpenProfile={(lead) => setProfileLead(lead)}
+              onOpenProfile={handleOpenProfile}
             />
           </div>
         ))}
@@ -199,12 +215,20 @@ export function PipelineBoard({ leads }: PipelineBoardProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Lead Profile Dialog */}
+      {/* Lead Profile Dialog — para leads manuais sem match no Instagram/GMB */}
       <LeadProfileDialog
         lead={profileLead}
         open={!!profileLead}
         onOpenChange={(open) => !open && setProfileLead(null)}
       />
+
+      {/* Lead Detail Modal — igual à aba Leads, para leads vindos do Instagram/GMB */}
+      {crossedProfileLead && (
+        <LeadDetailModal
+          lead={crossedProfileLead}
+          onClose={() => setCrossedProfileLead(null)}
+        />
+      )}
     </div>
   );
 }
