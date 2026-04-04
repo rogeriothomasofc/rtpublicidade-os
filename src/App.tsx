@@ -1,9 +1,9 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { PWAProvider, PWAInstallPrompt, OfflineBanner } from "@/components/pwa";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -34,6 +34,31 @@ const CampaignDetailPage = lazy(() => import("./pages/CampaignDetailPage"));
 
 const queryClient = new QueryClient();
 
+// Salva o caminho atual no sessionStorage para restaurar após recarga PWA
+function LastPathTracker() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Restaura o último caminho ao montar (só se o app iniciou em "/")
+  useEffect(() => {
+    const saved = sessionStorage.getItem('lastPath');
+    if (saved && saved !== '/' && window.location.pathname === '/') {
+      navigate(saved, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Salva o caminho atual a cada navegação (limpa ao ir para "/")
+  useEffect(() => {
+    if (location.pathname === '/') {
+      sessionStorage.removeItem('lastPath');
+    } else {
+      sessionStorage.setItem('lastPath', location.pathname + location.search);
+    }
+  }, [location.pathname, location.search]);
+
+  return null;
+}
+
 // Page-level error boundary wrapper
 const P = ({ children }: { children: React.ReactNode }) => (
   <PageErrorBoundary>{children}</PageErrorBoundary>
@@ -59,6 +84,7 @@ const App = () => (
           <OfflineBanner />
           <PWAInstallPrompt />
           <BrowserRouter>
+          <LastPathTracker />
           <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
             <Routes>
               <Route path="/auth" element={<AuthPage />} />
