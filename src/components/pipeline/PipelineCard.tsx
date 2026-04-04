@@ -1,35 +1,27 @@
 import { SalesPipeline } from '@/types/database';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Building2, DollarSign, Camera, MapPin, MessageCircle, Phone, Users, ChevronRight, Percent } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { useUpdateLead } from '@/hooks/useSalesPipeline';
 
+const STAGE_COLORS: Record<string, string> = {
+  'Novo':              'bg-blue-500',
+  'Qualificação':      'bg-purple-500',
+  'Diagnóstico':       'bg-orange-500',
+  'Reunião Agendada':  'bg-yellow-500',
+  'Proposta':          'bg-indigo-500',
+  'Proposta Enviada':  'bg-indigo-500',
+  'Negociação':        'bg-amber-500',
+  'Contatado':         'bg-cyan-500',
+  'Ganho':             'bg-green-500',
+  'Perdido':           'bg-red-500',
+};
+
 interface PipelineCardProps {
   lead: SalesPipeline;
   onOpenProfile?: (lead: SalesPipeline) => void;
-}
-
-function SourceAvatar({ source }: { source: SalesPipeline['source'] }) {
-  if (source === 'instagram') {
-    return (
-      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-orange-400 flex items-center justify-center flex-shrink-0">
-        <Camera className="w-4 h-4 text-white" />
-      </div>
-    );
-  }
-  if (source === 'gmb') {
-    return (
-      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-green-500 flex items-center justify-center flex-shrink-0">
-        <MapPin className="w-4 h-4 text-white" />
-      </div>
-    );
-  }
-  return (
-    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/70 to-primary flex items-center justify-center flex-shrink-0">
-      <Users className="w-4 h-4 text-white" />
-    </div>
-  );
 }
 
 export function PipelineCard({ lead, onOpenProfile }: PipelineCardProps) {
@@ -37,10 +29,6 @@ export function PipelineCard({ lead, onOpenProfile }: PipelineCardProps) {
 
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('leadId', lead.id);
-  };
-
-  const handleClick = () => {
-    onOpenProfile?.(lead);
   };
 
   const toggleResponded = (e: React.MouseEvent) => {
@@ -52,14 +40,26 @@ export function PipelineCard({ lead, onOpenProfile }: PipelineCardProps) {
     <Card
       draggable
       onDragStart={handleDragStart}
-      onClick={handleClick}
+      onClick={() => onOpenProfile?.(lead)}
       className="border border-border/60 hover:border-primary/40 transition-colors cursor-grab active:cursor-grabbing"
     >
       <CardHeader className="pb-2 pt-3 px-4">
         <div className="flex items-start justify-between gap-2">
           {/* Avatar + nome */}
           <div className="flex items-center gap-2 min-w-0">
-            <SourceAvatar source={lead.source} />
+            {lead.source === 'instagram' ? (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-orange-400 flex items-center justify-center flex-shrink-0">
+                <Camera className="w-4 h-4 text-white" />
+              </div>
+            ) : lead.source === 'gmb' ? (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-green-500 flex items-center justify-center flex-shrink-0">
+                <MapPin className="w-4 h-4 text-white" />
+              </div>
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/70 to-primary flex items-center justify-center flex-shrink-0">
+                <Users className="w-4 h-4 text-white" />
+              </div>
+            )}
             <div className="min-w-0">
               <p className="font-semibold text-sm truncate">{lead.lead_name}</p>
               {lead.company && lead.company !== lead.lead_name && (
@@ -70,18 +70,23 @@ export function PipelineCard({ lead, onOpenProfile }: PipelineCardProps) {
             </div>
           </div>
 
-          {/* Botão respondeu */}
-          <button
-            onClick={toggleResponded}
-            title={lead.responded ? 'Lead respondeu' : 'Marcar como respondeu'}
-            className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
-              lead.responded
-                ? 'bg-green-500 text-white'
-                : 'bg-muted text-muted-foreground hover:bg-green-100 hover:text-green-600'
-            }`}
-          >
-            <MessageCircle className="w-3.5 h-3.5" />
-          </button>
+          {/* Stage badge + respondeu */}
+          <div className="flex flex-col gap-1 items-end flex-shrink-0">
+            <Badge className={`${STAGE_COLORS[lead.stage] ?? 'bg-gray-500'} text-white text-xs px-1.5 py-0`}>
+              {lead.stage}
+            </Badge>
+            <button
+              onClick={toggleResponded}
+              title={lead.responded ? 'Lead respondeu' : 'Marcar como respondeu'}
+              className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
+                lead.responded
+                  ? 'bg-green-500 text-white'
+                  : 'bg-muted text-muted-foreground hover:bg-green-100 hover:text-green-600'
+              }`}
+            >
+              <MessageCircle className="w-3 h-3" />
+            </button>
+          </div>
         </div>
 
         {/* Badge de fonte */}
@@ -100,11 +105,6 @@ export function PipelineCard({ lead, onOpenProfile }: PipelineCardProps) {
             <span className="flex items-center gap-1 bg-primary/10 text-primary rounded-full px-2 py-0.5 font-medium">
               <Users className="w-3 h-3" /> Manual
             </span>
-          )}
-          {lead.responded && (
-            <Badge className="bg-green-500/15 text-green-600 dark:text-green-400 border-0 text-xs px-1.5 py-0">
-              Respondeu
-            </Badge>
           )}
         </div>
 
@@ -125,9 +125,9 @@ export function PipelineCard({ lead, onOpenProfile }: PipelineCardProps) {
       </CardHeader>
 
       <CardContent className="px-4 pb-3">
-        <div className="flex items-center justify-center w-full h-7 text-xs gap-1 text-muted-foreground border border-border/40 rounded-md">
-          <ChevronRight className="w-3 h-3" /> Ver perfil
-        </div>
+        <Button variant="outline" size="sm" className="w-full h-7 text-xs gap-1 text-muted-foreground pointer-events-none">
+          <ChevronRight className="w-3 h-3" /> Ver detalhes
+        </Button>
       </CardContent>
     </Card>
   );
