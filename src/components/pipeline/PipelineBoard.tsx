@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { SalesPipeline, PipelineStage } from '@/types/database';
-import { PipelineColumn } from './PipelineColumn';
-
+import { PipelineColumn, type PipelineCrossedLead } from './PipelineColumn';
 import { LeadDetailModal } from './LeadDetailModal';
 import { useUpdateLead } from '@/hooks/useSalesPipeline';
 import { useCrossedLeads, type CrossedLead } from '@/hooks/useCrossedLeads';
@@ -25,6 +24,29 @@ interface PipelineBoardProps {
   leads: SalesPipeline[];
 }
 
+function toPipelineLead(lead: SalesPipeline, crossedLeads: CrossedLead[]): PipelineCrossedLead {
+  const crossed = crossedLeads.find(cl =>
+    cl.instagram_prospect?.pipeline_lead_id === lead.id ||
+    cl.gmb_lead?.pipeline_lead_id === lead.id
+  );
+  if (crossed) {
+    return { ...crossed, pipeline_id: lead.id };
+  }
+  return {
+    id: `pipeline_${lead.id}`,
+    instagram_prospect: null,
+    gmb_lead: null,
+    website: '',
+    lead_name: lead.lead_name,
+    phone: lead.phone || null,
+    email: lead.email || null,
+    heat_score: 50,
+    instagram_score: 0,
+    gmb_score: 0,
+    pipeline_id: lead.id,
+  };
+}
+
 export function PipelineBoard({ leads }: PipelineBoardProps) {
   const { data: stages, isLoading: stagesLoading } = usePipelineStages();
   const updateLead = useUpdateLead();
@@ -33,39 +55,20 @@ export function PipelineBoard({ leads }: PipelineBoardProps) {
   const createSubtasks = useCreateManySubtasks();
   const createContract = useCreateContract();
   const createFinance = useCreateFinance();
-  const { data: crossedLeads } = useCrossedLeads();
-  const [crossedProfileLead, setCrossedProfileLead] = useState<CrossedLead | null>(null);
-  const [lossReasonDialog, setLossReasonDialog] = useState<{ leadId: string; leadName: string } | null>(null);
+  const { data: crossedLeads = [] } = useCrossedLeads();
 
-  const handleOpenProfile = (lead: SalesPipeline) => {
-    const crossed = (crossedLeads || []).find(cl =>
-      cl.instagram_prospect?.pipeline_lead_id === lead.id ||
-      cl.gmb_lead?.pipeline_lead_id === lead.id
-    );
-    if (crossed) {
-      setCrossedProfileLead(crossed);
-    } else {
-      setCrossedProfileLead({
-        id: `pipeline_${lead.id}`,
-        instagram_prospect: null,
-        gmb_lead: null,
-        website: '',
-        lead_name: lead.lead_name,
-        phone: lead.phone || null,
-        email: lead.email || null,
-        heat_score: 50,
-        instagram_score: 0,
-        gmb_score: 0,
-      });
-    }
-  };
+  const [profileLead, setProfileLead] = useState<CrossedLead | null>(null);
+  const [lossReasonDialog, setLossReasonDialog] = useState<{ leadId: string; leadName: string } | null>(null);
   const [lossReason, setLossReason] = useState('');
+
+  const handleOpenProfile = (lead: PipelineCrossedLead) => {
+    setProfileLead(lead);
+  };
 
   const handleMoveLead = async (leadId: string, newStage: PipelineStage) => {
     const lead = leads.find((l) => l.id === leadId);
     if (!lead) return;
 
-    // If moving to Perdido, ask for loss reason
     if (newStage === 'Perdido') {
       setLossReasonDialog({ leadId, leadName: lead.lead_name });
       setLossReason('');
@@ -87,10 +90,8 @@ export function PipelineBoard({ leads }: PipelineBoardProps) {
   };
 
   const executeMoveLead = async (leadId: string, newStage: PipelineStage, lead: SalesPipeline) => {
-    // Update lead stage
     await updateLead.mutateAsync({ id: leadId, stage: newStage });
 
-    // If moved to Won, create client, contract and onboarding tasks
     if (newStage === 'Ganho') {
       try {
         const newClient = await createClient.mutateAsync({
@@ -103,7 +104,6 @@ export function PipelineBoard({ leads }: PipelineBoardProps) {
           start_date: new Date().toISOString().split('T')[0],
         });
 
-        // Create contract linked to client
         await createContract.mutateAsync({
           client_id: newClient.id,
           value: lead.deal_value,
@@ -113,7 +113,6 @@ export function PipelineBoard({ leads }: PipelineBoardProps) {
           description: `Contrato - ${lead.company || lead.lead_name}`,
         });
 
-        // Create finance record (monthly recurring income)
         const dueDate = addDays(new Date(), 30);
         await createFinance.mutateAsync({
           client_id: newClient.id,
@@ -127,15 +126,10 @@ export function PipelineBoard({ leads }: PipelineBoardProps) {
           cost_center: null,
         });
 
-        // Create onboarding parent task with subtasks
         const parentTask = createOnboardingParentTask(newClient.id, newClient.name);
         const createdTask = await createTask.mutateAsync(parentTask);
-        await createSubtasks.mutateAsync({ 
-          taskId: createdTask.id, 
-          titles: ONBOARDING_SUBTASKS 
-        });
+        await createSubtasks.mutateAsync({ taskId: createdTask.id, titles: ONBOARDING_SUBTASKS });
 
-        // Create notification for Won lead
         await supabase.from('notifications').insert({
           type: 'task_due_soon' as const,
           title: '🏆 Lead ganho!',
@@ -157,7 +151,6 @@ export function PipelineBoard({ leads }: PipelineBoardProps) {
       .reduce((sum, l) => sum + Number(l.deal_value), 0);
   };
 
-
   if (stagesLoading) {
     return (
       <div className="flex gap-4 overflow-x-auto pb-4">
@@ -173,7 +166,6 @@ export function PipelineBoard({ leads }: PipelineBoardProps) {
 
   return (
     <div className="space-y-4">
-      {/* Pipeline Columns */}
       <div className="flex gap-4 overflow-x-auto pb-4">
         {stages?.map((stage) => (
           <div key={stage.id}>
@@ -182,7 +174,9 @@ export function PipelineBoard({ leads }: PipelineBoardProps) {
               stage={stage.name as PipelineStage}
               probability={stage.probability}
               description={stage.description}
-              leads={leads.filter((lead) => lead.stage === stage.name)}
+              leads={leads
+                .filter((lead) => lead.stage === stage.name)
+                .map((lead) => toPipelineLead(lead, crossedLeads))}
               totalValue={calculateStageValue(stage.name)}
               onMoveLead={handleMoveLead}
               onOpenProfile={handleOpenProfile}
@@ -191,7 +185,7 @@ export function PipelineBoard({ leads }: PipelineBoardProps) {
         ))}
       </div>
 
-      {/* Loss Reason Dialog */}
+      {/* Diálogo de motivo de perda */}
       <Dialog open={!!lossReasonDialog} onOpenChange={(open) => !open && setLossReasonDialog(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -218,10 +212,10 @@ export function PipelineBoard({ leads }: PipelineBoardProps) {
         </DialogContent>
       </Dialog>
 
-      {crossedProfileLead && (
+      {profileLead && (
         <LeadDetailModal
-          lead={crossedProfileLead}
-          onClose={() => setCrossedProfileLead(null)}
+          lead={profileLead}
+          onClose={() => setProfileLead(null)}
         />
       )}
     </div>

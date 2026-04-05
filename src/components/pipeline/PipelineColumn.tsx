@@ -1,18 +1,21 @@
-import { SalesPipeline, PipelineStage } from '@/types/database';
-import { PipelineCard } from './PipelineCard';
+import { type PipelineStage } from '@/types/database';
+import { type CrossedLead } from '@/hooks/useCrossedLeads';
+import { LeadCard } from './LeadCard';
 import { formatCurrency } from '@/lib/utils';
 import { Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+
+export type PipelineCrossedLead = CrossedLead & { pipeline_id: string };
 
 interface PipelineColumnProps {
   title: string;
   stage: PipelineStage;
   probability: number;
   description?: string | null;
-  leads: SalesPipeline[];
+  leads: PipelineCrossedLead[];
   totalValue: number;
   onMoveLead: (leadId: string, newStage: PipelineStage) => void;
-  onOpenProfile?: (lead: SalesPipeline) => void;
+  onOpenProfile?: (lead: PipelineCrossedLead) => void;
 }
 
 const stageColors: Record<string, string> = {
@@ -67,7 +70,13 @@ export function PipelineColumn({ title, stage, probability, description, leads, 
       </div>
       <div className="space-y-2">
         {leads.map((lead) => (
-          <PipelineCard key={lead.id} lead={lead} onOpenProfile={onOpenProfile} />
+          <LeadCard
+            key={lead.pipeline_id}
+            lead={lead}
+            draggable
+            onDragStart={(e) => e.dataTransfer.setData('leadId', lead.pipeline_id)}
+            onClick={() => onOpenProfile?.(lead)}
+          />
         ))}
       </div>
     </div>
