@@ -18,13 +18,6 @@ interface ProfileData {
   avatar_url: string | null;
 }
 
-interface WebsiteAudit {
-  critical: string[];
-  warnings: string[];
-  positives: string[];
-  score: number;
-}
-
 interface GoogleData {
   rating: number | null;
   reviews_count: number | null;
@@ -34,7 +27,6 @@ interface GoogleData {
 
 // ─── Instagram fetch (4 métodos) ────────────────────────────────────────────
 
-// Método 1: Instagram Business Discovery API (oficial, usa token da agência)
 async function fetchViaBusinessDiscovery(
   username: string,
   accessToken: string,
@@ -75,6 +67,7 @@ async function fetchViaWebApi(username: string): Promise<ProfileData | null> {
           "Accept-Language": "pt-BR,pt;q=0.9",
           "Referer": "https://www.instagram.com/",
         },
+        signal: AbortSignal.timeout(8000),
       }
     );
     if (!res.ok) return null;
@@ -105,6 +98,7 @@ async function fetchViaMobileApi(username: string): Promise<ProfileData | null> 
           "User-Agent": "Instagram 275.0.0.27.98 Android (29/10; 420dpi; 1080x2134; samsung; SM-G973F; beyond1; exynos9820; pt_BR; 458517901)",
           "Accept-Language": "pt-BR",
         },
+        signal: AbortSignal.timeout(8000),
       }
     );
     if (!res.ok) return null;
@@ -133,6 +127,7 @@ async function fetchViaHtml(username: string): Promise<ProfileData | null> {
         "Accept": "text/html,application/xhtml+xml",
         "Accept-Language": "pt-BR,pt;q=0.9",
       },
+      signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return null;
     const html = await res.text();
@@ -167,9 +162,9 @@ async function fetchInstagramProfile(
   return { profile, fetched: profile !== null };
 }
 
-// ─── Análise de site ─────────────────────────────────────────────────────────
+// ─── Análise de site (só fetch HTML, sem chamada Anthropic) ──────────────────
 
-async function fetchWebsiteHtml(url: string): Promise<string | null> {
+async function fetchWebsiteSnippet(url: string): Promise<string | null> {
   try {
     const normalized = url.startsWith('http') ? url : `https://${url}`;
     const res = await fetch(normalized, {
@@ -181,30 +176,19 @@ async function fetchWebsiteHtml(url: string): Promise<string | null> {
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return null;
-    const html = await res.text();
-    // Limitar a 40KB para não estourar o contexto
-    return html.slice(0, 40000);
-  } catch { return null; }
-}
+    const html = (await res.text()).slice(0, 40000);
 
-async function analyzeWebsite(url: string, apiKey: string): Promise<WebsiteAudit | null> {
-  const html = await fetchWebsiteHtml(url);
-  if (!html) return null;
+    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    const metaDesc = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i);
+    const metaDesc2 = html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*name=["']description["']/i);
+    const hasLoremIpsum = /lorem\s+ipsum/i.test(html);
+    const hasPhone = /\(?\d{2}\)?\s?\d{4,5}[-\s]?\d{4}/.test(html);
+    const hasWhatsApp = /whatsapp|wa\.me/i.test(html);
+    const hasForm = /<form/i.test(html);
+    const hasSchema = /application\/ld\+json/i.test(html);
+    const hasViewport = /name=["']viewport["']/i.test(html);
 
-  // Extrair só as partes relevantes do HTML para análise
-  const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
-  const metaDesc = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i);
-  const metaDesc2 = html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*name=["']description["']/i);
-  const hasLoremIpsum = /lorem\s+ipsum/i.test(html);
-  const hasPhone = /\(?\d{2}\)?\s?\d{4,5}[-\s]?\d{4}/.test(html);
-  const hasWhatsApp = /whatsapp|wa\.me/i.test(html);
-  const hasForm = /<form/i.test(html);
-  const hasSchema = /application\/ld\+json/i.test(html);
-  const hasViewport = /name=["']viewport["']/i.test(html);
-
-  // Snippet limpo para a IA analisar
-  const snippet = `
-URL: ${url}
+    return `URL: ${url}
 Title tag: ${titleMatch ? titleMatch[1] : 'AUSENTE'}
 Meta description: ${metaDesc ? metaDesc[1] : metaDesc2 ? metaDesc2[1] : 'AUSENTE'}
 Lorem ipsum detectado: ${hasLoremIpsum ? 'SIM ⚠️' : 'não'}
@@ -215,37 +199,7 @@ Schema.org (SEO estruturado): ${hasSchema ? 'sim' : 'não'}
 Viewport (mobile): ${hasViewport ? 'ok' : 'AUSENTE ⚠️'}
 
 --- TRECHO DO HTML (primeiros 8KB) ---
-${html.slice(0, 8000)}
-  `.trim();
-
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1000,
-        system: "Você é um especialista em auditoria de sites e marketing digital. Analise o site fornecido e identifique problemas críticos, alertas e pontos positivos. Responda SOMENTE com JSON válido.",
-        messages: [{
-          role: "user",
-          content: `Analise este site e retorne um JSON com problemas encontrados:\n\n${snippet}\n\nRetorne SOMENTE este JSON:\n{\n  "critical": ["problema crítico 1", "problema crítico 2"],\n  "warnings": ["alerta 1", "alerta 2"],\n  "positives": ["ponto positivo 1"],\n  "score": 45\n}\n\nOnde score é de 0-100 (presença digital geral). critical = problemas graves que prejudicam vendas. warnings = melhorias importantes. positives = o que está bem.`,
-        }],
-      }),
-    });
-
-    if (!res.ok) return null;
-    const data = await res.json();
-    const raw = data.content?.[0]?.text ?? "{}";
-    try {
-      return JSON.parse(raw) as WebsiteAudit;
-    } catch {
-      const match = raw.match(/\{[\s\S]*\}/);
-      return match ? JSON.parse(match[0]) : null;
-    }
+${html.slice(0, 8000)}`;
   } catch { return null; }
 }
 
@@ -255,7 +209,7 @@ async function fetchGoogleBusiness(query: string, apiKey: string): Promise<Googl
   if (!apiKey) return null;
   try {
     const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&language=pt-BR&key=${apiKey}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) return null;
     const json = await res.json();
     const place = json?.results?.[0];
@@ -341,15 +295,15 @@ serve(async (req) => {
     // Usar website da bio ou o informado manualmente
     const websiteToAudit = website_url || profile.website;
 
-    // 2. Análise do site + Google em paralelo
-    const [websiteAudit, googleData] = await Promise.all([
-      websiteToAudit ? analyzeWebsite(websiteToAudit, ANTHROPIC_API_KEY) : Promise.resolve(null),
+    // 2. Buscar HTML do site + Google em paralelo (sem chamada Anthropic aqui)
+    const [websiteSnippet, googleData] = await Promise.all([
+      websiteToAudit ? fetchWebsiteSnippet(websiteToAudit) : Promise.resolve(null),
       profile.full_name
         ? fetchGoogleBusiness(`${profile.full_name}`, GOOGLE_API_KEY)
         : Promise.resolve(null),
     ]);
 
-    // 3. Montar contexto completo para o diagnóstico final
+    // 3. Montar contexto completo para a IA analisar tudo de uma vez
     const instagramSection = `
 📱 INSTAGRAM: @${username}
 • Nome: ${profile.full_name || "não identificado"}
@@ -361,23 +315,17 @@ serve(async (req) => {
 • Conta comercial: ${profile.is_business ? "sim" : "não"}
     `.trim();
 
-    const websiteSection = websiteAudit ? `
-🌐 SITE: ${websiteToAudit}
-• Score de presença digital: ${websiteAudit.score}/100
-• Problemas CRÍTICOS: ${websiteAudit.critical.length > 0 ? websiteAudit.critical.join(' | ') : 'nenhum'}
-• Alertas: ${websiteAudit.warnings.length > 0 ? websiteAudit.warnings.join(' | ') : 'nenhum'}
-• Pontos positivos: ${websiteAudit.positives.length > 0 ? websiteAudit.positives.join(' | ') : 'nenhum'}
-    `.trim() : '🌐 SITE: não analisado';
+    const websiteSection = websiteSnippet
+      ? `\n\n🌐 SITE: ${websiteToAudit}\n${websiteSnippet}`
+      : "\n\n🌐 SITE: não disponível para análise";
 
-    const googleSection = googleData ? `
-⭐ GOOGLE MINHA EMPRESA:
-• Avaliação: ${googleData.rating}/5 (${googleData.reviews_count?.toLocaleString("pt-BR")} avaliações)
-• Endereço: ${googleData.address}
-    `.trim() : '⭐ GOOGLE: não analisado';
+    const googleSection = googleData
+      ? `\n\n⭐ GOOGLE MINHA EMPRESA:\n• Avaliação: ${googleData.rating}/5 (${googleData.reviews_count?.toLocaleString("pt-BR")} avaliações)\n• Endereço: ${googleData.address}`
+      : "\n\n⭐ GOOGLE: não analisado";
 
-    const fullContext = `${instagramSection}\n\n${websiteSection}\n\n${googleSection}`;
+    const fullContext = `${instagramSection}${websiteSection}${googleSection}`;
 
-    // 4. Gerar diagnóstico completo + mensagens
+    // 4. UMA única chamada à Anthropic para diagnóstico + auditoria do site
     const systemPrompt = `Você é um especialista em marketing digital e prospecção comercial da agência RT Publicidade.
 Com base nos dados REAIS coletados automaticamente do perfil, site e Google do prospect, gere um diagnóstico completo e mensagens de abordagem altamente personalizadas.
 Seja específico, cite dados reais. Nunca invente informações.
@@ -389,11 +337,15 @@ ${fullContext}
 
 Retorne exatamente este JSON:
 {
-  "diagnosis_report": "🔥 DIAGNÓSTICO COMPLETO — [Nome do negócio]\n\n📍 [Localização se disponível]\n⭐ Google: [rating] ([N] avaliações) SE DISPONÍVEL\n📱 Instagram: @[username] ([N] seguidores, [N] posts)\n🌐 Site: [url] SE DISPONÍVEL\n\n─────────────────────────\n🔴 PROBLEMAS CRÍTICOS:\n[liste cada problema crítico do site com bullet 🔴]\n\n⚠️ ALERTAS:\n[liste alertas com bullet ⚠️]\n\n✅ PONTOS POSITIVOS:\n[liste pontos positivos com bullet ✅]\n\n─────────────────────────\n💡 OPORTUNIDADE PARA A RT PUBLICIDADE:\n[2-3 frases sobre o que a agência pode resolver/melhorar especificamente para este cliente]",
-  "dm_message": "DM personalizada citando 1-2 problemas específicos encontrados. Ex: 'Vi que seu site tem [problema real]...' Objetivo: marcar reunião. Tom amigável. Máximo 5 linhas. Assinar como RT Publicidade.",
-  "whatsapp_message": "WhatsApp informal com emojis, citando problemas reais encontrados. Objetivo: marcar reunião. Máximo 6 linhas. Assinar como RT Publicidade.",
-  "proposal_brief": "Proposta baseada nos problemas reais encontrados: serviços que resolvem especificamente os problemas identificados, plataformas, investimento em mídia e fee de gestão em R$",
-  "creative_concept": "Conceito de anúncio baseado no negócio real e problemas identificados: produto/serviço principal, público-alvo, copy, formato e CTA",
+  "website_critical": ["problema crítico 1 se site disponível, senão array vazio"],
+  "website_warnings": ["alerta 1 se site disponível, senão array vazio"],
+  "website_positives": ["ponto positivo 1 se site disponível, senão array vazio"],
+  "website_score": 50,
+  "diagnosis_report": "🔥 DIAGNÓSTICO COMPLETO — [Nome do negócio]\n\n📍 [Localização se disponível]\n⭐ Google: [rating] ([N] avaliações) SE DISPONÍVEL\n📱 Instagram: @[username] ([N] seguidores, [N] posts)\n🌐 Site: [url] SE DISPONÍVEL\n\n─────────────────────────\n🔴 PROBLEMAS CRÍTICOS:\n[liste cada problema crítico com bullet 🔴]\n\n⚠️ ALERTAS:\n[liste alertas com bullet ⚠️]\n\n✅ PONTOS POSITIVOS:\n[liste pontos positivos com bullet ✅]\n\n─────────────────────────\n💡 OPORTUNIDADE PARA A RT PUBLICIDADE:\n[2-3 frases sobre o que a agência pode resolver/melhorar especificamente para este cliente]",
+  "dm_message": "DM personalizada citando 1-2 problemas específicos encontrados. Tom amigável. Máximo 5 linhas. Assinar como RT Publicidade.",
+  "whatsapp_message": "WhatsApp informal com emojis, citando problemas reais encontrados. Máximo 6 linhas. Assinar como RT Publicidade.",
+  "proposal_brief": "Proposta baseada nos problemas reais encontrados: serviços, plataformas, investimento em mídia e fee de gestão em R$",
+  "creative_concept": "Conceito de anúncio baseado no negócio real: produto/serviço principal, público-alvo, copy, formato e CTA",
   "extracted_whatsapp": "número WhatsApp da bio se encontrado, senão null",
   "extracted_email": "email da bio se encontrado, senão null"
 }`;
@@ -413,12 +365,30 @@ Retorne exatamente este JSON:
       }),
     });
 
-    if (!aiRes.ok) throw new Error(`Anthropic API error: ${aiRes.status}`);
+    if (!aiRes.ok) {
+      const errBody = await aiRes.text().catch(() => "");
+      console.error("Anthropic error:", aiRes.status, errBody);
+      if (aiRes.status === 529 || aiRes.status === 503) {
+        return new Response(JSON.stringify({ error: "IA sobrecarregada. Tente novamente em alguns segundos." }), {
+          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (aiRes.status === 429) {
+        return new Response(JSON.stringify({ error: "Limite de requisições. Aguarde alguns segundos e tente novamente." }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`Anthropic API error: ${aiRes.status} — ${errBody.slice(0, 300)}`);
+    }
 
     const aiData = await aiRes.json();
     const raw = aiData.content?.[0]?.text ?? "{}";
 
     let aiResult: {
+      website_critical: string[];
+      website_warnings: string[];
+      website_positives: string[];
+      website_score: number;
       diagnosis_report: string;
       dm_message: string;
       whatsapp_message: string;
@@ -431,9 +401,17 @@ Retorne exatamente este JSON:
     try { aiResult = JSON.parse(raw); }
     catch {
       const match = raw.match(/\{[\s\S]*\}/);
-      if (match) aiResult = JSON.parse(match[0]);
-      else throw new Error("Failed to parse AI response");
+      try { aiResult = match ? JSON.parse(match[0]) : null; }
+      catch { aiResult = null as any; }
+      if (!aiResult) throw new Error("Failed to parse AI response");
     }
+
+    const websiteAudit = websiteSnippet ? {
+      critical: aiResult.website_critical ?? [],
+      warnings: aiResult.website_warnings ?? [],
+      positives: aiResult.website_positives ?? [],
+      score: aiResult.website_score ?? 50,
+    } : null;
 
     return new Response(
       JSON.stringify({
@@ -442,7 +420,13 @@ Retorne exatamente este JSON:
         needs_manual_bio: false,
         website_audit: websiteAudit,
         google_data: googleData,
-        ...aiResult,
+        diagnosis_report: aiResult.diagnosis_report,
+        dm_message: aiResult.dm_message,
+        whatsapp_message: aiResult.whatsapp_message,
+        proposal_brief: aiResult.proposal_brief,
+        creative_concept: aiResult.creative_concept,
+        extracted_whatsapp: aiResult.extracted_whatsapp,
+        extracted_email: aiResult.extracted_email,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
