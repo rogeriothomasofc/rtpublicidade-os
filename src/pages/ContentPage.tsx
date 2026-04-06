@@ -990,7 +990,9 @@ function CalendarView({ onEdit, onPublish }: { onEdit: (i: ContentItem) => void;
 export default function ContentPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<ContentCategory | 'calendar'>(
-    (searchParams.get('tab') as ContentCategory | 'calendar') || 'Ideia'
+    (searchParams.get('tab') as ContentCategory | 'calendar') ||
+    (localStorage.getItem('tab:content') as ContentCategory | 'calendar') ||
+    'Ideia'
   );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [aiDialogOpen, setAIDialogOpen] = useState(false);
@@ -1004,7 +1006,7 @@ export default function ContentPage() {
   return (
     <MainLayout>
       <div className="space-y-5">
-        <Tabs value={tab} onValueChange={v => { const t = v as ContentCategory | 'calendar'; setTab(t); setSearchParams({ tab: t }, { replace: true }); }}>
+        <Tabs value={tab} onValueChange={v => { const t = v as ContentCategory | 'calendar'; setTab(t); setSearchParams({ tab: t }, { replace: true }); localStorage.setItem('tab:content', t); }}>
           <div className="flex items-center justify-between gap-3">
             <TabsList className="w-full sm:w-auto">
               <TabsTrigger value="Ideia" className="flex items-center gap-1.5 flex-1 sm:flex-none">

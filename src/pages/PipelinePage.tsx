@@ -12,11 +12,14 @@ import { TrendingUp, Users, LayoutDashboard } from 'lucide-react';
 
 export default function PipelinePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'dashboard');
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get('tab') || localStorage.getItem('tab:pipeline') || 'dashboard'
+  );
 
   const handleTabChange = (v: string) => {
     setActiveTab(v);
     setSearchParams({ tab: v }, { replace: true });
+    localStorage.setItem('tab:pipeline', v);
   };
   const { data: leads, isLoading } = useSalesPipeline();
 

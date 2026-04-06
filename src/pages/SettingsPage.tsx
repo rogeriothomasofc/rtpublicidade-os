@@ -11,11 +11,14 @@ import { AnnouncementsTab } from '@/components/settings/AnnouncementsTab';
 
 export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'integrations');
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get('tab') || localStorage.getItem('tab:settings') || 'integrations'
+  );
 
   const handleTabChange = (v: string) => {
     setActiveTab(v);
     setSearchParams({ tab: v }, { replace: true });
+    localStorage.setItem('tab:settings', v);
   };
   return (
     <MainLayout>

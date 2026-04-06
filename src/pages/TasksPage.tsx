@@ -33,7 +33,9 @@ import { useDebounce } from '@/hooks/useDebounce';
 
 export default function TasksPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [viewMode, setViewMode] = useState(searchParams.get('view') || 'dashboard');
+  const [viewMode, setViewMode] = useState(
+    searchParams.get('view') || localStorage.getItem('view:tasks') || 'dashboard'
+  );
   
   const { data: tasks, isLoading } = useTasks();
   const { data: clients } = useClients();
@@ -79,6 +81,7 @@ export default function TasksPage() {
   const handleViewChange = (view: string) => {
     setViewMode(view);
     setSearchParams({ view }, { replace: true });
+    localStorage.setItem('view:tasks', view);
   };
 
   // Uses atomic RPC — single transaction for task + assignees + subtasks

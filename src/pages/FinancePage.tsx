@@ -58,11 +58,14 @@ const recurrenceLabels: Record<FinanceRecurrence, string> = {
 
 export default function FinancePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'movimentacoes');
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get('tab') || localStorage.getItem('tab:finance') || 'movimentacoes'
+  );
 
   const handleTabChange = (v: string) => {
     setActiveTab(v);
     setSearchParams({ tab: v }, { replace: true });
+    localStorage.setItem('tab:finance', v);
   };
   const { data: finance, isLoading } = useFinance();
   const { data: clients } = useClients();

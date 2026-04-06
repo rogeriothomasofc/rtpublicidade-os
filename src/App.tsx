@@ -34,14 +34,14 @@ const CampaignDetailPage = lazy(() => import("./pages/CampaignDetailPage"));
 
 const queryClient = new QueryClient();
 
-// Salva o caminho atual no sessionStorage para restaurar após recarga PWA
+// Salva o caminho atual no localStorage para restaurar após recarga/reabertura PWA
 function LastPathTracker() {
   const location = useLocation();
   const navigate = useNavigate();
 
   // Restaura o último caminho ao montar (só se o app iniciou em "/")
   useEffect(() => {
-    const saved = sessionStorage.getItem('lastPath');
+    const saved = localStorage.getItem('lastPath');
     if (saved && saved !== '/' && window.location.pathname === '/') {
       navigate(saved, { replace: true });
     }
@@ -50,9 +50,9 @@ function LastPathTracker() {
   // Salva o caminho atual a cada navegação (limpa ao ir para "/")
   useEffect(() => {
     if (location.pathname === '/') {
-      sessionStorage.removeItem('lastPath');
+      localStorage.removeItem('lastPath');
     } else {
-      sessionStorage.setItem('lastPath', location.pathname + location.search);
+      localStorage.setItem('lastPath', location.pathname + location.search);
     }
   }, [location.pathname, location.search]);
 

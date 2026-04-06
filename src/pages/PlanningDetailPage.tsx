@@ -18,11 +18,14 @@ export default function PlanningDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get('tab') || localStorage.getItem(`tab:planning:${id}`) || 'overview'
+  );
 
   const handleTabChange = (v: string) => {
     setActiveTab(v);
     setSearchParams({ tab: v }, { replace: true });
+    localStorage.setItem(`tab:planning:${id}`, v);
   };
   const { data: campaign, isLoading } = usePlanningCampaign(id!);
 
