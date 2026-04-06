@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -987,7 +988,10 @@ function CalendarView({ onEdit, onPublish }: { onEdit: (i: ContentItem) => void;
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ContentPage() {
-  const [tab, setTab] = useState<ContentCategory | 'calendar'>('Ideia');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState<ContentCategory | 'calendar'>(
+    (searchParams.get('tab') as ContentCategory | 'calendar') || 'Ideia'
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [aiDialogOpen, setAIDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ContentItem | null>(null);
@@ -1000,7 +1004,7 @@ export default function ContentPage() {
   return (
     <MainLayout>
       <div className="space-y-5">
-        <Tabs value={tab} onValueChange={v => setTab(v as ContentCategory | 'calendar')}>
+        <Tabs value={tab} onValueChange={v => { const t = v as ContentCategory | 'calendar'; setTab(t); setSearchParams({ tab: t }, { replace: true }); }}>
           <div className="flex items-center justify-between gap-3">
             <TabsList className="w-full sm:w-auto">
               <TabsTrigger value="Ideia" className="flex items-center gap-1.5 flex-1 sm:flex-none">

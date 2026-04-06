@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { TaskTable } from '@/components/tasks/TaskTable';
 import { TaskFilters, TaskFiltersState } from '@/components/tasks/TaskFilters';
@@ -31,7 +32,8 @@ import { useMemo } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 
 export default function TasksPage() {
-  const [viewMode, setViewMode] = useState('dashboard');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [viewMode, setViewMode] = useState(searchParams.get('view') || 'dashboard');
   
   const { data: tasks, isLoading } = useTasks();
   const { data: clients } = useClients();
@@ -76,6 +78,7 @@ export default function TasksPage() {
 
   const handleViewChange = (view: string) => {
     setViewMode(view);
+    setSearchParams({ view }, { replace: true });
   };
 
   // Uses atomic RPC — single transaction for task + assignees + subtasks
