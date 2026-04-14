@@ -1,0 +1,678 @@
+{
+  "name": "Relatório Automatico",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "✅ Workflow configurado – Supabase project: nbzxofrllagqwwrwfskv\nHTTP Request nodes usados para consultar Supabase (Code nodes não suportam fetch nesta versão do n8n)",
+        "height": 80,
+        "width": 600
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [0, 0],
+      "typeVersion": 1,
+      "id": "0e56cbc0-c169-413d-8e9b-7a6becb888cf",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "Meta Ads - Relatório Automático Terça 9h\nCom métrica de Vendas – novo projeto Supabase",
+        "height": 496,
+        "width": 3200
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [0, 1792],
+      "typeVersion": 1,
+      "id": "5a0c80c2-32a2-4aeb-a92e-64871730c86b",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 2"
+            }
+          ]
+        }
+      },
+      "id": "f802c95e-df02-4505-a522-facfa894c14c",
+      "name": "Toda Terça 9h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [96, 2016]
+    },
+    {
+      "parameters": {
+        "url": "https://nbzxofrllagqwwrwfskv.supabase.co/rest/v1/clients?status=eq.Ativo&select=id,name,email,meta_ads_account,whatsapp_group_id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc1NjIwOSwiZXhwIjoyMDgxMzMyMjA5fQ.K6adJFAIVLHIj-3d_j_7jvzoYzYNvBzjeQbBhu5o_Bg"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc1NjIwOSwiZXhwIjoyMDgxMzMyMjA5fQ.K6adJFAIVLHIj-3d_j_7jvzoYzYNvBzjeQbBhu5o_Bg"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d1566513-fd29-4fc3-9a4f-63fa48a310d4",
+      "name": "Busca Clientes Supabase2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [320, 2016]
+    },
+    {
+      "parameters": {
+        "jsCode": "const clientes = $input.all().map(i => i.json);\nconst comMeta = clientes.filter(c => c.meta_ads_account && c.meta_ads_account.trim() !== '');\nif (comMeta.length === 0) {\n  throw new Error('Nenhum cliente com conta Meta configurada');\n}\nreturn comMeta.map(c => ({ json: { ...c, nome: c.name, grupo_id: c.whatsapp_group_id } }));"
+      },
+      "id": "0a6c26e8-37c5-42ba-ba02-9b5c7459fd7e",
+      "name": "Prepara Lista2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [544, 2016]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "3a328e07-e73f-483a-9d39-68a1240bacc2",
+      "name": "Split Clientes3",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [768, 2016]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cliente = $input.first().json;\nreturn [{ json: cliente }];"
+      },
+      "id": "5a90ca36-a7f4-4ee0-8ce6-ff4bf5c591ee",
+      "name": "Salva Cliente Atual3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [976, 2016]
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v19.0/{{ $json.meta_ads_account }}/insights",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "spend,impressions,clicks,ctr,cpm,reach,frequency,actions,account_name"
+            },
+            {
+              "name": "date_preset",
+              "value": "last_7d"
+            },
+            {
+              "name": "access_token",
+              "value": "EAAIlSIr3G9QBQ8peRjLS3nx92N8kd9c4H3ZAOOfLP0UPd8kIPl8iXqXhsdwmGx4LOHR5aRKsk2We8iEpI5uYi4dZBtYcVyZBApEZB81ILBAOGFZA2ZAJyzDiRxtWR9DZARtaPTQE0hmBEOz9X4xZCN2CtrJDZC90KA9sYwOoZC3LjmgHYPwdZAfb5nm6GCOapA27bCkRiBuH4oYAUCgNEwY8QxP"
+            },
+            {
+              "name": "level",
+              "value": "account"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6d3f1d09-9154-4d70-bdab-319a332833b8",
+      "name": "Busca Métricas Meta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1200, 2016]
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v19.0/{{ $('Salva Cliente Atual3').item.json.meta_ads_account }}/insights",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "spend,impressions,actions,ad_name,ad_id"
+            },
+            {
+              "name": "date_preset",
+              "value": "last_7d"
+            },
+            {
+              "name": "access_token",
+              "value": "EAAIlSIr3G9QBQ8peRjLS3nx92N8kd9c4H3ZAOOfLP0UPd8kIPl8iXqXhsdwmGx4LOHR5aRKsk2We8iEpI5uYi4dZBtYcVyZBApEZB81ILBAOGFZA2ZAJyzDiRxtWR9DZARtaPTQE0hmBEOz9X4xZCN2CtrJDZC90KA9sYwOoZC3LjmgHYPwdZAfb5nm6GCOapA27bCkRiBuH4oYAUCgNEwY8QxP"
+            },
+            {
+              "name": "level",
+              "value": "ad"
+            },
+            {
+              "name": "limit",
+              "value": "10"
+            },
+            {
+              "name": "sort",
+              "value": "spend_descending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "41cfae58-3fbd-471f-81e2-ab7b6553e7b5",
+      "name": "Busca Top Criativos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1424, 2016]
+    },
+    {
+      "parameters": {
+        "jsCode": "const dataInicio = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();\nreturn [{ json: { dataInicio } }];"
+      },
+      "id": "2bc478f3-c28f-4b3f-8360-577eeddf8065",
+      "name": "Calcula Data Vendas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1648, 2016]
+    },
+    {
+      "parameters": {
+        "url": "=https://nbzxofrllagqwwrwfskv.supabase.co/rest/v1/client_sales?client_id=eq.{{ $('Salva Cliente Atual3').item.json.id }}&created_at=gte.{{ $('Calcula Data Vendas').item.json.dataInicio }}&select=amount,product_name,created_at",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc1NjIwOSwiZXhwIjoyMDgxMzMyMjA5fQ.K6adJFAIVLHIj-3d_j_7jvzoYzYNvBzjeQbBhu5o_Bg"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc1NjIwOSwiZXhwIjoyMDgxMzMyMjA5fQ.K6adJFAIVLHIj-3d_j_7jvzoYzYNvBzjeQbBhu5o_Bg"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "alwaysOutputData": true,
+      "id": "df596468-f5ea-4d1c-946e-865c21906e56",
+      "name": "HTTP Vendas Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1872, 2016]
+    },
+    {
+      "parameters": {
+        "jsCode": "const vendas = $input.all().map(i => i.json);\nreturn [{ json: { vendas } }];"
+      },
+      "id": "94c87336-a5a9-4c3e-b1b1-25407588f0de",
+      "name": "Busca Vendas Supabase",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2096, 2016]
+    },
+    {
+      "parameters": {
+        "jsCode": "const criativos = $('Busca Top Criativos').item.json.data || [];\nconst insights  = $('Busca Métricas Meta').item.json.data?.[0] || {};\nconst cliente   = $('Salva Cliente Atual3').item.json;\nconst vendas    = $('Busca Vendas Supabase').item.json.vendas || [];\n\n// Métricas Meta\nconst spend = parseFloat(insights.spend || 0);\nconst impressions = parseInt(insights.impressions || 0);\nconst actions = insights.actions || [];\nconst msgIniciadas = actions.find(a =>\n  a.action_type === 'onsite_conversion.messaging_conversation_started_7d' ||\n  a.action_type === 'messaging_conversation_started_7d' ||\n  a.action_type === 'onsite_conversion.total_messaging_connection'\n);\nconst totalMsg = msgIniciadas ? parseInt(msgIniciadas.value) : 0;\nconst custoMsg = totalMsg > 0 ? spend / totalMsg : 0;\n\n// Métricas Vendas\nconst totalVendas = vendas.length;\nconst receita = vendas.reduce((a, v) => a + parseFloat(v.amount || 0), 0);\nconst ticketMedio = totalVendas > 0 ? receita / totalVendas : 0;\nconst roas = spend > 0 ? receita / spend : 0;\n\n// Top criativos\nconst criativosComResultado = criativos\n  .map(ad => {\n    const adActions = ad.actions || [];\n    const adMsg = adActions.find(a =>\n      a.action_type === 'onsite_conversion.messaging_conversation_started_7d' ||\n      a.action_type === 'messaging_conversation_started_7d'\n    );\n    const adMsgTotal = adMsg ? parseInt(adMsg.value) : 0;\n    const adSpend = parseFloat(ad.spend || 0);\n    const adCustoMsg = adMsgTotal > 0 ? adSpend / adMsgTotal : 0;\n    return { ad_id: ad.ad_id, nome: ad.ad_name || 'N/A', mensagens: adMsgTotal, custo: adCustoMsg };\n  })\n  .filter(ad => ad.mensagens > 0)\n  .sort((a, b) => b.mensagens - a.mensagens)\n  .slice(0, 3);\n\nconst hoje = new Date();\nconst seteDiasAtras = new Date(hoje);\nseteDiasAtras.setDate(hoje.getDate() - 7);\nconst dataFim    = hoje.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'2-digit'});\nconst dataInicio = seteDiasAtras.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'2-digit'});\nconst adIds = criativosComResultado.map(c => c.ad_id).filter(Boolean);\n\nreturn [{ json: {\n  criativosComResultado, adIds,\n  spend, impressions, totalMsg, custoMsg,\n  totalVendas, receita, ticketMedio, roas,\n  dataInicio, dataFim,\n  grupo_id: cliente.grupo_id,\n  nome: cliente.nome\n}}];"
+      },
+      "id": "7eaf7bc8-e565-4d03-9cf3-5c4d1c5723ec",
+      "name": "Prepara Dados1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2320, 2016]
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v19.0/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "ids",
+              "value": "={{ $json.adIds.join(',') }}"
+            },
+            {
+              "name": "fields",
+              "value": "id,name,creative{effective_instagram_media_id,effective_object_story_id,thumbnail_url}"
+            },
+            {
+              "name": "access_token",
+              "value": "EAAIlSIr3G9QBQ8peRjLS3nx92N8kd9c4H3ZAOOfLP0UPd8kIPl8iXqXhsdwmGx4LOHR5aRKsk2We8iEpI5uYi4dZBtYcVyZBApEZB81ILBAOGFZA2ZAJyzDiRxtWR9DZARtaPTQE0hmBEOz9X4xZCN2CtrJDZC90KA9sYwOoZC3LjmgHYPwdZAfb5nm6GCOapA27bCkRiBuH4oYAUCgNEwY8QxP"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "continueOnFail": true,
+      "id": "489d1698-b0c9-44a5-a52c-75426a8167da",
+      "name": "Busca Links Ads1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2544, 2016]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n// Se veio erro da API (adIds vazio ou token inválido), usa objeto vazio\nconst linksData = (raw && !raw.error && typeof raw === 'object') ? raw : {};\nconst dados = $('Prepara Dados1').item.json;\n\nconst linksMap = {};\nObject.keys(linksData).forEach(adId => {\n  const ad = linksData[adId];\n  if (!ad || typeof ad !== 'object') return;\n  const creative = ad.creative || {};\n  let link = null;\n\n  if (creative.permalink_url) {\n    link = creative.permalink_url;\n  } else if (creative.effective_object_story_id) {\n    const parts = creative.effective_object_story_id.split('_');\n    if (parts.length >= 2) link = 'https://www.facebook.com/' + parts[0] + '/posts/' + parts[1];\n  }\n  if (!link) link = 'https://www.facebook.com/adsmanager/manage/ads?selected_ad_ids=' + adId;\n  linksMap[adId] = link;\n});\n\nconst criativosComResultado = dados.criativosComResultado || [];\nlet criativos_texto = '';\nif (criativosComResultado.length === 0) {\n  criativos_texto = '\\nNenhum criativo gerou resultado no periodo.';\n} else {\n  const label = 'Top ' + criativosComResultado.length + ' Criativo' + (criativosComResultado.length > 1 ? 's' : '');\n  criativos_texto = '\\n*### ' + label + ' ###*\\n';\n  criativosComResultado.forEach((ad, i) => {\n    const link = linksMap[ad.ad_id] || 'https://www.facebook.com/adsmanager/manage/ads?selected_ad_ids=' + ad.ad_id;\n    criativos_texto += '\\n' + (i+1) + '. *' + ad.nome + '*\\n   ' + link + '\\n   Mensagens: ' + ad.mensagens + ' | Custo/msg: R$ ' + ad.custo.toFixed(2) + '\\n';\n  });\n}\n\nconst temVendas = dados.totalVendas > 0;\nconst vendasTexto = temVendas\n  ? '\\n*Vendas da Semana*\\nReceita: R$ ' + dados.receita.toFixed(2) + '\\nVendas: ' + dados.totalVendas + '\\nTicket Médio: R$ ' + dados.ticketMedio.toFixed(2) + '\\nROAS: ' + dados.roas.toFixed(2) + 'x'\n  : '\\n*Vendas da Semana*\\nNenhuma venda registrada no portal esta semana.';\n\nconst relatorio = 'Olá! Tudo bem?\\nSegue o resumo de performance da *' + dados.nome + '* dos últimos 7 dias\\n\\n*Período:* ' + dados.dataInicio + ' a ' + dados.dataFim + '\\n\\n*Meta Ads*\\nGasto: R$ ' + dados.spend.toFixed(2) + '\\nMensagens iniciadas: ' + dados.totalMsg + '\\nCusto por mensagem: R$ ' + dados.custoMsg.toFixed(2) + '\\nImpressões: ' + dados.impressions.toLocaleString('pt-BR') + '\\n' + criativos_texto + '\\n' + vendasTexto + '\\n\\nQualquer dúvida, estou à disposição!';\n\nreturn [{ json: { relatorio, grupo_id: dados.grupo_id, nome: dados.nome } }];"
+      },
+      "id": "fdd20e20-e2e0-411e-81c0-ed7583e7fd6a",
+      "name": "Monta Relatório Final",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2768, 2016]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.rtpublicidade.com/message/sendText/RELATORIO",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "CBED27042799-46B8-8B26-8954CD03FD5B"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ number: $json.grupo_id, text: $json.relatorio }) }}",
+        "options": {}
+      },
+      "id": "9e8fa2d9-93a5-427d-b927-21baa09af47a",
+      "name": "Envia WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2992, 2016]
+    },
+    {
+      "parameters": {
+        "content": "Meta Ads - Relatório Mensal – todo dia 1 do mês às 9h\nPeríodo: últimos 30 dias",
+        "height": 496,
+        "width": 3200
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [0, 560],
+      "typeVersion": 1,
+      "id": "c773ebad-87e6-42ae-ba25-3709c8bfab42",
+      "name": "Sticky Note Mensal"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 1 * *"
+            }
+          ]
+        }
+      },
+      "id": "2846e480-cd14-45be-abed-dfe16d86d86b",
+      "name": "Todo Dia 1 do Mes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [96, 720]
+    },
+    {
+      "parameters": {
+        "url": "https://nbzxofrllagqwwrwfskv.supabase.co/rest/v1/clients?status=eq.Ativo&select=id,name,email,meta_ads_account,whatsapp_group_id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc1NjIwOSwiZXhwIjoyMDgxMzMyMjA5fQ.K6adJFAIVLHIj-3d_j_7jvzoYzYNvBzjeQbBhu5o_Bg"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc1NjIwOSwiZXhwIjoyMDgxMzMyMjA5fQ.K6adJFAIVLHIj-3d_j_7jvzoYzYNvBzjeQbBhu5o_Bg"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6e86e5a9-a835-4379-af2e-39f2898c030a",
+      "name": "Busca Clientes Mensal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [320, 720]
+    },
+    {
+      "parameters": {
+        "jsCode": "const clientes = $input.all().map(i => i.json);\nconst comMeta = clientes.filter(c => c.meta_ads_account && c.meta_ads_account.trim() !== '');\nif (comMeta.length === 0) {\n  throw new Error('Nenhum cliente com conta Meta configurada');\n}\nreturn comMeta.map(c => ({ json: { ...c, nome: c.name, grupo_id: c.whatsapp_group_id } }));"
+      },
+      "id": "19f9e363-9a28-4c93-aae8-051111db289d",
+      "name": "Prepara Lista Mensal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [544, 720]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a67931d5-1fbf-4767-9ca5-98f5b878463b",
+      "name": "Split Clientes Mensal",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [768, 720]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cliente = $input.first().json;\nreturn [{ json: cliente }];"
+      },
+      "id": "2eadd382-6d7f-4c7f-b601-c03d5ff6020a",
+      "name": "Salva Cliente Atual Mensal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [976, 720]
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v19.0/{{ $json.meta_ads_account }}/insights",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "spend,impressions,clicks,ctr,cpm,reach,frequency,actions,account_name"
+            },
+            {
+              "name": "date_preset",
+              "value": "last_30d"
+            },
+            {
+              "name": "access_token",
+              "value": "EAAIlSIr3G9QBQ8peRjLS3nx92N8kd9c4H3ZAOOfLP0UPd8kIPl8iXqXhsdwmGx4LOHR5aRKsk2We8iEpI5uYi4dZBtYcVyZBApEZB81ILBAOGFZA2ZAJyzDiRxtWR9DZARtaPTQE0hmBEOz9X4xZCN2CtrJDZC90KA9sYwOoZC3LjmgHYPwdZAfb5nm6GCOapA27bCkRiBuH4oYAUCgNEwY8QxP"
+            },
+            {
+              "name": "level",
+              "value": "account"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4ea27e65-a55e-41f8-84b0-2c3b35f4598c",
+      "name": "Busca Metricas Mensal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1200, 720]
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v19.0/{{ $('Salva Cliente Atual Mensal').item.json.meta_ads_account }}/insights",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "spend,impressions,actions,ad_name,ad_id"
+            },
+            {
+              "name": "date_preset",
+              "value": "last_30d"
+            },
+            {
+              "name": "access_token",
+              "value": "EAAIlSIr3G9QBQ8peRjLS3nx92N8kd9c4H3ZAOOfLP0UPd8kIPl8iXqXhsdwmGx4LOHR5aRKsk2We8iEpI5uYi4dZBtYcVyZBApEZB81ILBAOGFZA2ZAJyzDiRxtWR9DZARtaPTQE0hmBEOz9X4xZCN2CtrJDZC90KA9sYwOoZC3LjmgHYPwdZAfb5nm6GCOapA27bCkRiBuH4oYAUCgNEwY8QxP"
+            },
+            {
+              "name": "level",
+              "value": "ad"
+            },
+            {
+              "name": "limit",
+              "value": "10"
+            },
+            {
+              "name": "sort",
+              "value": "spend_descending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11fa324c-e194-4b42-b76f-9c7a0ae83d0d",
+      "name": "Busca Top Criativos Mensal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1424, 720]
+    },
+    {
+      "parameters": {
+        "jsCode": "const dataInicio = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();\nreturn [{ json: { dataInicio } }];"
+      },
+      "id": "a6ebd333-2a00-4a9e-b497-56a5a77e191e",
+      "name": "Calcula Data Mensal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1648, 720]
+    },
+    {
+      "parameters": {
+        "url": "=https://nbzxofrllagqwwrwfskv.supabase.co/rest/v1/client_sales?client_id=eq.{{ $('Salva Cliente Atual Mensal').item.json.id }}&created_at=gte.{{ $('Calcula Data Mensal').item.json.dataInicio }}&select=amount,product_name,created_at",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc1NjIwOSwiZXhwIjoyMDgxMzMyMjA5fQ.K6adJFAIVLHIj-3d_j_7jvzoYzYNvBzjeQbBhu5o_Bg"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienhvZnJsbGFncXd3cndmc2t2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc1NjIwOSwiZXhwIjoyMDgxMzMyMjA5fQ.K6adJFAIVLHIj-3d_j_7jvzoYzYNvBzjeQbBhu5o_Bg"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "alwaysOutputData": true,
+      "id": "c9e91a11-63d4-48ca-a63c-adf7b4eaf40e",
+      "name": "HTTP Vendas Mensal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1872, 720]
+    },
+    {
+      "parameters": {
+        "jsCode": "const vendas = $input.all().map(i => i.json);\nreturn [{ json: { vendas } }];"
+      },
+      "id": "b5e3b61a-5700-4478-b5c9-a3d614227d28",
+      "name": "Busca Vendas Mensal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2096, 720]
+    },
+    {
+      "parameters": {
+        "jsCode": "const criativos = $('Busca Top Criativos Mensal').item.json.data || [];\nconst insights  = $('Busca Metricas Mensal').item.json.data?.[0] || {};\nconst cliente   = $('Salva Cliente Atual Mensal').item.json;\nconst vendas    = $('Busca Vendas Mensal').item.json.vendas || [];\n\nconst spend = parseFloat(insights.spend || 0);\nconst impressions = parseInt(insights.impressions || 0);\nconst actions = insights.actions || [];\nconst msgIniciadas = actions.find(a =>\n  a.action_type === 'onsite_conversion.messaging_conversation_started_7d' ||\n  a.action_type === 'messaging_conversation_started_7d' ||\n  a.action_type === 'onsite_conversion.total_messaging_connection'\n);\nconst totalMsg = msgIniciadas ? parseInt(msgIniciadas.value) : 0;\nconst custoMsg = totalMsg > 0 ? spend / totalMsg : 0;\n\nconst totalVendas = vendas.length;\nconst receita = vendas.reduce((a, v) => a + parseFloat(v.amount || 0), 0);\nconst ticketMedio = totalVendas > 0 ? receita / totalVendas : 0;\nconst roas = spend > 0 ? receita / spend : 0;\n\nconst criativosComResultado = criativos\n  .map(ad => {\n    const adActions = ad.actions || [];\n    const adMsg = adActions.find(a =>\n      a.action_type === 'onsite_conversion.messaging_conversation_started_7d' ||\n      a.action_type === 'messaging_conversation_started_7d'\n    );\n    const adMsgTotal = adMsg ? parseInt(adMsg.value) : 0;\n    const adSpend = parseFloat(ad.spend || 0);\n    const adCustoMsg = adMsgTotal > 0 ? adSpend / adMsgTotal : 0;\n    return { ad_id: ad.ad_id, nome: ad.ad_name || 'N/A', mensagens: adMsgTotal, custo: adCustoMsg };\n  })\n  .filter(ad => ad.mensagens > 0)\n  .sort((a, b) => b.mensagens - a.mensagens)\n  .slice(0, 3);\n\nconst hoje = new Date();\nconst trintaDiasAtras = new Date(hoje);\ntrintaDiasAtras.setDate(hoje.getDate() - 30);\nconst dataFim    = hoje.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'2-digit'});\nconst dataInicio = trintaDiasAtras.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'2-digit'});\nconst adIds = criativosComResultado.map(c => c.ad_id).filter(Boolean);\n\nreturn [{ json: {\n  criativosComResultado, adIds,\n  spend, impressions, totalMsg, custoMsg,\n  totalVendas, receita, ticketMedio, roas,\n  dataInicio, dataFim,\n  grupo_id: cliente.grupo_id,\n  nome: cliente.nome\n}}];"
+      },
+      "id": "3b50e498-104d-4cba-aac2-db5f4e7fc6f7",
+      "name": "Prepara Dados Mensal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2320, 720]
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v19.0/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "ids",
+              "value": "={{ $json.adIds.join(',') }}"
+            },
+            {
+              "name": "fields",
+              "value": "id,name,creative{effective_instagram_media_id,effective_object_story_id,thumbnail_url}"
+            },
+            {
+              "name": "access_token",
+              "value": "EAAIlSIr3G9QBQ8peRjLS3nx92N8kd9c4H3ZAOOfLP0UPd8kIPl8iXqXhsdwmGx4LOHR5aRKsk2We8iEpI5uYi4dZBtYcVyZBApEZB81ILBAOGFZA2ZAJyzDiRxtWR9DZARtaPTQE0hmBEOz9X4xZCN2CtrJDZC90KA9sYwOoZC3LjmgHYPwdZAfb5nm6GCOapA27bCkRiBuH4oYAUCgNEwY8QxP"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "continueOnFail": true,
+      "id": "d766bc4d-6d69-4a0d-aa83-595697b827ed",
+      "name": "Busca Links Ads Mensal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2544, 720]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n// Se veio erro da API (adIds vazio ou token inválido), usa objeto vazio\nconst linksData = (raw && !raw.error && typeof raw === 'object') ? raw : {};\nconst dados = $('Prepara Dados Mensal').item.json;\n\nconst linksMap = {};\nObject.keys(linksData).forEach(adId => {\n  const ad = linksData[adId];\n  if (!ad || typeof ad !== 'object') return;\n  const creative = ad.creative || {};\n  let link = null;\n  if (creative.permalink_url) {\n    link = creative.permalink_url;\n  } else if (creative.effective_object_story_id) {\n    const parts = creative.effective_object_story_id.split('_');\n    if (parts.length >= 2) link = 'https://www.facebook.com/' + parts[0] + '/posts/' + parts[1];\n  }\n  if (!link) link = 'https://www.facebook.com/adsmanager/manage/ads?selected_ad_ids=' + adId;\n  linksMap[adId] = link;\n});\n\nconst criativosComResultado = dados.criativosComResultado || [];\nlet criativos_texto = '';\nif (criativosComResultado.length === 0) {\n  criativos_texto = '\\nNenhum criativo gerou resultado no periodo.';\n} else {\n  const label = 'Top ' + criativosComResultado.length + ' Criativo' + (criativosComResultado.length > 1 ? 's' : '');\n  criativos_texto = '\\n*### ' + label + ' ###*\\n';\n  criativosComResultado.forEach((ad, i) => {\n    const link = linksMap[ad.ad_id] || 'https://www.facebook.com/adsmanager/manage/ads?selected_ad_ids=' + ad.ad_id;\n    criativos_texto += '\\n' + (i+1) + '. *' + ad.nome + '*\\n   ' + link + '\\n   Mensagens: ' + ad.mensagens + ' | Custo/msg: R$ ' + ad.custo.toFixed(2) + '\\n';\n  });\n}\n\nconst temVendas = dados.totalVendas > 0;\nconst vendasTexto = temVendas\n  ? '\\n*Vendas do Mês*\\nReceita: R$ ' + dados.receita.toFixed(2) + '\\nVendas: ' + dados.totalVendas + '\\nTicket Médio: R$ ' + dados.ticketMedio.toFixed(2) + '\\nROAS: ' + dados.roas.toFixed(2) + 'x'\n  : '\\n*Vendas do Mês*\\nNenhuma venda registrada no portal este mês.';\n\nconst relatorio = 'Olá! Tudo bem?\\nSegue o resumo de performance da *' + dados.nome + '* do último mês\\n\\n*Período:* ' + dados.dataInicio + ' a ' + dados.dataFim + '\\n\\n*Meta Ads*\\nGasto: R$ ' + dados.spend.toFixed(2) + '\\nMensagens iniciadas: ' + dados.totalMsg + '\\nCusto por mensagem: R$ ' + dados.custoMsg.toFixed(2) + '\\nImpressões: ' + dados.impressions.toLocaleString('pt-BR') + '\\n' + criativos_texto + '\\n' + vendasTexto + '\\n\\nQualquer dúvida, estou à disposição!';\n\nreturn [{ json: { relatorio, grupo_id: dados.grupo_id, nome: dados.nome } }];"
+      },
+      "id": "d5df9bfd-b57a-4819-94b5-fd14c05e3aca",
+      "name": "Monta Relatorio Mensal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2768, 720]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.rtpublicidade.com/message/sendText/RELATORIO",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "CBED27042799-46B8-8B26-8954CD03FD5B"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ number: $json.grupo_id, text: $json.relatorio }) }}",
+        "options": {}
+      },
+      "id": "8e9c3263-8c14-418b-9dea-0011bd6bd3a6",
+      "name": "Envia WhatsApp Mensal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2992, 720]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Toda Terça 9h": {
+      "main": [[{ "node": "Busca Clientes Supabase2", "type": "main", "index": 0 }]]
+    },
+    "Busca Clientes Supabase2": {
+      "main": [[{ "node": "Prepara Lista2", "type": "main", "index": 0 }]]
+    },
+    "Prepara Lista2": {
+      "main": [[{ "node": "Split Clientes3", "type": "main", "index": 0 }]]
+    },
+    "Split Clientes3": {
+      "main": [[], [{ "node": "Salva Cliente Atual3", "type": "main", "index": 0 }]]
+    },
+    "Salva Cliente Atual3": {
+      "main": [[{ "node": "Busca Métricas Meta", "type": "main", "index": 0 }]]
+    },
+    "Busca Métricas Meta": {
+      "main": [[{ "node": "Busca Top Criativos", "type": "main", "index": 0 }]]
+    },
+    "Busca Top Criativos": {
+      "main": [[{ "node": "Calcula Data Vendas", "type": "main", "index": 0 }]]
+    },
+    "Calcula Data Vendas": {
+      "main": [[{ "node": "HTTP Vendas Supabase", "type": "main", "index": 0 }]]
+    },
+    "HTTP Vendas Supabase": {
+      "main": [[{ "node": "Busca Vendas Supabase", "type": "main", "index": 0 }]]
+    },
+    "Busca Vendas Supabase": {
+      "main": [[{ "node": "Prepara Dados1", "type": "main", "index": 0 }]]
+    },
+    "Prepara Dados1": {
+      "main": [[{ "node": "Busca Links Ads1", "type": "main", "index": 0 }]]
+    },
+    "Busca Links Ads1": {
+      "main": [[{ "node": "Monta Relatório Final", "type": "main", "index": 0 }]]
+    },
+    "Monta Relatório Final": {
+      "main": [[{ "node": "Envia WhatsApp", "type": "main", "index": 0 }]]
+    },
+    "Envia WhatsApp": {
+      "main": [[{ "node": "Split Clientes3", "type": "main", "index": 0 }]]
+    },
+    "Todo Dia 1 do Mes": {
+      "main": [[{ "node": "Busca Clientes Mensal", "type": "main", "index": 0 }]]
+    },
+    "Busca Clientes Mensal": {
+      "main": [[{ "node": "Prepara Lista Mensal", "type": "main", "index": 0 }]]
+    },
+    "Prepara Lista Mensal": {
+      "main": [[{ "node": "Split Clientes Mensal", "type": "main", "index": 0 }]]
+    },
+    "Split Clientes Mensal": {
+      "main": [[], [{ "node": "Salva Cliente Atual Mensal", "type": "main", "index": 0 }]]
+    },
+    "Salva Cliente Atual Mensal": {
+      "main": [[{ "node": "Busca Metricas Mensal", "type": "main", "index": 0 }]]
+    },
+    "Busca Metricas Mensal": {
+      "main": [[{ "node": "Busca Top Criativos Mensal", "type": "main", "index": 0 }]]
+    },
+    "Busca Top Criativos Mensal": {
+      "main": [[{ "node": "Calcula Data Mensal", "type": "main", "index": 0 }]]
+    },
+    "Calcula Data Mensal": {
+      "main": [[{ "node": "HTTP Vendas Mensal", "type": "main", "index": 0 }]]
+    },
+    "HTTP Vendas Mensal": {
+      "main": [[{ "node": "Busca Vendas Mensal", "type": "main", "index": 0 }]]
+    },
+    "Busca Vendas Mensal": {
+      "main": [[{ "node": "Prepara Dados Mensal", "type": "main", "index": 0 }]]
+    },
+    "Prepara Dados Mensal": {
+      "main": [[{ "node": "Busca Links Ads Mensal", "type": "main", "index": 0 }]]
+    },
+    "Busca Links Ads Mensal": {
+      "main": [[{ "node": "Monta Relatorio Mensal", "type": "main", "index": 0 }]]
+    },
+    "Monta Relatorio Mensal": {
+      "main": [[{ "node": "Envia WhatsApp Mensal", "type": "main", "index": 0 }]]
+    },
+    "Envia WhatsApp Mensal": {
+      "main": [[{ "node": "Split Clientes Mensal", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "a8edbc3b-66e6-4a04-af4a-09bc8943c3ca",
+  "meta": {
+    "instanceId": "f6dbd9dc65f3bd05a7695d7545a1a5a68ea11d42a1b8df5977de03c6227581c8"
+  },
+  "id": "h-oPnicxuCEBCT2Kq3OWj",
+  "tags": [
+    {
+      "updatedAt": "2026-03-30T12:17:08.051Z",
+      "createdAt": "2026-03-30T12:17:08.051Z",
+      "id": "tZGMpvI0BaNjpoku",
+      "name": "Usando"
+    }
+  ]
+}

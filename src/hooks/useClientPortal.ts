@@ -104,6 +104,24 @@ export function useAddClientComment() {
   });
 }
 
+export function useDeleteClientComment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, clientId }: { id: string; clientId: string }) => {
+      const { error } = await supabase
+        .from('client_activity_comments')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      return clientId;
+    },
+    onSuccess: (clientId) => {
+      queryClient.invalidateQueries({ queryKey: ['client-comments', clientId] });
+    },
+  });
+}
+
 export function useIsClientRole() {
   const { user } = useAuth();
 

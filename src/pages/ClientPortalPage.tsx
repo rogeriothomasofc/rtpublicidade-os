@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { useIsClientRole, useClientPortalAccess, useClientTimeline, useClientComments, useAddClientComment } from '@/hooks/useClientPortal';
+import { useIsClientRole, useClientPortalAccess, useClientTimeline, useClientComments, useAddClientComment, useDeleteClientComment } from '@/hooks/useClientPortal';
 import { useClients } from '@/hooks/useClients';
 import { useAgencySettings } from '@/hooks/useAgencySettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, LogOut, CheckSquare, DollarSign, Lightbulb, MessageCircle, Send, Clock, AlertCircle, CheckCircle2, Circle, ArrowLeft, CalendarPlus, Phone, Megaphone, ShoppingCart, TrendingUp } from 'lucide-react';
+import { Loader2, LogOut, CheckSquare, DollarSign, Lightbulb, MessageCircle, Send, Clock, AlertCircle, CheckCircle2, Circle, ArrowLeft, CalendarPlus, Phone, Megaphone, ShoppingCart, TrendingUp, Trash2 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { toast } from 'sonner';
 import { ClientPortalAlerts } from '@/components/portal/ClientPortalAlerts';
@@ -84,6 +84,7 @@ interface TimelinePlanning {
 
 interface TimelineComment {
   id: string;
+  client_id: string;
   entity_id: string;
   message: string;
   created_at: string;
@@ -99,6 +100,7 @@ type TimelineItem = {
   date: string;
   icon: React.ReactNode;
   rawDate: string;
+  isCompleted: boolean;
 };
 
 export default function ClientPortalPage() {
@@ -126,12 +128,14 @@ export default function ClientPortalPage() {
   const { data: timeline, isLoading: loadingTimeline } = useClientTimeline(clientId);
   const { data: comments } = useClientComments(clientId);
   const addComment = useAddClientComment();
+  const deleteComment = useDeleteClientComment();
   const { data: announcements } = useClientAnnouncements(clientId);
   const markAnnouncementRead = useMarkAnnouncementRead();
 
   const [commentText, setCommentText] = useState('');
   const [commentTarget, setCommentTarget] = useState<{ entityType: string; entityId: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'tasks' | 'finance' | 'planning' | 'sales' | 'meta'>('all');
+  const [showCompleted, setShowCompleted] = useState(false);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
 
   const createLog = useCreatePortalAccessLog();
@@ -214,6 +218,7 @@ export default function ClientPortalPage() {
         date: t.due_date ? formatDate(t.due_date) : formatDate(t.created_at),
         icon: taskStatusIcons[t.status] || <Circle className="w-4 h-4" />,
         rawDate: t.updated_at || t.created_at,
+        isCompleted: t.status === 'Concluído',
       });
     });
   }
@@ -230,6 +235,7 @@ export default function ClientPortalPage() {
         date: formatDate(f.due_date),
         icon: <DollarSign className="w-4 h-4 text-success" />,
         rawDate: f.updated_at || f.created_at,
+        isCompleted: f.status === 'Pago',
       });
     });
   }
@@ -246,6 +252,7 @@ export default function ClientPortalPage() {
         date: p.start_date ? formatDate(p.start_date) : formatDate(p.created_at),
         icon: <Lightbulb className="w-4 h-4 text-warning" />,
         rawDate: p.updated_at || p.created_at,
+        isCompleted: p.status === 'Finalizado',
       });
     });
   }
@@ -253,7 +260,9 @@ export default function ClientPortalPage() {
   // Sort by date desc
   timelineItems.sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime());
 
-  const filteredItems = activeTab === 'all' ? timelineItems : timelineItems.filter(i => i.type === activeTab);
+  const tabFiltered = activeTab === 'all' ? timelineItems : timelineItems.filter(i => i.type === activeTab);
+  const completedCount = tabFiltered.filter(i => i.isCompleted).length;
+  const filteredItems = showCompleted ? tabFiltered : tabFiltered.filter(i => !i.isCompleted);
 
   const handleAddComment = async () => {
     if (!commentText.trim() || !commentTarget || !user) return;
@@ -459,8 +468,17 @@ export default function ClientPortalPage() {
 
         {/* Timeline */}
         {activeTab !== 'sales' && activeTab !== 'meta' && <Card className="border-border/50">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Linha do Tempo</CardTitle>
+            {completedCount > 0 && (
+              <button
+                onClick={() => setShowCompleted(v => !v)}
+                className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {showCompleted ? 'Ocultar concluídos' : `Ver concluídos (${completedCount})`}
+              </button>
+            )}
           </CardHeader>
           <CardContent className="p-0">
             {filteredItems.length === 0 ? (
@@ -496,11 +514,20 @@ export default function ClientPortalPage() {
                           {itemComments.length > 0 && (
                             <div className="mt-3 space-y-2">
                               {(itemComments as TimelineComment[]).map((c) => (
-                                <div key={c.id} className="bg-muted/50 rounded-lg p-2 text-sm">
-                                  <p className="text-foreground">{c.message}</p>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {formatDate(c.created_at)}
-                                  </p>
+                                <div key={c.id} className="bg-muted/50 rounded-lg p-2 text-sm flex items-start justify-between gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-foreground">{c.message}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {formatDate(c.created_at)}
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={() => deleteComment.mutate({ id: c.id, clientId: c.client_id })}
+                                    className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5"
+                                    title="Excluir comentário"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
                                 </div>
                               ))}
                             </div>
