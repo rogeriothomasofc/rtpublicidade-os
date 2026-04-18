@@ -20,10 +20,7 @@ SELECT cron.schedule(
   $$
   SELECT net.http_post(
     url     := 'https://nbzxofrllagqwwrwfskv.supabase.co/functions/v1/instagram-alert-cron',
-    headers := jsonb_build_object(
-      'Content-Type',   'application/json',
-      'x-cron-secret',  current_setting('app.cron_secret', true)
-    ),
+    headers := '{"Content-Type": "application/json", "x-cron-secret": "4a8f2ba802c6e9dc955fb095f4f1a3debb22a7a19164ffe2"}'::jsonb,
     body    := '{}'::jsonb
   ) AS request_id;
   $$
@@ -38,18 +35,8 @@ SELECT cron.schedule(
   $$
   SELECT net.http_post(
     url     := 'https://nbzxofrllagqwwrwfskv.supabase.co/functions/v1/vendas-alerta-cron',
-    headers := jsonb_build_object(
-      'Content-Type',   'application/json',
-      'x-cron-secret',  current_setting('app.cron_secret', true)
-    ),
+    headers := '{"Content-Type": "application/json", "x-cron-secret": "4a8f2ba802c6e9dc955fb095f4f1a3debb22a7a19164ffe2"}'::jsonb,
     body    := '{}'::jsonb
   ) AS request_id;
   $$
 );
-
--- ============================================================
--- ATENÇÃO: Rode este comando UMA VEZ no SQL Editor do Supabase
--- com o valor do CRON_SECRET (Settings > Edge Functions > Secrets):
---
--- ALTER DATABASE postgres SET app.cron_secret = '4a8f2ba802c6e9dc955fb095f4f1a3debb22a7a19164ffe2';
--- ============================================================
