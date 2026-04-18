@@ -14,8 +14,9 @@ export const ALL_PAGES = [
   { slug: 'tasks',      label: 'Tarefas' },
   { slug: 'planning',   label: 'Planejamentos' },
   { slug: 'content',    label: 'Conteúdo' },
-  { slug: 'campaigns',  label: 'Campanhas' },
-  { slug: 'settings',   label: 'Configurações' },
+  { slug: 'campaigns',    label: 'Campanhas' },
+  { slug: 'automations',  label: 'Automações' },
+  { slug: 'settings',     label: 'Configurações' },
 ] as const;
 
 export type PageSlug = (typeof ALL_PAGES)[number]['slug'];

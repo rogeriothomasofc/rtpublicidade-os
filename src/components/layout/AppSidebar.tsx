@@ -20,6 +20,7 @@ const navItems = [
   { name: 'Planejamentos', href: '/planning',  icon: Lightbulb,       slug: 'planning' },
   { name: 'Conteúdo',     href: '/content',   icon: Clapperboard,    slug: 'content' },
   { name: 'Campanhas',    href: '/campaigns', icon: Megaphone,       slug: 'campaigns' },
+  { name: 'Automações',  href: '/automations', icon: Zap,           slug: 'automations' },
 ];
 
 const APP_NAME = 'Agency OS';
