@@ -1,15 +1,9 @@
--- Ativa extensões necessárias
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS pg_net;
+-- pg_cron e pg_net já vêm pré-instalados no Supabase — não criar
 
 -- Remove jobs antigos se existirem
 SELECT cron.unschedule(jobname)
 FROM cron.job
-WHERE jobname IN (
-  'instagram-alert-daily',
-  'vendas-alerta-daily'
-)
-ON CONFLICT DO NOTHING;
+WHERE jobname IN ('instagram-alert-daily', 'vendas-alerta-daily');
 
 -- ============================================================
 -- instagram-alert-cron — todo dia às 9h (Brasília = 12h UTC)
