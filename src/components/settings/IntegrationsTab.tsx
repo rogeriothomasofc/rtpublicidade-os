@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { SmtpSettingsCard } from './SmtpSettingsCard';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,13 +21,11 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Wifi,
-  WifiOff,
-  AlertTriangle,
   RefreshCw,
   Unplug,
-  FileText,
   Loader2,
   KeyRound,
   Webhook,
@@ -37,6 +35,9 @@ import {
   Plus,
   ExternalLink,
   BookOpen,
+  MessageCircle,
+  QrCode,
+  Smartphone,
 } from 'lucide-react';
 
 const apiEndpoints = [
@@ -124,9 +125,83 @@ export function IntegrationsTab() {
   const [savingMeta, setSavingMeta] = useState(false);
   const [testingMeta, setTestingMeta] = useState(false);
 
+  // WhatsApp / Evolution API
+  const [whatsappStatus, setWhatsappStatus] = useState<'unknown' | 'open' | 'close' | 'connecting' | 'error'>('unknown');
+  const [whatsappQr, setWhatsappQr] = useState<string | null>(null);
+  const [whatsappQrDialog, setWhatsappQrDialog] = useState(false);
+  const [checkingWhatsapp, setCheckingWhatsapp] = useState(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const webhookIntegration = integrations?.find((i) => i.provider === 'webhook');
   const asaasIntegration = integrations?.find((i) => i.provider === 'asaas');
   const metaIntegration = integrations?.find((i) => i.provider === 'meta_ads');
+  const waIntegration = integrations?.find((i) => i.provider === 'evolution_api');
+
+  // WhatsApp handlers
+  const checkWhatsappStatus = async () => {
+    setCheckingWhatsapp(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('evolution-status');
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const state = data?.state ?? 'error';
+      setWhatsappStatus(state);
+      setWhatsappQr(data?.qrcode ?? null);
+      if (state === 'open') {
+        upsert.mutate({
+          provider: 'evolution_api', name: 'WhatsApp', status: 'connected',
+          config: { connected_at: new Date().toISOString() } as any,
+        });
+        stopPolling();
+        setWhatsappQrDialog(false);
+        toast({ title: 'WhatsApp conectado!' });
+      }
+      return state;
+    } catch (err: unknown) {
+      setWhatsappStatus('error');
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      toast({ title: 'Erro ao verificar WhatsApp', description: message, variant: 'destructive' });
+      return 'error';
+    } finally {
+      setCheckingWhatsapp(false);
+    }
+  };
+
+  const stopPolling = () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  };
+
+  const handleOpenQrDialog = async () => {
+    setWhatsappQrDialog(true);
+    await checkWhatsappStatus();
+    pollingRef.current = setInterval(async () => {
+      const state = await checkWhatsappStatus();
+      if (state === 'open') stopPolling();
+    }, 4000);
+  };
+
+  const handleCloseQrDialog = () => {
+    stopPolling();
+    setWhatsappQrDialog(false);
+  };
+
+  const handleDisconnectWhatsapp = () => {
+    const wa = integrations?.find((i) => i.provider === 'evolution_api');
+    if (wa) disconnect.mutate(wa.id);
+    setWhatsappStatus('close');
+  };
+
+  // Checar status do WhatsApp ao montar (silencioso)
+  useEffect(() => {
+    supabase.functions.invoke('evolution-status')
+      .then(({ data }) => { if (data?.state) setWhatsappStatus(data.state); })
+      .catch(() => {});
+    return () => stopPolling();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDisconnect = (id: string) => {
     disconnect.mutate(id);
@@ -339,14 +414,6 @@ export function IntegrationsTab() {
     }
   };
 
-  const formatSyncDate = (date: string | null) => {
-    if (!date) return null;
-    try {
-      return formatDistanceToNow(new Date(date), { addSuffix: true, locale: ptBR });
-    } catch {
-      return null;
-    }
-  };
 
   if (isLoading) {
     return (
@@ -463,6 +530,51 @@ export function IntegrationsTab() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* WhatsApp / Evolution API */}
+            {(() => {
+              const isWaConnected = whatsappStatus === 'open' || waIntegration?.status === 'connected';
+              return (
+                <Card className="w-full overflow-hidden">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex items-start gap-3 sm:gap-4">
+                      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 ${isWaConnected ? 'bg-green-500/10' : 'bg-muted'}`}>
+                        <MessageCircle className={`w-5 h-5 sm:w-6 sm:h-6 ${isWaConnected ? 'text-green-500' : 'text-muted-foreground'}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold">WhatsApp</span>
+                            <Badge variant={isWaConnected ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                              {whatsappStatus === 'connecting' ? 'Conectando…' : isWaConnected ? 'Conectado' : 'Desconectado'}
+                            </Badge>
+                          </div>
+                          {isWaConnected && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive hover:text-destructive" title="Desconectar" onClick={handleDisconnectWhatsapp}>
+                              <Unplug className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Envio de alertas e relatórios automáticos via WhatsApp
+                        </p>
+                        {isWaConnected ? (
+                          <div className="flex items-center gap-2">
+                            <Smartphone className="w-3.5 h-3.5 text-green-500" />
+                            <span className="text-xs text-muted-foreground">Instância conectada e pronta para envios</span>
+                          </div>
+                        ) : (
+                          <Button size="sm" className="gap-1.5" onClick={handleOpenQrDialog} disabled={checkingWhatsapp}>
+                            {checkingWhatsapp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <QrCode className="w-3.5 h-3.5" />}
+                            {checkingWhatsapp ? 'Verificando…' : 'Gerar QR Code'}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
           </div>
         </div>
 
@@ -787,6 +899,57 @@ export function IntegrationsTab() {
 
       {/* Logs Dialog */}
       <LogsDialog integrationId={logsDialog} onClose={() => setLogsDialog(null)} />
+
+      {/* WhatsApp QR Code Dialog */}
+      <Dialog open={whatsappQrDialog} onOpenChange={(o) => { if (!o) handleCloseQrDialog(); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-green-500" />
+              Conectar WhatsApp
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-2">
+            {whatsappStatus === 'open' ? (
+              <div className="flex flex-col items-center gap-3 py-4">
+                <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center">
+                  <Smartphone className="w-8 h-8 text-green-500" />
+                </div>
+                <p className="font-semibold text-green-600">WhatsApp Conectado!</p>
+                <p className="text-sm text-muted-foreground text-center">Seu WhatsApp está conectado e pronto para enviar mensagens automáticas.</p>
+              </div>
+            ) : whatsappQr ? (
+              <>
+                <div className="rounded-xl overflow-hidden border-2 border-border p-2 bg-white">
+                  <img src={whatsappQr} alt="QR Code WhatsApp" className="w-56 h-56 object-contain" />
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="text-sm font-medium">Escaneie o QR Code com seu celular</p>
+                  <p className="text-xs text-muted-foreground">Abra o WhatsApp → Menu → Dispositivos conectados → Conectar dispositivo</p>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Aguardando conexão…
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-3 py-6">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Carregando QR Code…</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseQrDialog}>Fechar</Button>
+            {whatsappStatus !== 'open' && (
+              <Button onClick={checkWhatsappStatus} disabled={checkingWhatsapp} variant="secondary">
+                {checkingWhatsapp ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+                Atualizar
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
