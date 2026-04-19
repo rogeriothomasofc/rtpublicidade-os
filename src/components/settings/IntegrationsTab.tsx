@@ -767,18 +767,19 @@ export function IntegrationsTab() {
             </div>
             <div className="space-y-2">
               <Label>API Key</Label>
-              <div className="relative">
+              <div className="flex gap-2">
                 <Input
                   type={showAsaasKey ? 'text' : 'password'}
                   value={asaasForm.apiKey}
                   onChange={(e) => setAsaasForm((f) => ({ ...f, apiKey: e.target.value }))}
                   placeholder="$aact_..."
-                  className="pr-10"
+                  className="flex-1"
                 />
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="icon"
                   onClick={() => setShowAsaasKey(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   tabIndex={-1}
                 >
                   {showAsaasKey ? (
@@ -786,7 +787,7 @@ export function IntegrationsTab() {
                   ) : (
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                   )}
-                </button>
+                </Button>
               </div>
               <p className="text-xs text-muted-foreground">
                 Encontre sua API Key em{' '}
