@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { BarChart2, Loader2, Save, Clock, ChevronDown, Eye, EyeOff, Plus, Trash2, ChevronUp } from 'lucide-react';
+import { BarChart2, Loader2, Save, Clock, ChevronDown, Plus, Trash2, ChevronUp } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -120,25 +120,34 @@ function getPeriodDateRange(period: Period): string {
   return `${fmt(from)} a ${fmt(to)}`;
 }
 
-function MessagePreview({ form, clientName }: { form: ReportConfig; clientName?: string }) {
+function renderLine(line: string) {
+  return line.replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>');
+}
+
+function MessagePreview({
+  form,
+  clientName,
+  onIntroChange,
+}: {
+  form: ReportConfig;
+  clientName?: string;
+  onIntroChange: (v: string) => void;
+}) {
   const periodOption = PERIOD_OPTIONS.find(p => p.value === form.period) ?? PERIOD_OPTIONS[0];
   const dateRange = getPeriodDateRange(form.period);
   const company = clientName || 'Cliente';
-  const lines: string[] = [];
-
   const defaultIntro = `Segue o resumo de performance da *${company}* — ${periodOption.reportLabel}`;
-  lines.push(form.intro_text?.trim() || defaultIntro);
-  lines.push('');
-  lines.push(`📅 Período: ${dateRange}`);
 
+  const metricLines: string[] = [];
+  metricLines.push(`📅 Período: ${dateRange}`);
   if (form.include_campaigns) {
-    lines.push(''); lines.push('📣 *Meta Ads*');
-    lines.push('Investido: R$ 1.200,00');
-    lines.push(`${form.result_type}: 42 | Custo por ${form.result_type.toLowerCase()}: R$ 28,57`);
-    lines.push('Cliques: 850 | Custo por clique: R$ 1,41');
+    metricLines.push(''); metricLines.push('📣 *Meta Ads*');
+    metricLines.push('Investido: R$ 1.200,00');
+    metricLines.push(`${form.result_type}: 42 | Custo por ${form.result_type.toLowerCase()}: R$ 28,57`);
+    metricLines.push('Cliques: 850 | Custo por clique: R$ 1,41');
   }
   if (form.include_campaigns && form.top_creatives > 0) {
-    lines.push(''); lines.push('🏆 *Melhores criativos*');
+    metricLines.push(''); metricLines.push('🏆 *Melhores criativos*');
     const examples = [
       { name: 'Criativo A — Vídeo', url: 'https://www.facebook.com/123456/posts/111111', res: 22, cpr: '25,00' },
       { name: 'Criativo B — Imagem', url: 'https://www.facebook.com/123456/posts/222222', res: 13, cpr: '31,00' },
@@ -146,31 +155,40 @@ function MessagePreview({ form, clientName }: { form: ReportConfig; clientName?:
     ];
     for (let i = 0; i < form.top_creatives; i++) {
       const ex = examples[i];
-      lines.push(`${i + 1}. ${ex.name}`);
-      lines.push(ex.url);
-      lines.push(`   ${form.result_type}: ${ex.res} | Custo/result: R$ ${ex.cpr}`);
-      if (i < form.top_creatives - 1) lines.push('');
+      metricLines.push(`${i + 1}. ${ex.name}`);
+      metricLines.push(ex.url);
+      metricLines.push(`   ${form.result_type}: ${ex.res} | Custo/result: R$ ${ex.cpr}`);
+      if (i < form.top_creatives - 1) metricLines.push('');
     }
   }
   if (form.include_sales) {
-    lines.push(''); lines.push('🛒 *Vendas registradas*');
-    lines.push('Receita: R$ 9.450,00');
-    lines.push('Vendas: 18');
-    lines.push('Ticket Médio: R$ 525,00');
+    metricLines.push(''); metricLines.push('🛒 *Vendas registradas*');
+    metricLines.push('Receita: R$ 9.450,00');
+    metricLines.push('Vendas: 18');
+    metricLines.push('Ticket Médio: R$ 525,00');
   }
   if (form.include_ai) {
-    lines.push(''); lines.push('🤖 *Análise da RT Publicidade*');
-    lines.push('As campanhas apresentaram boa performance no período, com CPA dentro da meta. Recomendamos escalar o criativo A que teve o menor custo por conversão.');
+    metricLines.push(''); metricLines.push('🤖 *Análise da RT Publicidade*');
+    metricLines.push('As campanhas apresentaram boa performance no período, com CPA dentro da meta.');
   }
-  lines.push(''); lines.push('_RT Publicidade_');
+  metricLines.push(''); metricLines.push('_RT Publicidade_');
 
   return (
-    <div className="rounded-xl bg-[#0b141a] p-3 font-mono text-xs leading-relaxed overflow-x-auto">
-      <p className="text-[10px] text-zinc-500 mb-2 font-sans">Preview da mensagem WhatsApp</p>
-      <div className="bg-[#202c33] rounded-lg p-3 max-w-sm inline-block text-left">
-        {lines.map((line, i) => (
+    <div className="rounded-xl bg-[#0b141a] p-3 font-mono text-xs leading-relaxed">
+      <p className="text-[10px] text-zinc-500 mb-2 font-sans">Preview — clique na introdução para editar</p>
+      <div className="bg-[#202c33] rounded-lg p-3 max-w-sm text-left">
+        {/* Intro editável diretamente no bubble */}
+        <textarea
+          value={form.intro_text ?? ''}
+          onChange={e => onIntroChange(e.target.value)}
+          placeholder={defaultIntro}
+          rows={2}
+          className="w-full bg-transparent text-zinc-200 text-xs resize-none outline-none placeholder:text-zinc-500 placeholder:italic border-b border-zinc-600 focus:border-zinc-400 transition-colors pb-1 mb-2"
+        />
+        {/* Métricas fixas (dados reais chegam no envio) */}
+        {metricLines.map((line, i) => (
           <p key={i} className={`text-zinc-200 ${line === '' ? 'h-2' : ''}`}
-            dangerouslySetInnerHTML={{ __html: line.replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>') || '&nbsp;' }} />
+            dangerouslySetInnerHTML={{ __html: renderLine(line) || '&nbsp;' }} />
         ))}
         <p className="text-[10px] text-zinc-500 text-right mt-1">✓✓ agora</p>
       </div>
@@ -181,13 +199,11 @@ function MessagePreview({ form, clientName }: { form: ReportConfig; clientName?:
 // ─── Single config form ───────────────────────────────────────────────────────
 
 function ReportConfigForm({
-  clientId,
   clientName,
   initialConfig,
   onSaved,
   onDeleted,
 }: {
-  clientId: string;
   clientName?: string;
   initialConfig: ReportConfig;
   onSaved: () => void;
@@ -195,9 +211,8 @@ function ReportConfigForm({
 }) {
   const { toast } = useToast();
   const [form, setForm] = useState<ReportConfig>(initialConfig);
-  const [dirty, setDirty] = useState(!initialConfig.id); // new records start dirty
-  const [showPreview, setShowPreview] = useState(false);
-  const [collapsed, setCollapsed] = useState(!!initialConfig.id); // existing start collapsed
+  const [dirty, setDirty] = useState(!initialConfig.id);
+  const [collapsed, setCollapsed] = useState(!!initialConfig.id);
 
   useEffect(() => { setForm(initialConfig); }, [initialConfig.id]);
 
@@ -294,17 +309,6 @@ function ReportConfigForm({
                 {PERIOD_OPTIONS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
               </SelectContent>
             </Select>
-          </div>
-
-          {/* Introdução */}
-          <div className="space-y-1.5">
-            <Label className="text-sm font-semibold">Introdução da mensagem</Label>
-            <Textarea
-              placeholder="Ex: Olá! Segue o relatório de performance da semana."
-              value={form.intro_text ?? ''}
-              onChange={e => set({ intro_text: e.target.value })}
-              className="text-sm resize-none h-14"
-            />
           </div>
 
           {/* Métricas */}
@@ -423,14 +427,10 @@ function ReportConfigForm({
             </div>
           </div>
 
-          {/* Preview */}
-          <div className="pt-1 border-t border-border space-y-3">
-            <button type="button" onClick={() => setShowPreview(v => !v)}
-              className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors">
-              {showPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              {showPreview ? 'Ocultar preview' : 'Ver preview da mensagem'}
-            </button>
-            {showPreview && <MessagePreview form={form} clientName={clientName} />}
+          {/* Preview editável */}
+          <div className="pt-1 border-t border-border space-y-2">
+            <Label className="text-sm font-semibold block">Preview da mensagem</Label>
+            <MessagePreview form={form} clientName={clientName} onIntroChange={v => set({ intro_text: v })} />
           </div>
 
           {!hasAnyMetric && (
@@ -518,7 +518,7 @@ export function ClientReportCard({ clientId, clientName }: { clientId: string; c
       {configs.map(cfg => (
         <ReportConfigForm
           key={cfg.id}
-          clientId={clientId}
+
           clientName={clientName}
           initialConfig={cfg}
           onSaved={refresh}
@@ -529,7 +529,7 @@ export function ClientReportCard({ clientId, clientName }: { clientId: string; c
       {newConfigs.map((cfg, i) => (
         <ReportConfigForm
           key={`new-${i}`}
-          clientId={clientId}
+
           clientName={clientName}
           initialConfig={cfg}
           onSaved={refresh}
