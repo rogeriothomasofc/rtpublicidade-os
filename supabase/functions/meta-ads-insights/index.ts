@@ -172,7 +172,7 @@ serve(async (req) => {
       console.error("Meta API error:", metaData.error);
       return new Response(
         JSON.stringify({ error: metaData.error.message || "Erro ao buscar dados do Meta Ads" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

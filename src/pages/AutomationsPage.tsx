@@ -37,12 +37,12 @@ function useAutomations() {
   return useQuery({
     queryKey: ['automation_configs'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('automation_configs')
         .select('*')
         .order('id');
       if (error) throw error;
-      return data as AutomationConfig[];
+      return (data ?? []) as AutomationConfig[];
     },
   });
 }
