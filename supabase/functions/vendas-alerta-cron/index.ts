@@ -165,12 +165,17 @@ serve(async (req) => {
       }
     }
 
-    // 8. Atualiza last_run na config
+    // 8. Atualiza last_run na config + grava histórico
     await supabase.from("automation_configs").update({
       last_run_at: new Date().toISOString(),
       last_run_status: "success",
       last_run_summary: { processed: results.length, results },
     }).eq("id", "vendas-alert");
+
+    await supabase.from("automation_run_log").insert({
+      automation_id: "vendas-alert", status: "success",
+      processed: results.length, summary: results,
+    });
 
     return new Response(JSON.stringify({ ok: true, processed: results.length, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -181,6 +186,11 @@ serve(async (req) => {
       last_run_status: "error",
       last_run_summary: { error: String(err) },
     }).eq("id", "vendas-alert").catch(() => {});
+
+    await supabase.from("automation_run_log").insert({
+      automation_id: "vendas-alert", status: "error",
+      processed: 0, summary: [{ error: String(err) }],
+    }).catch(() => {});
 
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },

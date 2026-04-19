@@ -12,10 +12,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  ShoppingCart, Loader2, Play, Clock, CheckCircle2, XCircle, Edit2, Check, X, AlertCircle,
+  ShoppingCart, Loader2, Play, Clock, CheckCircle2, XCircle, Edit2, Check, X,
+  AlertCircle, DollarSign, ChevronDown, ChevronUp, History,
 } from 'lucide-react';
 
-// Instagram icon from simple-icons via inline SVG (lucide deprecated it)
+// Instagram icon
 function IgIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -36,10 +37,28 @@ interface AutomationConfig {
   last_run_summary: unknown;
 }
 
-const AUTOMATION_META: Record<string, { icon: React.ElementType; color: string; scheduleLabel: string; canRun: boolean }> = {
-  'instagram-alert': { icon: IgIcon, color: 'text-pink-500', scheduleLabel: 'Todo dia às 9h', canRun: true },
-  'vendas-alert':    { icon: ShoppingCart, color: 'text-emerald-500', scheduleLabel: 'Todo dia às 9h', canRun: true },
+interface RunLog {
+  id: string;
+  automation_id: string;
+  run_at: string;
+  status: 'success' | 'error';
+  processed: number;
+  summary: unknown;
+}
+
+const AUTOMATION_META: Record<string, {
+  icon: React.ElementType;
+  color: string;
+  scheduleLabel: string;
+  canRun: boolean;
+  fnName: string;
+}> = {
+  'instagram-alert':  { icon: IgIcon,       color: 'text-pink-500',    scheduleLabel: 'Todo dia às 9h',  canRun: true, fnName: 'instagram-alert-cron' },
+  'vendas-alert':     { icon: ShoppingCart,  color: 'text-emerald-500', scheduleLabel: 'Todo dia às 9h',  canRun: true, fnName: 'vendas-alerta-cron' },
+  'financeiro-alert': { icon: DollarSign,    color: 'text-amber-500',   scheduleLabel: 'Todo dia às 9h',  canRun: true, fnName: 'financeiro-alerta-cron' },
 };
+
+const VISIBLE_IDS = ['instagram-alert', 'vendas-alert', 'financeiro-alert'];
 
 function useAutomations() {
   return useQuery({
@@ -50,10 +69,24 @@ function useAutomations() {
         .select('id, name, description, enabled, threshold_days, cron_expression, last_run_at, last_run_status')
         .order('id');
       if (error) throw new Error(error.message ?? JSON.stringify(error));
-      const filtered = (data ?? []).filter((a: AutomationConfig) =>
-        ['instagram-alert', 'vendas-alert'].includes(a.id)
-      );
-      return filtered as AutomationConfig[];
+      return ((data ?? []) as AutomationConfig[]).filter(a => VISIBLE_IDS.includes(a.id));
+    },
+  });
+}
+
+function useRunLog(automationId: string | null) {
+  return useQuery({
+    queryKey: ['automation_run_log', automationId],
+    enabled: !!automationId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('automation_run_log')
+        .select('id, automation_id, run_at, status, processed, summary')
+        .eq('automation_id', automationId)
+        .order('run_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return (data ?? []) as RunLog[];
     },
   });
 }
@@ -74,20 +107,17 @@ function useRunAutomation() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async (id: string) => {
-      const fnMap: Record<string, string> = {
-        'instagram-alert': 'instagram-alert-cron',
-        'vendas-alert': 'vendas-alerta-cron',
-      };
-      const fnName = fnMap[id];
-      if (!fnName) throw new Error('Automação não suporta execução manual.');
-      const { data, error } = await supabase.functions.invoke(fnName, {
+      const meta = AUTOMATION_META[id];
+      if (!meta?.fnName) throw new Error('Automação não suporta execução manual.');
+      const { data, error } = await supabase.functions.invoke(meta.fnName, {
         headers: { 'x-cron-secret': '4a8f2ba802c6e9dc955fb095f4f1a3debb22a7a19164ffe2' },
       });
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, id) => {
       qc.invalidateQueries({ queryKey: ['automation_configs'] });
+      qc.invalidateQueries({ queryKey: ['automation_run_log', id] });
       const processed = (data as Record<string, unknown>)?.processed ?? 0;
       toast({ title: 'Automação executada!', description: `${processed} cliente(s) processado(s).` });
     },
@@ -97,38 +127,197 @@ function useRunAutomation() {
   });
 }
 
-export default function AutomationsPage() {
-  const { data: automations, isLoading, isError, error } = useAutomations();
+// ─── Run History Panel ────────────────────────────────────────────────────────
+
+function RunHistory({ automationId }: { automationId: string }) {
+  const { data: logs = [], isLoading } = useRunLog(automationId);
+
+  if (isLoading) return <div className="flex justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>;
+  if (!logs.length) return <p className="text-xs text-muted-foreground text-center py-4">Nenhuma execução registrada ainda.</p>;
+
+  return (
+    <div className="space-y-2">
+      {logs.map(log => {
+        const summary = log.summary as any[];
+        const sent    = Array.isArray(summary) ? summary.filter((r: any) => r.sent).length : 0;
+        const skipped = Array.isArray(summary) ? summary.filter((r: any) => r.skipped).length : 0;
+        const errors  = Array.isArray(summary) ? summary.filter((r: any) => r.error).length : 0;
+
+        return (
+          <div key={log.id} className="flex items-start gap-3 text-xs border-b border-border/40 pb-2 last:border-0">
+            <div className="mt-0.5 shrink-0">
+              {log.status === 'success'
+                ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                : <XCircle className="w-3.5 h-3.5 text-destructive" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium">{format(new Date(log.run_at), "dd/MM/yyyy 'às' HH:mm")}</span>
+                <span className="text-muted-foreground">
+                  {formatDistanceToNow(new Date(log.run_at), { addSuffix: true, locale: ptBR })}
+                </span>
+              </div>
+              {log.status === 'success' ? (
+                <p className="text-muted-foreground mt-0.5">
+                  {log.processed} processado(s)
+                  {sent > 0 && ` · ${sent} enviado(s)`}
+                  {skipped > 0 && ` · ${skipped} ignorado(s)`}
+                  {errors > 0 && ` · ${errors} erro(s)`}
+                </p>
+              ) : (
+                <p className="text-destructive mt-0.5 truncate">
+                  {Array.isArray(summary) && summary[0]?.error ? summary[0].error : 'Erro desconhecido'}
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Automation Card ──────────────────────────────────────────────────────────
+
+function AutomationCard({ a }: { a: AutomationConfig }) {
+  const meta = AUTOMATION_META[a.id];
   const update = useUpdateAutomation();
   const run = useRunAutomation();
   const { toast } = useToast();
 
-  const [editingThreshold, setEditingThreshold] = useState<string | null>(null);
+  const [editingThreshold, setEditingThreshold] = useState(false);
   const [thresholdValue, setThresholdValue] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
 
-  const handleToggle = (a: AutomationConfig) => {
+  if (!meta) return null;
+  const Icon = meta.icon;
+  const isRunning = run.isPending && run.variables === a.id;
+
+  const handleToggle = () => {
     update.mutate(
       { id: a.id, patch: { enabled: !a.enabled } },
       { onSuccess: () => toast({ title: a.enabled ? 'Automação pausada' : 'Automação ativada' }) }
     );
   };
 
-  const handleEditThreshold = (a: AutomationConfig) => {
-    setEditingThreshold(a.id);
-    setThresholdValue(String(a.threshold_days ?? ''));
-  };
-
-  const handleSaveThreshold = (id: string) => {
+  const handleSaveThreshold = () => {
     const val = parseInt(thresholdValue);
-    if (isNaN(val) || val < 1) {
-      toast({ title: 'Valor inválido', description: 'Mínimo 1 dia.', variant: 'destructive' });
+    if (isNaN(val) || val < 0) {
+      toast({ title: 'Valor inválido', description: 'Mínimo 0 dias.', variant: 'destructive' });
       return;
     }
     update.mutate(
-      { id, patch: { threshold_days: val } },
-      { onSuccess: () => { setEditingThreshold(null); toast({ title: 'Threshold atualizado!' }); } }
+      { id: a.id, patch: { threshold_days: val } },
+      { onSuccess: () => { setEditingThreshold(false); toast({ title: 'Threshold atualizado!' }); } }
     );
   };
+
+  return (
+    <Card className={`transition-opacity ${!a.enabled ? 'opacity-60' : ''}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${a.enabled ? 'bg-primary/10' : 'bg-muted'}`}>
+              <Icon className={`w-5 h-5 ${a.enabled ? meta.color : 'text-muted-foreground'}`} />
+            </div>
+            <div>
+              <CardTitle className="text-base">{a.name}</CardTitle>
+              <div className="flex items-center gap-2 mt-0.5">
+                <Badge variant={a.enabled ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                  {a.enabled ? 'Ativa' : 'Pausada'}
+                </Badge>
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="w-3 h-3" />{meta.scheduleLabel}
+                </span>
+              </div>
+            </div>
+          </div>
+          <Switch checked={a.enabled} onCheckedChange={handleToggle} disabled={update.isPending} />
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">{a.description}</p>
+
+        {/* Threshold */}
+        {a.threshold_days !== null && (
+          <div className="flex items-center gap-2">
+            <Label className="text-sm shrink-0">Disparar após</Label>
+            {editingThreshold ? (
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="number" min={0} value={thresholdValue}
+                  onChange={e => setThresholdValue(e.target.value)}
+                  className="h-7 w-16 text-sm" autoFocus
+                  onKeyDown={e => { if (e.key === 'Enter') handleSaveThreshold(); if (e.key === 'Escape') setEditingThreshold(false); }}
+                />
+                <span className="text-sm text-muted-foreground">dias</span>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleSaveThreshold} disabled={update.isPending}>
+                  <Check className="w-3.5 h-3.5 text-green-500" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingThreshold(false)}>
+                  <X className="w-3.5 h-3.5 text-muted-foreground" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-semibold">{a.threshold_days} dias</span>
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setEditingThreshold(true); setThresholdValue(String(a.threshold_days ?? 0)); }}>
+                  <Edit2 className="w-3 h-3 text-muted-foreground" />
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Último disparo + Executar */}
+        <div className="flex items-center justify-between pt-1 border-t border-border">
+          <div className="text-xs text-muted-foreground">
+            {a.last_run_at ? (
+              <span className="flex items-center gap-1.5">
+                {a.last_run_status === 'success'
+                  ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                  : <XCircle className="w-3.5 h-3.5 text-destructive" />}
+                {formatDistanceToNow(new Date(a.last_run_at), { addSuffix: true, locale: ptBR })}
+                <span className="opacity-60">({format(new Date(a.last_run_at), 'dd/MM HH:mm')})</span>
+              </span>
+            ) : (
+              <span className="opacity-60">Nunca executada</span>
+            )}
+          </div>
+          <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs"
+            onClick={() => run.mutate(a.id)} disabled={!a.enabled || isRunning}>
+            {isRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+            {isRunning ? 'Executando…' : 'Executar agora'}
+          </Button>
+        </div>
+
+        {/* Histórico colapsável */}
+        <div className="border-t border-border pt-2">
+          <button
+            type="button"
+            onClick={() => setShowHistory(v => !v)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
+          >
+            <History className="w-3.5 h-3.5" />
+            Histórico de execuções
+            {showHistory ? <ChevronUp className="w-3 h-3 ml-auto" /> : <ChevronDown className="w-3 h-3 ml-auto" />}
+          </button>
+          {showHistory && (
+            <div className="mt-3">
+              <RunHistory automationId={a.id} />
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function AutomationsPage() {
+  const { data: automations, isLoading, isError, error } = useAutomations();
 
   return (
     <MainLayout>
@@ -157,108 +346,8 @@ export default function AutomationsPage() {
         )}
 
         {!isLoading && !isError && (
-          <div className="grid gap-4 md:grid-cols-2">
-            {automations?.map((a) => {
-              const meta = AUTOMATION_META[a.id];
-              if (!meta) return null;
-              const Icon = meta.icon;
-              const isRunning = run.isPending && run.variables === a.id;
-
-              return (
-                <Card key={a.id} className={`transition-opacity ${!a.enabled ? 'opacity-60' : ''}`}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${a.enabled ? 'bg-primary/10' : 'bg-muted'}`}>
-                          <Icon className={`w-5 h-5 ${a.enabled ? (meta.color) : 'text-muted-foreground'}`} />
-                        </div>
-                        <div>
-                          <CardTitle className="text-base">{a.name}</CardTitle>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <Badge variant={a.enabled ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
-                              {a.enabled ? 'Ativa' : 'Pausada'}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {meta.scheduleLabel}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <Switch checked={a.enabled} onCheckedChange={() => handleToggle(a)} disabled={update.isPending} />
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="space-y-4">
-                    <p className="text-sm text-muted-foreground">{a.description}</p>
-
-                    {/* Threshold */}
-                    {a.threshold_days !== null && (
-                      <div className="flex items-center gap-2">
-                        <Label className="text-sm shrink-0">Disparar após</Label>
-                        {editingThreshold === a.id ? (
-                          <div className="flex items-center gap-1.5">
-                            <Input
-                              type="number"
-                              min={1}
-                              value={thresholdValue}
-                              onChange={(e) => setThresholdValue(e.target.value)}
-                              className="h-7 w-16 text-sm"
-                              autoFocus
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSaveThreshold(a.id);
-                                if (e.key === 'Escape') setEditingThreshold(null);
-                              }}
-                            />
-                            <span className="text-sm text-muted-foreground">dias sem atividade</span>
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleSaveThreshold(a.id)} disabled={update.isPending}>
-                              <Check className="w-3.5 h-3.5 text-green-500" />
-                            </Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingThreshold(null)}>
-                              <X className="w-3.5 h-3.5 text-muted-foreground" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-semibold">{a.threshold_days} dias sem atividade</span>
-                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleEditThreshold(a)}>
-                              <Edit2 className="w-3 h-3 text-muted-foreground" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Último disparo */}
-                    <div className="flex items-center justify-between pt-1 border-t border-border">
-                      <div className="text-xs text-muted-foreground">
-                        {a.last_run_at ? (
-                          <span className="flex items-center gap-1.5">
-                            {a.last_run_status === 'success'
-                              ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
-                              : <XCircle className="w-3.5 h-3.5 text-destructive" />}
-                            Último disparo: {formatDistanceToNow(new Date(a.last_run_at), { addSuffix: true, locale: ptBR })}
-                            <span className="opacity-60">({format(new Date(a.last_run_at), 'dd/MM HH:mm')})</span>
-                          </span>
-                        ) : (
-                          <span className="opacity-60">Nunca executada</span>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 gap-1.5 text-xs"
-                        onClick={() => run.mutate(a.id)}
-                        disabled={!a.enabled || isRunning}
-                      >
-                        {isRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-                        {isRunning ? 'Executando…' : 'Executar agora'}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {automations?.map(a => <AutomationCard key={a.id} a={a} />)}
           </div>
         )}
 
