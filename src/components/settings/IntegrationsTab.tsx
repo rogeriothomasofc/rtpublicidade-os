@@ -296,17 +296,14 @@ export function IntegrationsTab() {
     }
     setTestingAsaas(true);
     try {
-      const baseUrl = asaasForm.environment === 'production'
-        ? 'https://api.asaas.com/v3'
-        : 'https://sandbox.asaas.com/api/v3';
-      const res = await fetch(`${baseUrl}/finance/getCurrentBalance`, {
-        headers: { access_token: asaasForm.apiKey },
+      // Call via Edge Function to avoid CORS (browser cannot call Asaas API directly)
+      const { data, error } = await supabase.functions.invoke('asaas-test', {
+        body: { api_key: asaasForm.apiKey.trim(), environment: asaasForm.environment },
       });
-      if (res.ok) {
-        const data = await res.json();
-        toast({ title: 'Conexão bem-sucedida!', description: `Saldo atual: R$ ${Number(data.balance || 0).toFixed(2)}` });
+      if (error || data?.error) {
+        toast({ title: 'Falha na conexão', description: data?.error || error?.message, variant: 'destructive' });
       } else {
-        toast({ title: 'Falha na conexão', description: `Status: ${res.status}`, variant: 'destructive' });
+        toast({ title: 'Conexão bem-sucedida!', description: `Saldo: R$ ${Number(data?.balance ?? 0).toFixed(2)}` });
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
