@@ -12,7 +12,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Instagram, ShoppingCart, Loader2, Play, Clock, CheckCircle2, XCircle, Edit2, Check, X,
+  Instagram, ShoppingCart, BarChart2, Loader2, Play, Clock, CheckCircle2, XCircle, Edit2, Check, X,
 } from 'lucide-react';
 
 interface AutomationConfig {
@@ -24,12 +24,13 @@ interface AutomationConfig {
   cron_expression: string;
   last_run_at: string | null;
   last_run_status: string | null;
-  last_run_summary: Record<string, unknown> | null;
+  last_run_summary: unknown;
 }
 
 const AUTOMATION_META: Record<string, { icon: React.ElementType; color: string; scheduleLabel: string }> = {
   'instagram-alert': { icon: Instagram, color: 'text-pink-500', scheduleLabel: 'Todo dia às 9h' },
   'vendas-alert':    { icon: ShoppingCart, color: 'text-emerald-500', scheduleLabel: 'Todo dia às 9h' },
+  'relatorio':       { icon: BarChart2,   color: 'text-blue-500',   scheduleLabel: 'A cada hora (por cliente)' },
 };
 
 function useAutomations() {
@@ -50,7 +51,7 @@ function useUpdateAutomation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<AutomationConfig> }) => {
-      const { error } = await supabase.from('automation_configs').update(patch).eq('id', id);
+      const { error } = await (supabase as any).from('automation_configs').update(patch).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['automation_configs'] }),

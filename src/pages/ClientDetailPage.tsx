@@ -30,6 +30,7 @@ import { PortalAccessCard } from '@/components/clients/PortalAccessCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { MetaAdsCard } from '@/components/clients/MetaAdsCard';
+import { ClientReportCard } from '@/components/clients/ClientReportCard';
 
 const statusColors: Record<ClientStatus, string> = {
   Lead: 'bg-muted text-muted-foreground',
@@ -478,6 +479,9 @@ export default function ClientDetailPage() {
 
         {/* Portal Access Stats */}
         <PortalAccessCard clientId={id!} />
+
+        {/* Relatório Automático */}
+        <ClientReportCard clientId={id!} />
 
         {/* Plannings */}
         <Card className="border-border/50">

@@ -344,6 +344,71 @@ export type Database = {
           },
         ]
       }
+      client_report_configs: {
+        Row: {
+          ai_context: string | null
+          client_id: string
+          created_at: string
+          day_of_month: number | null
+          day_of_week: number | null
+          enabled: boolean
+          frequency: string
+          id: string
+          include_ai: boolean
+          include_campaigns: boolean
+          include_sales: boolean
+          last_sent_at: string | null
+          next_send_at: string | null
+          send_hour: number
+          top_creatives: number
+          updated_at: string
+        }
+        Insert: {
+          ai_context?: string | null
+          client_id: string
+          created_at?: string
+          day_of_month?: number | null
+          day_of_week?: number | null
+          enabled?: boolean
+          frequency?: string
+          id?: string
+          include_ai?: boolean
+          include_campaigns?: boolean
+          include_sales?: boolean
+          last_sent_at?: string | null
+          next_send_at?: string | null
+          send_hour?: number
+          top_creatives?: number
+          updated_at?: string
+        }
+        Update: {
+          ai_context?: string | null
+          client_id?: string
+          created_at?: string
+          day_of_month?: number | null
+          day_of_week?: number | null
+          enabled?: boolean
+          frequency?: string
+          id?: string
+          include_ai?: boolean
+          include_campaigns?: boolean
+          include_sales?: boolean
+          last_sent_at?: string | null
+          next_send_at?: string | null
+          send_hour?: number
+          top_creatives?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_report_configs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_sales: {
         Row: {
           amount: number
@@ -2788,6 +2853,13 @@ export type Database = {
         Args: { p_client_id: string }
         Returns: {
           created_at: string
+        }[]
+      }
+      get_client_sales_in_period: {
+        Args: { p_client_id: string; p_date_from: string; p_date_to: string }
+        Returns: {
+          count: number
+          total: number
         }[]
       }
       get_dashboard_metrics: {
