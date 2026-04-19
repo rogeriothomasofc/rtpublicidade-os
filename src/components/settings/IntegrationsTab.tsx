@@ -292,15 +292,17 @@ export function IntegrationsTab() {
   };
 
   const handleTestAsaas = async () => {
-    if (!asaasForm.apiKey.trim()) {
+    // Use saved key from DB if form field is empty or looks like autofill (doesn't start with $aact)
+    const savedKey = ((asaasIntegration?.config as Record<string, unknown> | null)?.api_key as string) || '';
+    const keyToTest = (asaasForm.apiKey.trim().startsWith('$aact') ? asaasForm.apiKey.trim() : savedKey);
+    if (!keyToTest) {
       toast({ title: 'Informe a API Key', variant: 'destructive' });
       return;
     }
     setTestingAsaas(true);
     try {
-      // Call via Edge Function to avoid CORS (browser cannot call Asaas API directly)
       const { data, error } = await supabase.functions.invoke('asaas-test', {
-        body: { api_key: asaasForm.apiKey.trim(), environment: asaasForm.environment },
+        body: { api_key: keyToTest, environment: asaasForm.environment },
       });
       if (error || data?.error) {
         toast({ title: 'Falha na conexão', description: data?.error || error?.message, variant: 'destructive' });
@@ -775,6 +777,8 @@ export function IntegrationsTab() {
                   onChange={(e) => setAsaasForm((f) => ({ ...f, apiKey: e.target.value }))}
                   placeholder="$aact_..."
                   className="flex-1"
+                  autoComplete="new-password"
+                  name="asaas-api-key-field"
                 />
                 <Button
                   type="button"
