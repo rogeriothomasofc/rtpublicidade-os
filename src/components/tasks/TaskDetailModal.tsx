@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { CalendarDays, Clock, User, Tag, Building2, Pencil } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { TaskWithAssignees } from '@/hooks/useTasks';
 import { useSubtasks } from '@/hooks/useSubtasks';
@@ -103,7 +103,7 @@ export function TaskDetailModal({ task, open, onOpenChange, onEdit }: TaskDetail
             {task.due_date && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <CalendarDays className="h-4 w-4 shrink-0" />
-                <span>{format(parseISO(task.due_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>
+                <span>{format(new Date(task.due_date + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>
               </div>
             )}
             {(task as any).due_time && (

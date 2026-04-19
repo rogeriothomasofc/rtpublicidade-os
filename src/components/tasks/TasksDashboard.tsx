@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, CalendarDays, AlertTriangle, DollarSign } from 'lucide-react';
-import { format, isToday, isBefore, startOfDay, parseISO } from 'date-fns';
+import { format, isToday, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { TaskWithAssignees } from '@/hooks/useTasks';
 import { Progress } from '@/components/ui/progress';
@@ -25,19 +25,19 @@ export function TasksDashboard({ tasks, userName, onTaskClick }: TasksDashboardP
   const today = startOfDay(new Date());
 
   const todayTasks = useMemo(() =>
-    tasks.filter(t => t.due_date && isToday(parseISO(t.due_date)) && t.status !== 'Concluído'),
+    tasks.filter(t => t.due_date && isToday(new Date(t.due_date + 'T12:00:00')) && t.status !== 'Concluído'),
     [tasks]
   );
 
   const todayCompleted = useMemo(() =>
-    tasks.filter(t => t.due_date && isToday(parseISO(t.due_date)) && t.status === 'Concluído'),
+    tasks.filter(t => t.due_date && isToday(new Date(t.due_date + 'T12:00:00')) && t.status === 'Concluído'),
     [tasks]
   );
 
   const overdueTasks = useMemo(() =>
     tasks.filter(t => {
       if (!t.due_date || t.status === 'Concluído') return false;
-      return isBefore(parseISO(t.due_date), today);
+      return isBefore(new Date(t.due_date + 'T12:00:00'), today);
     }),
     [tasks, today]
   );
@@ -98,7 +98,7 @@ export function TasksDashboard({ tasks, userName, onTaskClick }: TasksDashboardP
                 <p className="text-2xl font-bold text-emerald-500 mt-1">
                   {tasks.filter(t => {
                     if (!t.due_date) return false;
-                    const d = parseISO(t.due_date);
+                    const d = new Date(t.due_date + 'T12:00:00');
                     const now = new Date();
                     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
                   }).length}
@@ -152,7 +152,7 @@ export function TasksDashboard({ tasks, userName, onTaskClick }: TasksDashboardP
             {agendaTasks.length > 0 ? (
               <div className="space-y-3">
                 {agendaTasks.map(task => {
-                  const isOverdue = task.due_date && isBefore(parseISO(task.due_date), today);
+                  const isOverdue = task.due_date && isBefore(new Date(task.due_date + 'T12:00:00'), today);
                   return (
                     <div
                       key={task.id}
@@ -213,7 +213,7 @@ export function TasksDashboard({ tasks, userName, onTaskClick }: TasksDashboardP
                       </Badge>
                       {task.due_date && (
                         <span className="text-[10px] text-muted-foreground">
-                          {format(parseISO(task.due_date), 'dd MMM', { locale: ptBR })}
+                          {format(new Date(task.due_date + 'T12:00:00'), 'dd MMM', { locale: ptBR })}
                         </span>
                       )}
                     </div>

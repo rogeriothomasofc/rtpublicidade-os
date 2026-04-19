@@ -65,8 +65,8 @@ export function ClientPortalAlerts({ tasks, finance, planning }: ClientPortalAle
         message: `Fatura de ${formatCurrency(Number(f.amount))} está atrasada (vencimento: ${formatDate(f.due_date)})`,
       });
     } else if (f.status === 'Pendente' && f.due_date) {
-      const due = new Date(f.due_date);
-      due.setHours(0, 0, 0, 0);
+      const due = new Date(f.due_date + 'T12:00:00');
+      due.setHours(12, 0, 0, 0);
       const diffDays = Math.floor((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       if (diffDays >= 0 && diffDays <= 3) {
         alerts.push({

@@ -27,7 +27,7 @@ import {
 } from '@/hooks/useContentItems';
 import {
   startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth,
-  isSameDay, addMonths, subMonths, isToday, parseISO,
+  isSameDay, addMonths, subMonths, isToday,
 } from 'date-fns';
 import { useClients } from '@/hooks/useClients';
 import { supabase } from '@/integrations/supabase/client';
@@ -870,7 +870,7 @@ function CalendarView({ onEdit, onPublish }: { onEdit: (i: ContentItem) => void;
     return allItems.filter(i => {
       const dateStr = i.category === 'Postado' ? i.posted_date : i.scheduled_date;
       if (!dateStr) return false;
-      return isSameDay(parseISO(dateStr), day);
+      return isSameDay(new Date(dateStr + 'T12:00:00'), day);
     });
   }
 

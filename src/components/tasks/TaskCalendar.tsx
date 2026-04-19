@@ -14,8 +14,7 @@ import {
   endOfWeek, 
   eachDayOfInterval, 
   isSameMonth, 
-  isSameDay, 
-  parseISO,
+  isSameDay,
   addMonths,
   subMonths,
   addWeeks,
@@ -76,7 +75,7 @@ export function TaskCalendar({ tasks, teamMembers, onTaskClick, onStatusChange }
   const getTasksForDay = (day: Date) => {
     return tasks.filter(task => {
       if (!task.due_date) return false;
-      return isSameDay(parseISO(task.due_date), day);
+      return isSameDay(new Date(task.due_date + 'T12:00:00'), day);
     });
   };
 

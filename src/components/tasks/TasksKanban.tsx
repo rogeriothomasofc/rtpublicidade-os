@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { format, parseISO, isBefore, startOfDay } from 'date-fns';
+import { format, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarDays, ChevronRight, Circle, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { TaskWithAssignees } from '@/hooks/useTasks';
@@ -76,7 +76,7 @@ function TaskCard({ task, onStatusChange, onTaskClick }: {
 }) {
   const [isDragging, setIsDragging] = useState(false);
   const today = startOfDay(new Date());
-  const isOverdue = task.due_date && task.status !== 'Concluído' && isBefore(parseISO(task.due_date), today);
+  const isOverdue = task.due_date && task.status !== 'Concluído' && isBefore(new Date(task.due_date + 'T12:00:00'), today);
   const nextStatus = STATUS_NEXT[task.status];
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -127,7 +127,7 @@ function TaskCard({ task, onStatusChange, onTaskClick }: {
               isOverdue ? 'text-destructive' : 'text-muted-foreground'
             )}>
               <CalendarDays className="h-3 w-3" />
-              {format(parseISO(task.due_date), 'dd MMM', { locale: ptBR })}
+              {format(new Date(task.due_date + 'T12:00:00'), 'dd MMM', { locale: ptBR })}
             </span>
           )}
           {task.subtasks_count > 0 && (

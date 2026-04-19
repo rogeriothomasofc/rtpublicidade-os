@@ -224,7 +224,7 @@ export default function Dashboard() {
                           <div className="flex items-center gap-2 shrink-0">
                             {task.due_date && (
                               <span className="text-xs text-muted-foreground hidden sm:block">
-                                {new Date(task.due_date).toLocaleDateString('pt-BR')}
+                                {new Date(task.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
                               </span>
                             )}
                             <Badge

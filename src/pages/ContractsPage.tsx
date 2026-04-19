@@ -41,7 +41,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { formatCurrency } from '@/lib/utils';
-import { format, addMonths, parseISO, differenceInDays } from 'date-fns';
+import { format, addMonths, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FileText, Pencil, Trash2, Search, Calendar, AlertTriangle, FileDown, Plus, DollarSign, BarChart3, FileCheck } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -135,7 +135,7 @@ export default function ContractsPage() {
   };
 
   const getEndDate = (startDate: string, durationMonths: number) => {
-    return addMonths(parseISO(startDate), durationMonths);
+    return addMonths(new Date(startDate + 'T12:00:00'), durationMonths);
   };
 
   const getDaysRemaining = (startDate: string, durationMonths: number) => {
@@ -306,7 +306,7 @@ export default function ContractsPage() {
                         {contract.duration_months || 12} meses
                       </TableCell>
                       <TableCell>
-                        {format(parseISO(contract.start_date), 'dd/MM/yyyy', { locale: ptBR })}
+                        {format(new Date(contract.start_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

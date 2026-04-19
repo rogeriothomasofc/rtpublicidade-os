@@ -138,7 +138,7 @@ export function AIChat({ open, onClose }: AIChatProps) {
 
     const activeClients = (clients || []).filter(c => c.status === 'Ativo');
     const overdueTasks = (tasks || []).filter(t =>
-      t.status !== 'Concluído' && t.due_date && new Date(t.due_date) < now
+      t.status !== 'Concluído' && t.due_date && new Date(t.due_date + 'T12:00:00') < now
     );
     const pendingTasks = (tasks || []).filter(t => t.status === 'A Fazer');
     const inProgressTasks = (tasks || []).filter(t => t.status === 'Fazendo');
@@ -154,7 +154,7 @@ export function AIChat({ open, onClose }: AIChatProps) {
 
     const expiringContracts = (contracts || []).filter((c: any) => {
       if (!c.end_date || c.status !== 'Ativo') return false;
-      const daysLeft = Math.ceil((new Date(c.end_date).getTime() - now.getTime()) / 86400000);
+      const daysLeft = Math.ceil((new Date(c.end_date + 'T12:00:00').getTime() - now.getTime()) / 86400000);
       return daysLeft > 0 && daysLeft <= 30;
     });
 
@@ -192,7 +192,7 @@ ${activeLeads.length > 0 ? `- Principais leads: ${activeLeads.slice(0, 5).map(l 
 
 CONTRATOS:
 - Contratos ativos: ${(contracts || []).filter((c: any) => c.status === 'Ativo').length}
-- Vencendo em 30 dias: ${expiringContracts.length}${expiringContracts.length > 0 ? ` — ${(expiringContracts as any[]).slice(0, 3).map((c: any) => `${c.client?.name || 'cliente'} (vence ${new Date(c.end_date).toLocaleDateString('pt-BR')})`).join(', ')}` : ''}
+- Vencendo em 30 dias: ${expiringContracts.length}${expiringContracts.length > 0 ? ` — ${(expiringContracts as any[]).slice(0, 3).map((c: any) => `${c.client?.name || 'cliente'} (vence ${new Date(c.end_date + 'T12:00:00').toLocaleDateString('pt-BR')})`).join(', ')}` : ''}
 
 Responda de forma clara e direta. Quando listar itens, use listas com marcadores. Seja um consultor estratégico que conhece os números e ajuda a tomar decisões. Não invente dados que não estão aqui — se não tiver a informação, diga que não está disponível no momento.`;
   };

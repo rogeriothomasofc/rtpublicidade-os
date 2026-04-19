@@ -73,7 +73,7 @@ export function KanbanCard({ task }: KanbanCardProps) {
           {task.due_date && (
             <div className="flex items-center gap-1">
               <Calendar className="w-3 h-3" />
-              <span>{format(new Date(task.due_date), 'dd/MM')}</span>
+              <span>{format(new Date(task.due_date + 'T12:00:00'), 'dd/MM')}</span>
             </div>
           )}
         </div>

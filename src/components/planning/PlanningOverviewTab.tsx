@@ -30,7 +30,10 @@ function formatCurrency(value: number) {
 
 function formatDate(date: string | null) {
   if (!date) return 'Não definida';
-  try { return format(new Date(date), 'dd/MM/yyyy'); } catch { return date; }
+  try {
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(date + 'T12:00:00') : new Date(date);
+    return format(d, 'dd/MM/yyyy');
+  } catch { return date; }
 }
 
 export function PlanningOverviewTab({ campaign, planningId }: Props) {

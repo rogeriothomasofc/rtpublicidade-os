@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { addDays, differenceInDays, parseISO } from 'date-fns';
+import { addDays, differenceInDays } from 'date-fns';
 
 export function ExpiringContractsCard() {
   const { data: contracts, isLoading } = useContracts();
@@ -27,9 +27,9 @@ export function ExpiringContractsCard() {
     .filter((c: any) => {
       if (c.status !== 'Ativo') return false;
       const endDate = c.end_date
-        ? parseISO(c.end_date)
+        ? new Date(c.end_date + 'T12:00:00')
         : c.duration_months
-          ? addDays(parseISO(c.start_date), c.duration_months * 30)
+          ? addDays(new Date(c.start_date + 'T12:00:00'), c.duration_months * 30)
           : null;
       if (!endDate) return false;
       const daysLeft = differenceInDays(endDate, today);
@@ -37,8 +37,8 @@ export function ExpiringContractsCard() {
     })
     .map((c: any) => {
       const endDate = c.end_date
-        ? parseISO(c.end_date)
-        : addDays(parseISO(c.start_date), (c.duration_months || 12) * 30);
+        ? new Date(c.end_date + 'T12:00:00')
+        : addDays(new Date(c.start_date + 'T12:00:00'), (c.duration_months || 12) * 30);
       const daysLeft = differenceInDays(endDate, today);
       return { ...c, endDate, daysLeft };
     })

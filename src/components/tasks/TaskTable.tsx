@@ -317,7 +317,7 @@ export function TaskTable({ tasks, isLoading, teamMembers, onStatusChange, onAss
                     <TableCell className={cn(overdue && 'text-destructive font-medium')}>
                       {task.due_date 
                         ? <>
-                            {format(parseISO(task.due_date), 'dd MMM yyyy', { locale: ptBR })}
+                            {format(new Date(task.due_date + 'T12:00:00'), 'dd MMM yyyy', { locale: ptBR })}
                             {(task as any).due_time && <span className="text-muted-foreground ml-1 text-xs">{(task as any).due_time}</span>}
                           </>
                         : '—'
