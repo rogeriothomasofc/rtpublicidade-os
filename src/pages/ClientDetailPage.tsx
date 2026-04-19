@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -369,6 +370,18 @@ export default function ClientDetailPage() {
           </Card>
         </div>
 
+        <Tabs defaultValue="geral">
+          <TabsList className="mb-2">
+            <TabsTrigger value="geral">Visão Geral</TabsTrigger>
+            <TabsTrigger value="relatorio">Relatório</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="relatorio">
+            <ClientReportCard clientId={id!} />
+          </TabsContent>
+
+          <TabsContent value="geral" className="space-y-6">
+
         {/* Contact Info */}
         <Card className="border-border/50">
           <CardHeader className="pb-3">
@@ -479,9 +492,6 @@ export default function ClientDetailPage() {
 
         {/* Portal Access Stats */}
         <PortalAccessCard clientId={id!} />
-
-        {/* Relatório Automático */}
-        <ClientReportCard clientId={id!} />
 
         {/* Plannings */}
         <Card className="border-border/50">
@@ -735,6 +745,9 @@ export default function ClientDetailPage() {
             )}
           </CardContent>
         </Card>
+
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Dialogs */}
