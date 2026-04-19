@@ -287,6 +287,7 @@ export function IntegrationsTab() {
       apiKey: (config?.api_key as string) || '',
       environment: ((config?.environment as string) || 'sandbox') as 'sandbox' | 'production',
     });
+    setShowAsaasKey(false); // sempre começar mascarado
     setAsaasDialog(true);
   };
 
@@ -789,6 +790,17 @@ export function IntegrationsTab() {
                   )}
                 </Button>
               </div>
+              {(() => {
+                const saved = ((asaasIntegration?.config as Record<string, unknown> | null)?.api_key as string) || '';
+                if (saved && saved.length > 10) {
+                  return (
+                    <p className="text-xs text-success/80">
+                      ✓ Key salva: {saved.slice(0, 12)}...{saved.slice(-4)}
+                    </p>
+                  );
+                }
+                return null;
+              })()}
               <p className="text-xs text-muted-foreground">
                 Encontre sua API Key em{' '}
                 <a href="https://www.asaas.com/customerApiKeys/index" target="_blank" rel="noopener noreferrer" className="underline text-primary">
