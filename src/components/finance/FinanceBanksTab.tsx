@@ -23,7 +23,9 @@ export function FinanceBanksTab() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: integrations } = useIntegrations();
-  const asaasConnected = integrations?.find(i => i.provider === 'asaas')?.status === 'connected';
+  const asaasIntegration = integrations?.find(i => i.provider === 'asaas');
+  const asaasConnected = asaasIntegration?.status === 'connected';
+  const asaasEnvironment = (asaasIntegration?.config as Record<string, string> | null)?.environment;
   const { data: asaasBalance, isLoading: loadingAsaas } = useAsaasBalance(asaasConnected);
 
   const activeBanks = banks?.filter(b => b.status === 'Ativo') || [];
@@ -126,7 +128,9 @@ export function FinanceBanksTab() {
                   <TableCell>
                     <Badge variant="outline" className="text-success border-success/30">Ativo</Badge>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">Sincronizado via API</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    API · {asaasEnvironment === 'production' ? 'Produção' : 'Sandbox'}
+                  </TableCell>
                   <TableCell />
                 </TableRow>
               )}

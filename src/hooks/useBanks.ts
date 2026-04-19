@@ -53,11 +53,14 @@ export function useDeleteBank() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      // Desvincular lançamentos antes de excluir (evita FK constraint)
+      await supabase.from('finance').update({ bank_id: null }).eq('bank_id', id);
       const { error } = await supabase.from('banks').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['banks'] });
+      queryClient.invalidateQueries({ queryKey: ['finance'] });
       toast.success('Banco excluído!');
     },
     onError: (e) => toast.error('Erro: ' + e.message),
