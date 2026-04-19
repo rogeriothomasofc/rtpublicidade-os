@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { BarChart2, Loader2, Save, Clock, ChevronDown } from 'lucide-react';
+import { BarChart2, Loader2, Save, Clock, ChevronDown, Eye, EyeOff } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -23,6 +23,14 @@ const RESULT_TYPES = [
 ] as const;
 
 type ResultTypeLabel = (typeof RESULT_TYPES)[number]['label'];
+type Period = '7d' | '30d' | 'current_month' | 'last_month';
+
+const PERIOD_OPTIONS: { value: Period; label: string; reportLabel: string }[] = [
+  { value: '7d',           label: 'Últimos 7 dias',  reportLabel: 'Últimos 7 Dias' },
+  { value: '30d',          label: 'Últimos 30 dias', reportLabel: 'Últimos 30 Dias' },
+  { value: 'current_month',label: 'Mês atual',       reportLabel: 'Mensal' },
+  { value: 'last_month',   label: 'Mês anterior',    reportLabel: 'Mês Anterior' },
+];
 
 interface ReportConfig {
   id?: string;
@@ -40,6 +48,8 @@ interface ReportConfig {
   send_hour: number;
   next_send_at: string | null;
   last_sent_at: string | null;
+  period: Period;
+  intro_text: string | null;
 }
 
 const DAYS_OF_WEEK = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -66,9 +76,106 @@ function calcNextSendAt(config: Partial<ReportConfig>): string {
   return next.toISOString();
 }
 
-export function ClientReportCard({ clientId }: { clientId: string }) {
+function getPeriodDateRange(period: Period): string {
+  const today = new Date();
+  const fmt = (d: Date) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
+  if (period === '7d') {
+    const from = new Date(today); from.setDate(today.getDate() - 7);
+    return `${fmt(from)} a ${fmt(today)}`;
+  }
+  if (period === '30d') {
+    const from = new Date(today); from.setDate(today.getDate() - 30);
+    return `${fmt(from)} a ${fmt(today)}`;
+  }
+  if (period === 'current_month') {
+    const from = new Date(today.getFullYear(), today.getMonth(), 1);
+    return `${fmt(from)} a ${fmt(today)}`;
+  }
+  // last_month
+  const from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const to   = new Date(today.getFullYear(), today.getMonth(), 0);
+  return `${fmt(from)} a ${fmt(to)}`;
+}
+
+// Renders a WhatsApp-style message preview based on current config
+function MessagePreview({ form, clientName }: { form: ReportConfig; clientName?: string }) {
+  const periodOption = PERIOD_OPTIONS.find(p => p.value === form.period) ?? PERIOD_OPTIONS[0];
+  const dateRange = getPeriodDateRange(form.period);
+  const company = clientName || 'Cliente';
+
+  const lines: string[] = [];
+
+  // Header
+  lines.push(`📊 *Relatório ${periodOption.reportLabel}*`);
+  lines.push(company);
+  lines.push(`📅 ${dateRange}`);
+
+  if (form.intro_text?.trim()) {
+    lines.push('');
+    lines.push(form.intro_text.trim());
+  }
+
+  // Campaigns
+  if (form.include_campaigns) {
+    lines.push('');
+    lines.push('📣 *Campanhas*');
+    lines.push('Investido: R$ 1.200,00');
+    lines.push(`Cliques: 850 | ${form.result_type}: 42`);
+    lines.push('CPC: R$ 1,41 | CPA: R$ 28,57');
+  }
+
+  // Top creatives
+  if (form.include_campaigns && form.top_creatives > 0) {
+    lines.push('');
+    lines.push('🏆 *Melhores criativos*');
+    if (form.top_creatives >= 1) lines.push('1️⃣ "Criativo A" — 22 conv | CPA R$ 25,00');
+    if (form.top_creatives >= 2) lines.push('2️⃣ "Criativo B" — 13 conv | CPA R$ 31,00');
+    if (form.top_creatives >= 3) lines.push('3️⃣ "Criativo C" — 7 conv | CPA R$ 40,00');
+  }
+
+  // Sales
+  if (form.include_sales) {
+    lines.push('');
+    lines.push('🛒 *Vendas registradas*');
+    lines.push('18 vendas — Total: R$ 9.450,00');
+  }
+
+  // AI
+  if (form.include_ai) {
+    lines.push('');
+    lines.push('🤖 *Análise da RT Publicidade*');
+    lines.push('As campanhas apresentaram boa performance no período, com CPA dentro da meta. Recomendamos escalar o criativo A que teve o menor custo por conversão.');
+  }
+
+  lines.push('');
+  lines.push('_RT Publicidade_');
+
+  return (
+    <div className="rounded-xl bg-[#0b141a] p-3 font-mono text-xs leading-relaxed overflow-x-auto">
+      <p className="text-[10px] text-zinc-500 mb-2 font-sans">Preview da mensagem WhatsApp</p>
+      <div className="bg-[#202c33] rounded-lg p-3 max-w-sm inline-block text-left">
+        {lines.map((line, i) => {
+          // Bold: *text*
+          const parsed = line.replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>');
+          return (
+            <p
+              key={i}
+              className={`text-zinc-200 ${line === '' ? 'h-2' : ''}`}
+              dangerouslySetInnerHTML={{ __html: parsed || '&nbsp;' }}
+            />
+          );
+        })}
+        <p className="text-[10px] text-zinc-500 text-right mt-1">✓✓ agora</p>
+      </div>
+    </div>
+  );
+}
+
+export function ClientReportCard({ clientId, clientName }: { clientId: string; clientName?: string }) {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [showPreview, setShowPreview] = useState(false);
 
   const { data: config, isLoading } = useQuery({
     queryKey: ['client_report_config', clientId],
@@ -97,13 +204,15 @@ export function ClientReportCard({ clientId }: { clientId: string }) {
     send_hour: 9,
     next_send_at: null,
     last_sent_at: null,
+    period: '7d',
+    intro_text: null,
   };
 
   const [form, setForm] = useState<ReportConfig>(defaultForm);
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
-    if (config) setForm(config);
+    if (config) setForm({ ...defaultForm, ...config });
   }, [config]);
 
   const set = (patch: Partial<ReportConfig>) => {
@@ -114,7 +223,12 @@ export function ClientReportCard({ clientId }: { clientId: string }) {
   const save = useMutation({
     mutationFn: async () => {
       const next_send_at = calcNextSendAt(form);
-      const payload = { ...form, next_send_at, ai_context: form.ai_context || null };
+      const payload = {
+        ...form,
+        next_send_at,
+        ai_context: form.ai_context || null,
+        intro_text: form.intro_text || null,
+      };
 
       if (config?.id) {
         const { error } = await (supabase as any)
@@ -177,6 +291,34 @@ export function ClientReportCard({ clientId }: { clientId: string }) {
       </CardHeader>
 
       <CardContent className="space-y-5">
+
+        {/* Período dos dados */}
+        <div className="flex items-center gap-3">
+          <Label className="text-sm font-semibold shrink-0">Período dos dados</Label>
+          <Select value={form.period} onValueChange={v => set({ period: v as Period })}>
+            <SelectTrigger className="h-8 w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PERIOD_OPTIONS.map(p => (
+                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Introdução customizável */}
+        <div className="space-y-1.5">
+          <Label className="text-sm font-semibold">Introdução da mensagem</Label>
+          <Textarea
+            placeholder="Ex: Olá! Segue o relatório de performance da semana. Qualquer dúvida é só chamar!"
+            value={form.intro_text ?? ''}
+            onChange={e => set({ intro_text: e.target.value })}
+            className="text-sm resize-none h-16"
+          />
+          <p className="text-xs text-muted-foreground">Aparece logo após o cabeçalho, antes das métricas. Deixe em branco para omitir.</p>
+        </div>
+
         {/* Métricas */}
         <div>
           <Label className="text-sm font-semibold mb-3 block">Métricas incluídas</Label>
@@ -319,6 +461,19 @@ export function ClientReportCard({ clientId }: { clientId: string }) {
               </Select>
             </div>
           </div>
+        </div>
+
+        {/* Preview da mensagem */}
+        <div className="pt-1 border-t border-border space-y-3">
+          <button
+            type="button"
+            onClick={() => setShowPreview(v => !v)}
+            className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {showPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {showPreview ? 'Ocultar preview' : 'Ver preview da mensagem'}
+          </button>
+          {showPreview && <MessagePreview form={form} clientName={clientName} />}
         </div>
 
         {/* Aviso sem métricas */}

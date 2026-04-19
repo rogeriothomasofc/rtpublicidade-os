@@ -377,7 +377,7 @@ export default function ClientDetailPage() {
           </TabsList>
 
           <TabsContent value="relatorio">
-            <ClientReportCard clientId={id!} />
+            <ClientReportCard clientId={id!} clientName={client.company || client.name} />
           </TabsContent>
 
           <TabsContent value="geral" className="space-y-6">

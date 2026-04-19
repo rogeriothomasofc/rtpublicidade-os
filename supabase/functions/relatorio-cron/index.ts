@@ -86,6 +86,7 @@ serve(async (req) => {
       try {
         const periodLabel = getPeriodLabel(cfg);
         const { dateFrom, dateTo } = getPeriodDates(cfg);
+        const introText: string = cfg.intro_text?.trim() ?? "";
 
         const sections: string[] = [];
         const metricsForAI: string[] = [];
@@ -167,7 +168,8 @@ serve(async (req) => {
         }
 
         // Monta mensagem
-        const header = `📊 *Relatório ${periodLabel}*\n${client.company || client.name}\n📅 ${formatDateRange(dateFrom, dateTo)}\n`;
+        const introPart = introText ? `\n${introText}` : "";
+        const header = `📊 *Relatório ${periodLabel}*\n${client.company || client.name}\n📅 ${formatDateRange(dateFrom, dateTo)}${introPart}\n`;
         const body = sections.join("\n\n");
         const whatsappMsg = `${header}\n${body}${aiBlock}\n\n_RT Publicidade_`;
 
@@ -228,14 +230,18 @@ function getPeriodDates(cfg: any): { dateFrom: string; dateTo: string } {
   let to: Date = new Date(now);
   to.setHours(0, 0, 0, 0);
 
-  if (cfg.frequency === "daily") {
-    from = new Date(to);
-    from.setDate(from.getDate() - 1);
-  } else if (cfg.frequency === "weekly") {
+  const period: string = cfg.period ?? "7d";
+
+  if (period === "7d") {
     from = new Date(to);
     from.setDate(from.getDate() - 7);
+  } else if (period === "30d") {
+    from = new Date(to);
+    from.setDate(from.getDate() - 30);
+  } else if (period === "current_month") {
+    from = new Date(to.getFullYear(), to.getMonth(), 1);
   } else {
-    // monthly: mês anterior completo
+    // last_month
     from = new Date(to.getFullYear(), to.getMonth() - 1, 1);
     to = new Date(to.getFullYear(), to.getMonth(), 0);
   }
@@ -247,9 +253,11 @@ function getPeriodDates(cfg: any): { dateFrom: string; dateTo: string } {
 }
 
 function getPeriodLabel(cfg: any): string {
-  if (cfg.frequency === "daily") return "Diário";
-  if (cfg.frequency === "weekly") return "Semanal";
-  return "Mensal";
+  const period: string = cfg.period ?? "7d";
+  if (period === "7d") return "Últimos 7 Dias";
+  if (period === "30d") return "Últimos 30 Dias";
+  if (period === "current_month") return "Mensal";
+  return "Mês Anterior";
 }
 
 function formatDateRange(from: string, to: string): string {
