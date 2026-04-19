@@ -16,7 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Plus, Search, CheckCircle, TrendingDown, TrendingUp, Pencil, Trash2, RefreshCw, MoreHorizontal, Wallet, CalendarDays, LayoutList, Building2, Tags, Receipt } from 'lucide-react';
+import { Plus, Search, CheckCircle, TrendingDown, TrendingUp, Pencil, Trash2, RefreshCw, MoreHorizontal, Wallet, CalendarDays, LayoutList, Building2, Tags, Receipt, Zap } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
@@ -32,6 +32,8 @@ import { FinanceFormDialog } from '@/components/finance/FinanceFormDialog';
 import { FinanceBanksTab } from '@/components/finance/FinanceBanksTab';
 import { FinanceCategoriesTab } from '@/components/finance/FinanceCategoriesTab';
 import { AsaasChargeActions, AsaasSyncButton } from '@/components/finance/AsaasChargeActions';
+import { useAsaasBalance } from '@/hooks/useAsaas';
+import { useIntegrations } from '@/hooks/useIntegrations';
 import { useDashboardFilters, PeriodPreset, DateRange } from '@/hooks/useDashboardFilters';
 import { cn } from '@/lib/utils';
 import { isWithinInterval, format, startOfMonth, endOfMonth } from 'date-fns';
@@ -71,6 +73,9 @@ export default function FinancePage() {
   const { data: finance, isLoading } = useFinance();
   const { data: clients } = useClients();
   const { data: banks } = useBanks();
+  const { data: integrations } = useIntegrations();
+  const asaasConnected = integrations?.find(i => i.provider === 'asaas')?.status === 'connected';
+  const { data: asaasBalance, isLoading: loadingBalance } = useAsaasBalance(asaasConnected);
   const createFinance = useCreateFinance();
   const updateFinance = useUpdateFinance();
   const deleteFinance = useDeleteFinance();
@@ -247,7 +252,7 @@ export default function FinancePage() {
         </AlertDialog>
 
         {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className={`grid gap-4 ${asaasConnected ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
           <Card className="border-border/50">
             <CardContent className="p-5">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">Saldo Total</p>
@@ -288,6 +293,20 @@ export default function FinancePage() {
               <p className="text-xs text-muted-foreground mt-1">Este mês</p>
             </CardContent>
           </Card>
+          {asaasConnected && (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardContent className="p-5">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Saldo Asaas</p>
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-2xl font-bold text-primary">
+                    {loadingBalance ? '...' : formatCurrency(asaasBalance ?? 0)}
+                  </span>
+                  <div className="p-2 rounded-lg bg-primary/10"><Zap className="h-5 w-5 text-primary" /></div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Conta Asaas</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Tabs */}

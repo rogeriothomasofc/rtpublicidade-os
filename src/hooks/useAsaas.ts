@@ -1,6 +1,23 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+
+export function useAsaasBalance(enabled = true) {
+  return useQuery({
+    queryKey: ['asaas-balance'],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('asaas-api', {
+        body: { action: 'get_balance', payload: {} },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      return data.balance as number;
+    },
+    enabled,
+    staleTime: 5 * 60_000, // 5 min
+    retry: false,
+  });
+}
 
 async function callAsaasApi(action: string, payload: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('asaas-api', {

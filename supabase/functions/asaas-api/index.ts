@@ -272,6 +272,15 @@ serve(async (req) => {
       });
     }
 
+    // ── ACTION: get_balance ──────────────────────────────────────────────────
+    // Returns Asaas account balance.
+    if (action === "get_balance") {
+      const data = await asaasFetch(asaasUrl(environment, "/finance/getCurrentBalance"), apiKey);
+      return new Response(JSON.stringify({ balance: data.balance ?? 0 }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Ação inválida" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
