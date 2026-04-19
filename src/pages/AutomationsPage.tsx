@@ -12,8 +12,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Instagram, ShoppingCart, BarChart2, Loader2, Play, Clock, CheckCircle2, XCircle, Edit2, Check, X,
+  ShoppingCart, Loader2, Play, Clock, CheckCircle2, XCircle, Edit2, Check, X, AlertCircle,
 } from 'lucide-react';
+
+// Instagram icon from simple-icons via inline SVG (lucide deprecated it)
+function IgIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+    </svg>
+  );
+}
 
 interface AutomationConfig {
   id: string;
@@ -27,10 +36,9 @@ interface AutomationConfig {
   last_run_summary: unknown;
 }
 
-const AUTOMATION_META: Record<string, { icon: React.ElementType; color: string; scheduleLabel: string }> = {
-  'instagram-alert': { icon: Instagram, color: 'text-pink-500', scheduleLabel: 'Todo dia às 9h' },
-  'vendas-alert':    { icon: ShoppingCart, color: 'text-emerald-500', scheduleLabel: 'Todo dia às 9h' },
-  'relatorio':       { icon: BarChart2,   color: 'text-blue-500',   scheduleLabel: 'A cada hora (por cliente)' },
+const AUTOMATION_META: Record<string, { icon: React.ElementType; color: string; scheduleLabel: string; canRun: boolean }> = {
+  'instagram-alert': { icon: IgIcon, color: 'text-pink-500', scheduleLabel: 'Todo dia às 9h', canRun: true },
+  'vendas-alert':    { icon: ShoppingCart, color: 'text-emerald-500', scheduleLabel: 'Todo dia às 9h', canRun: true },
 };
 
 function useAutomations() {
@@ -39,7 +47,8 @@ function useAutomations() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('automation_configs')
-        .select('*')
+        .select('id, name, description, enabled, threshold_days, cron_expression, last_run_at, last_run_status')
+        .in('id', ['instagram-alert', 'vendas-alert'])
         .order('id');
       if (error) throw error;
       return (data ?? []) as AutomationConfig[];
@@ -63,14 +72,19 @@ function useRunAutomation() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async (id: string) => {
-      const fnName = id === 'instagram-alert' ? 'instagram-alert-cron' : 'vendas-alerta-cron';
+      const fnMap: Record<string, string> = {
+        'instagram-alert': 'instagram-alert-cron',
+        'vendas-alert': 'vendas-alerta-cron',
+      };
+      const fnName = fnMap[id];
+      if (!fnName) throw new Error('Automação não suporta execução manual.');
       const { data, error } = await supabase.functions.invoke(fnName, {
         headers: { 'x-cron-secret': '4a8f2ba802c6e9dc955fb095f4f1a3debb22a7a19164ffe2' },
       });
       if (error) throw error;
       return data;
     },
-    onSuccess: (data, id) => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['automation_configs'] });
       const processed = (data as Record<string, unknown>)?.processed ?? 0;
       toast({ title: 'Automação executada!', description: `${processed} cliente(s) processado(s).` });
@@ -82,7 +96,7 @@ function useRunAutomation() {
 }
 
 export default function AutomationsPage() {
-  const { data: automations, isLoading } = useAutomations();
+  const { data: automations, isLoading, isError, error } = useAutomations();
   const update = useUpdateAutomation();
   const run = useRunAutomation();
   const { toast } = useToast();
@@ -119,18 +133,33 @@ export default function AutomationsPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Automações</h1>
-          <p className="text-sm text-muted-foreground">Alertas automáticos enviados via WhatsApp e portal do cliente</p>
+          <p className="text-sm text-muted-foreground">
+            Alertas automáticos enviados via WhatsApp e portal do cliente. Os relatórios são configurados individualmente em cada cliente.
+          </p>
         </div>
 
-        {isLoading ? (
+        {isLoading && (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
-        ) : (
+        )}
+
+        {isError && (
+          <div className="flex items-center gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+            <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-destructive">Erro ao carregar automações</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{String(error)}</p>
+            </div>
+          </div>
+        )}
+
+        {!isLoading && !isError && (
           <div className="grid gap-4 md:grid-cols-2">
             {automations?.map((a) => {
               const meta = AUTOMATION_META[a.id];
-              const Icon = meta?.icon ?? Clock;
+              if (!meta) return null;
+              const Icon = meta.icon;
               const isRunning = run.isPending && run.variables === a.id;
 
               return (
@@ -139,7 +168,7 @@ export default function AutomationsPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${a.enabled ? 'bg-primary/10' : 'bg-muted'}`}>
-                          <Icon className={`w-5 h-5 ${a.enabled ? (meta?.color ?? 'text-primary') : 'text-muted-foreground'}`} />
+                          <Icon className={`w-5 h-5 ${a.enabled ? (meta.color) : 'text-muted-foreground'}`} />
                         </div>
                         <div>
                           <CardTitle className="text-base">{a.name}</CardTitle>
@@ -149,7 +178,7 @@ export default function AutomationsPage() {
                             </Badge>
                             <span className="text-xs text-muted-foreground flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              {meta?.scheduleLabel ?? a.cron_expression}
+                              {meta.scheduleLabel}
                             </span>
                           </div>
                         </div>
@@ -179,7 +208,7 @@ export default function AutomationsPage() {
                                 if (e.key === 'Escape') setEditingThreshold(null);
                               }}
                             />
-                            <span className="text-sm text-muted-foreground">dias</span>
+                            <span className="text-sm text-muted-foreground">dias sem atividade</span>
                             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleSaveThreshold(a.id)} disabled={update.isPending}>
                               <Check className="w-3.5 h-3.5 text-green-500" />
                             </Button>
@@ -189,7 +218,7 @@ export default function AutomationsPage() {
                           </div>
                         ) : (
                           <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-semibold">{a.threshold_days} dias</span>
+                            <span className="text-sm font-semibold">{a.threshold_days} dias sem atividade</span>
                             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleEditThreshold(a)}>
                               <Edit2 className="w-3 h-3 text-muted-foreground" />
                             </Button>
@@ -232,7 +261,7 @@ export default function AutomationsPage() {
         )}
 
         <p className="text-xs text-muted-foreground">
-          As mensagens são geradas automaticamente pela IA com base no perfil de cada cliente. O horário de disparo é configurado via Supabase (pg_cron).
+          As mensagens são geradas automaticamente pela IA. Os relatórios de performance são configurados dentro de cada cliente (Meta Ads + Vendas). O horário de disparo é gerenciado via pg_cron.
         </p>
       </div>
     </MainLayout>

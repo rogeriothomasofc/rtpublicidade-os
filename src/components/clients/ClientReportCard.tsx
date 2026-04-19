@@ -8,10 +8,21 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { BarChart2, Loader2, Save, Clock } from 'lucide-react';
+import { BarChart2, Loader2, Save, Clock, ChevronDown } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+const RESULT_TYPES = [
+  { label: 'Leads', types: ['lead', 'onsite_conversion.lead_grouped'] },
+  { label: 'Conversas iniciadas', types: ['onsite_conversion.messaging_conversation_started_7d', 'onsite_conversion.messaging_first_reply'] },
+  { label: 'Compras', types: ['purchase', 'offsite_conversion.fb_pixel_purchase'] },
+  { label: 'Cadastros', types: ['complete_registration', 'offsite_conversion.fb_pixel_complete_registration'] },
+  { label: 'Cliques no link', types: ['link_click'] },
+] as const;
+
+type ResultTypeLabel = (typeof RESULT_TYPES)[number]['label'];
 
 interface ReportConfig {
   id?: string;
@@ -20,6 +31,7 @@ interface ReportConfig {
   include_campaigns: boolean;
   include_sales: boolean;
   top_creatives: number;
+  result_type: ResultTypeLabel;
   include_ai: boolean;
   ai_context: string | null;
   frequency: 'daily' | 'weekly' | 'monthly';
@@ -76,6 +88,7 @@ export function ClientReportCard({ clientId }: { clientId: string }) {
     include_campaigns: true,
     include_sales: true,
     top_creatives: 0,
+    result_type: 'Conversas iniciadas',
     include_ai: true,
     ai_context: '',
     frequency: 'weekly',
@@ -178,6 +191,32 @@ export function ClientReportCard({ clientId }: { clientId: string }) {
             </div>
           </div>
         </div>
+
+        {/* Resultado principal das campanhas */}
+        {form.include_campaigns && (
+          <div className="flex items-center gap-3">
+            <Label className="text-sm font-semibold shrink-0">Resultado principal</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                  {form.result_type}
+                  <ChevronDown className="w-3 h-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {RESULT_TYPES.map((r) => (
+                  <DropdownMenuItem
+                    key={r.label}
+                    onClick={() => set({ result_type: r.label })}
+                    className={form.result_type === r.label ? 'bg-muted' : ''}
+                  >
+                    {r.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
 
         {/* Melhores criativos */}
         <div className="flex items-center gap-3">
