@@ -34,6 +34,7 @@ export interface Client {
   meta_ads_account?: string;
   whatsapp_group_id?: string;
   instagram_username?: string;
+  asaas_customer_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -115,6 +116,11 @@ export interface Finance {
   category?: FinanceCategory | null;
   cost_center?: string | null;
   recurrence: FinanceRecurrence;
+  // Asaas integration
+  asaas_charge_id?: string | null;
+  asaas_payment_url?: string | null;
+  asaas_pix_code?: string | null;
+  asaas_billing_type?: string | null;
   created_at: string;
   updated_at: string;
   client?: Client;

@@ -31,6 +31,7 @@ const FINANCE_PERIOD_PILLS: { label: string; value: PeriodPreset }[] = [
 import { FinanceFormDialog } from '@/components/finance/FinanceFormDialog';
 import { FinanceBanksTab } from '@/components/finance/FinanceBanksTab';
 import { FinanceCategoriesTab } from '@/components/finance/FinanceCategoriesTab';
+import { AsaasChargeActions, AsaasSyncButton } from '@/components/finance/AsaasChargeActions';
 import { useDashboardFilters, PeriodPreset, DateRange } from '@/hooks/useDashboardFilters';
 import { cn } from '@/lib/utils';
 import { isWithinInterval, format, startOfMonth, endOfMonth } from 'date-fns';
@@ -210,7 +211,7 @@ export default function FinancePage() {
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
           <Button className="gap-2 bg-primary hover:bg-primary/90" onClick={() => openNewEntry('Receita')}>
             <TrendingUp className="w-4 h-4" />
             Entrada
@@ -219,6 +220,7 @@ export default function FinancePage() {
             <TrendingDown className="w-4 h-4" />
             Saída
           </Button>
+          <AsaasSyncButton />
         </div>
 
         <FinanceFormDialog
@@ -400,7 +402,10 @@ export default function FinancePage() {
                         </TableCell>
                         <TableCell className="text-sm">{formatDate(item.due_date)}</TableCell>
                         <TableCell>
-                          <Badge className={statusColors[item.status]}>{item.status}</Badge>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge className={statusColors[item.status]}>{item.status}</Badge>
+                            <AsaasChargeActions finance={item} />
+                          </div>
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>

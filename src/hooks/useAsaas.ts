@@ -1,0 +1,56 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+async function callAsaasApi(action: string, payload: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke('asaas-api', {
+    body: { action, payload },
+  });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+export function useAsaasCreateCharge() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ finance_id, billing_type }: { finance_id: string; billing_type: 'PIX' | 'BOLETO' | 'CREDIT_CARD' }) =>
+      callAsaasApi('create_charge', { finance_id, billing_type }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance'] });
+      toast.success('Cobrança criada no Asaas!');
+    },
+    onError: (e: Error) => toast.error('Erro Asaas: ' + e.message),
+  });
+}
+
+export function useAsaasCancelCharge() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (finance_id: string) => callAsaasApi('cancel_charge', { finance_id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance'] });
+      toast.success('Cobrança cancelada no Asaas');
+    },
+    onError: (e: Error) => toast.error('Erro Asaas: ' + e.message),
+  });
+}
+
+export function useAsaasSyncCharges() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => callAsaasApi('sync_charges', {}),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['finance'] });
+      toast.success(`Sincronização Asaas: ${data.synced} registro(s) atualizado(s)`);
+    },
+    onError: (e: Error) => toast.error('Erro ao sincronizar: ' + e.message),
+  });
+}
+
+export function useAsaasGetPixQr() {
+  return useMutation({
+    mutationFn: (finance_id: string) => callAsaasApi('get_pix_qr', { finance_id }),
+    onError: (e: Error) => toast.error('Erro ao buscar PIX: ' + e.message),
+  });
+}
