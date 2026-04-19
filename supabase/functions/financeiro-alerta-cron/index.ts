@@ -51,7 +51,8 @@ serve(async (req) => {
       });
     }
 
-    const COOLDOWN = config?.cooldown_days ?? 3;
+    const COOLDOWN_REMINDER = 3; // lembrete: 1x só (antes do vencimento)
+    const COOLDOWN_OVERDUE  = config?.cooldown_days ?? 2; // cobrança: repete a cada 2 dias
 
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];
@@ -63,18 +64,18 @@ serve(async (req) => {
 
     const { data: upcomingFinances } = await supabase
       .from("finance")
-      .select(`id, description, amount, due_date, clients (id, name, company, whatsapp_group_id)`)
+      .select(`id, description, amount, due_date, clients (id, name, company, phone)`)
       .eq("type", "Receita")
       .eq("status", "Pendente")
       .eq("due_date", reminderStr)
       .not("clients", "is", null);
 
-    const reminderByClient = groupByClient(upcomingFinances ?? []);
-    const cooldownSince = new Date(Date.now() - COOLDOWN * 86400000).toISOString();
+    const reminderByClient = groupByClient(upcomingFinances ?? [], "phone");
+    const cooldownSinceReminder = new Date(Date.now() - COOLDOWN_REMINDER * 86400000).toISOString();
 
     for (const [, { client, records }] of reminderByClient) {
       try {
-        const hasCooldown = await checkCooldown(supabase, LOG_REMINDER, client.id, cooldownSince);
+        const hasCooldown = await checkCooldown(supabase, LOG_REMINDER, client.id, cooldownSinceReminder);
         if (hasCooldown) {
           results.push({ client: client.name, type: "lembrete", skipped: true, reason: "cooldown" });
           continue;
@@ -100,7 +101,10 @@ serve(async (req) => {
           `_RT Publicidade_`,
         ].join("\n");
 
-        await sendWhatsApp(EVOLUTION_URL, EVOLUTION_INSTANCE, EVOLUTION_KEY, client.whatsapp_group_id, msg);
+        const phone = formatPhone(client.phone);
+        if (!phone) { results.push({ client: client.name, type: "lembrete", skipped: true, reason: "sem telefone" }); continue; }
+
+        await sendWhatsApp(EVOLUTION_URL, EVOLUTION_INSTANCE, EVOLUTION_KEY, phone, msg);
         await supabase.from("automation_alert_log").insert({ automation_id: LOG_REMINDER, client_id: client.id });
 
         results.push({ client: client.name, type: "lembrete", sent: true, records: records.length, total: totalFmt });
@@ -109,10 +113,10 @@ serve(async (req) => {
       }
     }
 
-    // ── BLOCO 2: Alerta de vencidos/atrasados ────────────────────────────────
+    // ── BLOCO 2: Alerta de vencidos/atrasados (repete a cada 2 dias) ─────────
     const { data: overdueFinances, error: finErr } = await supabase
       .from("finance")
-      .select(`id, description, amount, due_date, status, clients (id, name, company, whatsapp_group_id)`)
+      .select(`id, description, amount, due_date, status, clients (id, name, company, phone)`)
       .eq("type", "Receita")
       .in("status", ["Pendente", "Atrasado"])
       .lte("due_date", todayStr)
@@ -120,11 +124,12 @@ serve(async (req) => {
 
     if (finErr) throw finErr;
 
-    const overdueByClient = groupByClient(overdueFinances ?? []);
+    const overdueByClient = groupByClient(overdueFinances ?? [], "phone");
+    const cooldownSinceOverdue = new Date(Date.now() - COOLDOWN_OVERDUE * 86400000).toISOString();
 
     for (const [, { client, records }] of overdueByClient) {
       try {
-        const hasCooldown = await checkCooldown(supabase, LOG_OVERDUE, client.id, cooldownSince);
+        const hasCooldown = await checkCooldown(supabase, LOG_OVERDUE, client.id, cooldownSinceOverdue);
         if (hasCooldown) {
           results.push({ client: client.name, type: "cobrança", skipped: true, reason: "cooldown" });
           continue;
@@ -152,7 +157,10 @@ serve(async (req) => {
           `_RT Publicidade_`,
         ].join("\n");
 
-        await sendWhatsApp(EVOLUTION_URL, EVOLUTION_INSTANCE, EVOLUTION_KEY, client.whatsapp_group_id, msg);
+        const phone = formatPhone(client.phone);
+        if (!phone) { results.push({ client: client.name, type: "cobrança", skipped: true, reason: "sem telefone" }); continue; }
+
+        await sendWhatsApp(EVOLUTION_URL, EVOLUTION_INSTANCE, EVOLUTION_KEY, phone, msg);
         await supabase.from("automation_alert_log").insert({ automation_id: LOG_OVERDUE, client_id: client.id });
 
         results.push({ client: client.name, type: "cobrança", sent: true, records: records.length, total: totalFmt });
@@ -196,15 +204,25 @@ serve(async (req) => {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function groupByClient(rows: any[]): Map<string, { client: any; records: any[] }> {
+function groupByClient(rows: any[], phoneField = "phone"): Map<string, { client: any; records: any[] }> {
   const map = new Map<string, { client: any; records: any[] }>();
   for (const r of rows) {
     const client = r.clients;
-    if (!client?.whatsapp_group_id) continue;
+    if (!client?.[phoneField]) continue;
     if (!map.has(client.id)) map.set(client.id, { client, records: [] });
     map.get(client.id)!.records.push(r);
   }
   return map;
+}
+
+// Normaliza telefone para formato E.164 sem "+" (ex: "5511999999999")
+function formatPhone(raw: string | null): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 11) return `55${digits}`; // BR sem DDI
+  if (digits.length === 13 && digits.startsWith("55")) return digits;
+  if (digits.length >= 10) return digits; // outros formatos — usa como está
+  return null;
 }
 
 async function checkCooldown(supabase: any, logId: string, clientId: string, since: string): Promise<boolean> {
