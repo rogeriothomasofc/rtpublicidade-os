@@ -48,10 +48,12 @@ function useAutomations() {
       const { data, error } = await (supabase as any)
         .from('automation_configs')
         .select('id, name, description, enabled, threshold_days, cron_expression, last_run_at, last_run_status')
-        .in('id', ['instagram-alert', 'vendas-alert'])
         .order('id');
-      if (error) throw error;
-      return (data ?? []) as AutomationConfig[];
+      if (error) throw new Error(error.message ?? JSON.stringify(error));
+      const filtered = (data ?? []).filter((a: AutomationConfig) =>
+        ['instagram-alert', 'vendas-alert'].includes(a.id)
+      );
+      return filtered as AutomationConfig[];
     },
   });
 }
@@ -149,7 +151,7 @@ export default function AutomationsPage() {
             <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
             <div>
               <p className="text-sm font-medium text-destructive">Erro ao carregar automações</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{String(error)}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{error instanceof Error ? error.message : JSON.stringify(error)}</p>
             </div>
           </div>
         )}
