@@ -8,6 +8,10 @@ const corsHeaders = {
 
 const AUTOMATION_ID = "financeiro-alert";
 
+// IDs separados no alert_log para cooldown independente
+const LOG_REMINDER = "financeiro-lembrete"; // 3 dias antes
+const LOG_OVERDUE  = "financeiro-alert";    // já vencido
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -47,89 +51,98 @@ serve(async (req) => {
       });
     }
 
-    const THRESHOLD = config?.threshold_days ?? 0; // dias de tolerância após vencimento
-    const COOLDOWN = config?.cooldown_days ?? 3;   // não repete alerta em X dias
+    const COOLDOWN = config?.cooldown_days ?? 3;
 
-    // 1. Busca todos os registros de Receita pendentes/atrasados cujo vencimento já passou
     const today = new Date();
-    const thresholdDate = new Date(today);
-    thresholdDate.setDate(thresholdDate.getDate() - THRESHOLD);
-    const thresholdStr = thresholdDate.toISOString().split("T")[0];
+    const todayStr = today.toISOString().split("T")[0];
 
-    const { data: overdueFinances, error: finErr } = await supabase
+    // ── BLOCO 1: Lembrete 3 dias antes do vencimento ──────────────────────────
+    const reminderDate = new Date(today);
+    reminderDate.setDate(reminderDate.getDate() + 3);
+    const reminderStr = reminderDate.toISOString().split("T")[0];
+
+    const { data: upcomingFinances } = await supabase
       .from("finance")
-      .select(`
-        id, description, amount, due_date, status,
-        clients (id, name, company, whatsapp_group_id)
-      `)
+      .select(`id, description, amount, due_date, clients (id, name, company, whatsapp_group_id)`)
       .eq("type", "Receita")
-      .in("status", ["Pendente", "Atrasado"])
-      .lte("due_date", thresholdStr)
+      .eq("status", "Pendente")
+      .eq("due_date", reminderStr)
       .not("clients", "is", null);
 
-    if (finErr) throw finErr;
-    if (!overdueFinances?.length) {
-      await logRun(supabase, "success", 0, [{ message: "Sem receitas pendentes/atrasadas." }]);
-      return new Response(JSON.stringify({ message: "Nenhuma cobrança pendente.", processed: 0 }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const reminderByClient = groupByClient(upcomingFinances ?? []);
+    const cooldownSince = new Date(Date.now() - COOLDOWN * 86400000).toISOString();
 
-    // 2. Agrupa por cliente (pode ter mais de uma cobrança)
-    const byClient = new Map<string, { client: any; records: any[] }>();
-    for (const f of overdueFinances) {
-      const client = (f as any).clients;
-      if (!client?.whatsapp_group_id) continue;
-      if (!byClient.has(client.id)) byClient.set(client.id, { client, records: [] });
-      byClient.get(client.id)!.records.push(f);
-    }
-
-    if (!byClient.size) {
-      await logRun(supabase, "success", 0, [{ message: "Clientes sem WhatsApp configurado." }]);
-      return new Response(JSON.stringify({ message: "Nenhum cliente com WhatsApp.", processed: 0 }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 3. Para cada cliente, verifica cooldown e envia alerta
-    const cooldownSinceDate = new Date(Date.now() - COOLDOWN * 24 * 60 * 60 * 1000).toISOString();
-
-    for (const [, { client, records }] of byClient) {
+    for (const [, { client, records }] of reminderByClient) {
       try {
-        // Verifica cooldown
-        const { data: recentLog } = await supabase
-          .from("automation_alert_log")
-          .select("sent_at")
-          .eq("automation_id", AUTOMATION_ID)
-          .eq("client_id", client.id)
-          .gte("sent_at", cooldownSinceDate)
-          .order("sent_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (recentLog) {
-          const daysSince = Math.floor((Date.now() - new Date(recentLog.sent_at).getTime()) / 86400000);
-          results.push({ client: client.name, skipped: true, reason: `cooldown — alertado há ${daysSince} dia(s)` });
+        const hasCooldown = await checkCooldown(supabase, LOG_REMINDER, client.id, cooldownSince);
+        if (hasCooldown) {
+          results.push({ client: client.name, type: "lembrete", skipped: true, reason: "cooldown" });
           continue;
         }
 
-        // Monta mensagem
         const total = records.reduce((s: number, r: any) => s + Number(r.amount), 0);
-        const totalFmt = total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
+        const totalFmt = formatBRL(total);
         const itemLines = records.map((r: any) => {
-          const due = new Date(r.due_date + "T12:00:00Z").toLocaleDateString("pt-BR");
-          const amt = Number(r.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-          const label = r.description || "Fee mensal";
-          const daysLate = Math.floor((today.getTime() - new Date(r.due_date + "T12:00:00Z").getTime()) / 86400000);
-          const lateNote = daysLate > 0 ? ` _(${daysLate} dia${daysLate > 1 ? "s" : ""} em atraso)_` : "";
-          return `• ${label}: *${amt}* — venceu em ${due}${lateNote}`;
+          const amt = formatBRL(Number(r.amount));
+          return `• ${r.description || "Fee mensal"}: *${amt}* — vence em *${formatDate(r.due_date)}*`;
         });
 
-        const whatsappMsg = [
+        const msg = [
+          `🔔 *Olá, ${client.company || client.name}!*`,
+          ``,
+          `Lembrando que ${records.length === 1 ? "o seguinte pagamento vence" : "os seguintes pagamentos vencem"} em *3 dias* (${formatDate(reminderStr)}):`,
+          ``,
+          ...itemLines,
+          ``,
+          `*Total: ${totalFmt}*`,
+          ``,
+          `Qualquer dúvida, estamos à disposição. 😊`,
+          `_RT Publicidade_`,
+        ].join("\n");
+
+        await sendWhatsApp(EVOLUTION_URL, EVOLUTION_INSTANCE, EVOLUTION_KEY, client.whatsapp_group_id, msg);
+        await supabase.from("automation_alert_log").insert({ automation_id: LOG_REMINDER, client_id: client.id });
+
+        results.push({ client: client.name, type: "lembrete", sent: true, records: records.length, total: totalFmt });
+      } catch (err) {
+        results.push({ client: client.name, type: "lembrete", error: String(err) });
+      }
+    }
+
+    // ── BLOCO 2: Alerta de vencidos/atrasados ────────────────────────────────
+    const { data: overdueFinances, error: finErr } = await supabase
+      .from("finance")
+      .select(`id, description, amount, due_date, status, clients (id, name, company, whatsapp_group_id)`)
+      .eq("type", "Receita")
+      .in("status", ["Pendente", "Atrasado"])
+      .lte("due_date", todayStr)
+      .not("clients", "is", null);
+
+    if (finErr) throw finErr;
+
+    const overdueByClient = groupByClient(overdueFinances ?? []);
+
+    for (const [, { client, records }] of overdueByClient) {
+      try {
+        const hasCooldown = await checkCooldown(supabase, LOG_OVERDUE, client.id, cooldownSince);
+        if (hasCooldown) {
+          results.push({ client: client.name, type: "cobrança", skipped: true, reason: "cooldown" });
+          continue;
+        }
+
+        const total = records.reduce((s: number, r: any) => s + Number(r.amount), 0);
+        const totalFmt = formatBRL(total);
+        const itemLines = records.map((r: any) => {
+          const amt = formatBRL(Number(r.amount));
+          const daysLate = Math.floor((today.getTime() - new Date(r.due_date + "T12:00:00Z").getTime()) / 86400000);
+          const lateNote = daysLate > 0 ? ` _(${daysLate} dia${daysLate > 1 ? "s" : ""} em atraso)_` : "";
+          return `• ${r.description || "Fee mensal"}: *${amt}* — venceu em ${formatDate(r.due_date)}${lateNote}`;
+        });
+
+        const msg = [
           `💰 *Olá, ${client.company || client.name}!*`,
           ``,
-          `Identificamos ${records.length === 1 ? "uma cobrança pendente" : `${records.length} cobranças pendentes"} em aberto:`,
+          `${records.length === 1 ? "Identificamos uma cobrança pendente" : `Identificamos ${records.length} cobranças pendentes`} em aberto:`,
           ``,
           ...itemLines,
           ``,
@@ -139,47 +152,41 @@ serve(async (req) => {
           `_RT Publicidade_`,
         ].join("\n");
 
-        // Envia WhatsApp
-        await fetch(`${EVOLUTION_URL}/message/sendText/${EVOLUTION_INSTANCE}`, {
-          method: "POST",
-          headers: { "apikey": EVOLUTION_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify({ number: client.whatsapp_group_id, text: whatsappMsg }),
-        });
+        await sendWhatsApp(EVOLUTION_URL, EVOLUTION_INSTANCE, EVOLUTION_KEY, client.whatsapp_group_id, msg);
+        await supabase.from("automation_alert_log").insert({ automation_id: LOG_OVERDUE, client_id: client.id });
 
-        // Registra cooldown
-        await supabase.from("automation_alert_log").insert({
-          automation_id: AUTOMATION_ID,
-          client_id: client.id,
-        });
-
-        results.push({ client: client.name, sent: true, records: records.length, total: totalFmt });
+        results.push({ client: client.name, type: "cobrança", sent: true, records: records.length, total: totalFmt });
       } catch (err) {
-        results.push({ client: client.name, error: String(err) });
+        results.push({ client: client.name, type: "cobrança", error: String(err) });
       }
     }
 
-    // 4. Atualiza automation_configs + grava histórico
-    const runAt = new Date().toISOString();
+    // ── Finaliza ─────────────────────────────────────────────────────────────
     await supabase.from("automation_configs").update({
-      last_run_at: runAt,
+      last_run_at: new Date().toISOString(),
       last_run_status: "success",
       last_run_summary: { processed: results.length, results },
     }).eq("id", AUTOMATION_ID);
 
-    await logRun(supabase, "success", results.length, results);
+    await supabase.from("automation_run_log").insert({
+      automation_id: AUTOMATION_ID, status: "success",
+      processed: results.length, summary: results,
+    });
 
     return new Response(JSON.stringify({ ok: true, processed: results.length, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    const runAt = new Date().toISOString();
     await supabase.from("automation_configs").update({
-      last_run_at: runAt,
+      last_run_at: new Date().toISOString(),
       last_run_status: "error",
       last_run_summary: { error: String(err) },
     }).eq("id", AUTOMATION_ID).catch(() => {});
 
-    await logRun(supabase, "error", 0, [{ error: String(err) }]).catch(() => {});
+    await supabase.from("automation_run_log").insert({
+      automation_id: AUTOMATION_ID, status: "error",
+      processed: 0, summary: [{ error: String(err) }],
+    }).catch(() => {});
 
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -187,11 +194,43 @@ serve(async (req) => {
   }
 });
 
-async function logRun(supabase: any, status: "success" | "error", processed: number, summary: unknown[]) {
-  await supabase.from("automation_run_log").insert({
-    automation_id: AUTOMATION_ID,
-    status,
-    processed,
-    summary,
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function groupByClient(rows: any[]): Map<string, { client: any; records: any[] }> {
+  const map = new Map<string, { client: any; records: any[] }>();
+  for (const r of rows) {
+    const client = r.clients;
+    if (!client?.whatsapp_group_id) continue;
+    if (!map.has(client.id)) map.set(client.id, { client, records: [] });
+    map.get(client.id)!.records.push(r);
+  }
+  return map;
+}
+
+async function checkCooldown(supabase: any, logId: string, clientId: string, since: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("automation_alert_log")
+    .select("sent_at")
+    .eq("automation_id", logId)
+    .eq("client_id", clientId)
+    .gte("sent_at", since)
+    .limit(1)
+    .maybeSingle();
+  return !!data;
+}
+
+async function sendWhatsApp(url: string, instance: string, key: string, number: string, text: string) {
+  await fetch(`${url}/message/sendText/${instance}`, {
+    method: "POST",
+    headers: { "apikey": key, "Content-Type": "application/json" },
+    body: JSON.stringify({ number, text }),
   });
+}
+
+function formatBRL(value: number): string {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr + "T12:00:00Z").toLocaleDateString("pt-BR");
 }
