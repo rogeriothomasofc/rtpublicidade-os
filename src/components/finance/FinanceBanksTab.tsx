@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Wallet, Building2, MoreHorizontal, Pencil, Trash2, Zap } from 'lucide-react';
+import { Plus, Wallet, Building2, MoreHorizontal, Pencil, Trash2, Zap, RefreshCw } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { BankFormDialog } from './BankFormDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -26,7 +26,7 @@ export function FinanceBanksTab() {
   const asaasIntegration = integrations?.find(i => i.provider === 'asaas');
   const asaasConnected = asaasIntegration?.status === 'connected';
   const asaasEnvironment = (asaasIntegration?.config as Record<string, string> | null)?.environment;
-  const { data: asaasBalance, isLoading: loadingAsaas } = useAsaasBalance(asaasConnected);
+  const { data: asaasBalance, isLoading: loadingAsaas, refetch: refetchBalance } = useAsaasBalance(asaasConnected, asaasEnvironment);
 
   const activeBanks = banks?.filter(b => b.status === 'Ativo') || [];
   const totalBalance = activeBanks.reduce((sum, b) => sum + Number(b.balance), 0) + (asaasBalance ?? 0);
@@ -131,7 +131,11 @@ export function FinanceBanksTab() {
                   <TableCell className="text-muted-foreground text-xs">
                     API · {asaasEnvironment === 'production' ? 'Produção' : 'Sandbox'}
                   </TableCell>
-                  <TableCell />
+                  <TableCell>
+                    <Button variant="ghost" size="icon" onClick={() => refetchBalance()} disabled={loadingAsaas} title="Atualizar saldo">
+                      <RefreshCw className={`h-4 w-4 ${loadingAsaas ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               )}
               {banks?.map(bank => (

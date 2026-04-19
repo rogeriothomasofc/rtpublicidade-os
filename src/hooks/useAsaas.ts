@@ -2,9 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-export function useAsaasBalance(enabled = true) {
+export function useAsaasBalance(enabled = true, environment?: string) {
   return useQuery({
-    queryKey: ['asaas-balance'],
+    queryKey: ['asaas-balance', environment],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke('asaas-api', {
         body: { action: 'get_balance', payload: {} },
@@ -14,7 +14,8 @@ export function useAsaasBalance(enabled = true) {
       return data.balance as number;
     },
     enabled,
-    staleTime: 5 * 60_000, // 5 min
+    staleTime: 2 * 60_000, // 2 min
+    refetchOnMount: true,
     retry: false,
   });
 }
