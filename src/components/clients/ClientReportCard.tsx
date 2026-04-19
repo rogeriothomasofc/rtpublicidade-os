@@ -126,25 +126,37 @@ function MessagePreview({ form, clientName }: { form: ReportConfig; clientName?:
   const company = clientName || 'Cliente';
   const lines: string[] = [];
 
-  lines.push(`📊 *Relatório ${periodOption.reportLabel}*`);
-  lines.push(company);
-  lines.push(`📅 ${dateRange}`);
-  if (form.intro_text?.trim()) { lines.push(''); lines.push(form.intro_text.trim()); }
+  const defaultIntro = `Segue o resumo de performance da *${company}* — ${periodOption.reportLabel}`;
+  lines.push(form.intro_text?.trim() || defaultIntro);
+  lines.push('');
+  lines.push(`📅 Período: ${dateRange}`);
+
   if (form.include_campaigns) {
-    lines.push(''); lines.push('📣 *Campanhas*');
+    lines.push(''); lines.push('📣 *Meta Ads*');
     lines.push('Investido: R$ 1.200,00');
-    lines.push(`Cliques: 850 | ${form.result_type}: 42`);
-    lines.push('CPC: R$ 1,41 | CPA: R$ 28,57');
+    lines.push(`${form.result_type}: 42 | Custo por ${form.result_type.toLowerCase()}: R$ 28,57`);
+    lines.push('Cliques: 850 | Custo por clique: R$ 1,41');
   }
   if (form.include_campaigns && form.top_creatives > 0) {
     lines.push(''); lines.push('🏆 *Melhores criativos*');
-    if (form.top_creatives >= 1) lines.push('1️⃣ "Criativo A" — 22 conv | CPA R$ 25,00');
-    if (form.top_creatives >= 2) lines.push('2️⃣ "Criativo B" — 13 conv | CPA R$ 31,00');
-    if (form.top_creatives >= 3) lines.push('3️⃣ "Criativo C" — 7 conv | CPA R$ 40,00');
+    const examples = [
+      { name: 'Criativo A — Vídeo', url: 'https://www.facebook.com/123456/posts/111111', res: 22, cpr: '25,00' },
+      { name: 'Criativo B — Imagem', url: 'https://www.facebook.com/123456/posts/222222', res: 13, cpr: '31,00' },
+      { name: 'Criativo C — Carrossel', url: 'https://www.facebook.com/123456/posts/333333', res: 7, cpr: '40,00' },
+    ];
+    for (let i = 0; i < form.top_creatives; i++) {
+      const ex = examples[i];
+      lines.push(`${i + 1}. ${ex.name}`);
+      lines.push(ex.url);
+      lines.push(`   ${form.result_type}: ${ex.res} | Custo/result: R$ ${ex.cpr}`);
+      if (i < form.top_creatives - 1) lines.push('');
+    }
   }
   if (form.include_sales) {
     lines.push(''); lines.push('🛒 *Vendas registradas*');
-    lines.push('18 vendas — Total: R$ 9.450,00');
+    lines.push('Receita: R$ 9.450,00');
+    lines.push('Vendas: 18');
+    lines.push('Ticket Médio: R$ 525,00');
   }
   if (form.include_ai) {
     lines.push(''); lines.push('🤖 *Análise da RT Publicidade*');

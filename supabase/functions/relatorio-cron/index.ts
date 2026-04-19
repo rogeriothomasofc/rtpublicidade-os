@@ -92,31 +92,42 @@ serve(async (req) => {
         const metricsForAI: string[] = [];
 
         // --- Campanhas via Meta Ads API ---
+        const resultTypes: Record<string, string[]> = {
+          "Leads": ["lead", "onsite_conversion.lead_grouped"],
+          "Conversas iniciadas": ["onsite_conversion.messaging_conversation_started_7d", "onsite_conversion.messaging_first_reply"],
+          "Compras": ["purchase", "offsite_conversion.fb_pixel_purchase", "omni_purchase"],
+          "Cadastros": ["complete_registration", "offsite_conversion.fb_pixel_complete_registration"],
+          "Cliques no link": ["link_click"],
+        };
+        const resultLabel: string = cfg.result_type ?? "Conversas iniciadas";
+        const resultActionTypes: string[] = resultTypes[resultLabel] ?? resultTypes["Conversas iniciadas"];
+
         if (cfg.include_campaigns && client.meta_ads_account && metaToken) {
-          const metaData = await fetchMetaMetrics(client.meta_ads_account, metaToken, dateFrom, dateTo);
+          const metaData = await fetchMetaMetrics(client.meta_ads_account, metaToken, dateFrom, dateTo, resultActionTypes);
           if (metaData) {
             const spend = formatBRL(metaData.spend);
             const clicks = metaData.clicks.toLocaleString("pt-BR");
-            const conversions = metaData.conversions;
+            const results = metaData.results;
             const cpc = metaData.clicks > 0 ? formatBRL(metaData.spend / metaData.clicks) : "-";
-            const cpa = conversions > 0 ? formatBRL(metaData.spend / conversions) : "-";
+            const cpr = results > 0 ? formatBRL(metaData.spend / results) : "-";
 
             sections.push(
-              `📣 *Campanhas*\nInvestido: ${spend}\nCliques: ${clicks} | Conversões: ${conversions}\nCPC: ${cpc} | CPA: ${cpa}`
+              `📣 *Meta Ads*\nInvestido: ${spend}\n${resultLabel}: ${results} | Custo por ${resultLabel.toLowerCase()}: ${cpr}\nCliques: ${clicks} | Custo por clique: ${cpc}`
             );
-            metricsForAI.push(`Campanhas: investimento ${spend}, ${clicks} cliques, ${conversions} conversões, CPC ${cpc}, CPA ${cpa}`);
+            metricsForAI.push(`Meta Ads: investimento ${spend}, ${results} ${resultLabel.toLowerCase()}, custo por resultado ${cpr}, ${clicks} cliques, CPC ${cpc}`);
 
-            // Melhores criativos
+            // Melhores criativos com link
             if (cfg.top_creatives > 0 && metaData.creatives?.length) {
               const top = metaData.creatives.slice(0, cfg.top_creatives);
               const lines = top.map((c: any, i: number) => {
-                const medal = i === 0 ? "1️⃣" : i === 1 ? "2️⃣" : "3️⃣";
-                const convs = c.conversions ?? 0;
-                const cpaC = convs > 0 ? ` | CPA ${formatBRL(c.spend / convs)}` : "";
-                return `${medal} "${c.name}" — ${convs} conv${cpaC}`;
+                const num = i + 1;
+                const res = c.results ?? 0;
+                const cprC = res > 0 ? `R$ ${(c.spend / res).toFixed(2)}` : "-";
+                const linkLine = c.post_url ? `\n${c.post_url}` : "";
+                return `${num}. ${c.name}${linkLine}\n   ${resultLabel}: ${res} | Custo/${resultLabel.toLowerCase().slice(0, 3)}: ${cprC}`;
               });
-              sections.push(`🏆 *Melhores criativos*\n${lines.join("\n")}`);
-              metricsForAI.push(`Melhores criativos: ${top.map((c: any) => `"${c.name}" (${c.conversions ?? 0} conv)`).join(", ")}`);
+              sections.push(`🏆 *Melhores criativos*\n${lines.join("\n\n")}`);
+              metricsForAI.push(`Melhores criativos: ${top.map((c: any) => `"${c.name}" (${c.results ?? 0} ${resultLabel.toLowerCase()})`).join(", ")}`);
             }
           }
         }
@@ -129,11 +140,12 @@ serve(async (req) => {
               p_date_from: dateFrom,
               p_date_to: dateTo,
             });
-          const count = salesData?.[0]?.count ?? 0;
-          const total = salesData?.[0]?.total ?? 0;
-          const totalFmt = formatBRL(Number(total));
-          sections.push(`🛒 *Vendas registradas*\n${count} venda${count !== 1 ? "s" : ""} — Total: ${totalFmt}`);
-          metricsForAI.push(`Vendas: ${count} registradas, total ${totalFmt}`);
+          const count = Number(salesData?.[0]?.count ?? 0);
+          const total = Number(salesData?.[0]?.total ?? 0);
+          const totalFmt = formatBRL(total);
+          const ticket = count > 0 ? formatBRL(total / count) : formatBRL(0);
+          sections.push(`🛒 *Vendas registradas*\nReceita: ${totalFmt}\nVendas: ${count}\nTicket Médio: ${ticket}`);
+          metricsForAI.push(`Vendas: ${count} registradas, receita total ${totalFmt}, ticket médio ${ticket}`);
         }
 
         if (!sections.length) {
@@ -168,10 +180,12 @@ serve(async (req) => {
         }
 
         // Monta mensagem
-        const introPart = introText ? `\n${introText}` : "";
-        const header = `📊 *Relatório ${periodLabel}*\n${client.company || client.name}\n📅 ${formatDateRange(dateFrom, dateTo)}${introPart}\n`;
+        const companyName = client.company || client.name;
+        const defaultIntro = `Segue o resumo de performance da *${companyName}* — ${periodLabel}`;
+        const introPart = introText || defaultIntro;
+        const header = `${introPart}\n\n📅 Período: ${formatDateRange(dateFrom, dateTo)}`;
         const body = sections.join("\n\n");
-        const whatsappMsg = `${header}\n${body}${aiBlock}\n\n_RT Publicidade_`;
+        const whatsappMsg = `${header}\n\n${body}${aiBlock}\n\n_RT Publicidade_`;
 
         // Envia WhatsApp
         await fetch(`${EVOLUTION_URL}/message/sendText/${EVOLUTION_INSTANCE}`, {
@@ -298,11 +312,12 @@ async function advanceNextSend(supabase: any, cfg: any) {
     .eq("id", cfg.id);
 }
 
-async function fetchMetaMetrics(accountId: string, token: string, dateFrom: string, dateTo: string) {
+async function fetchMetaMetrics(accountId: string, token: string, dateFrom: string, dateTo: string, resultActionTypes: string[]) {
   const acc = accountId.startsWith("act_") ? accountId : `act_${accountId}`;
-  const fields = "spend,clicks,actions,impressions";
-  const url = `https://graph.facebook.com/v19.0/${acc}/insights?fields=${fields}&time_range={"since":"${dateFrom}","until":"${dateTo}"}&access_token=${token}`;
+  const timeRange = encodeURIComponent(JSON.stringify({ since: dateFrom, until: dateTo }));
 
+  // Totais da conta
+  const url = `https://graph.facebook.com/v19.0/${acc}/insights?fields=spend,clicks,impressions,actions&time_range=${timeRange}&access_token=${token}`;
   const res = await fetch(url);
   const json = await res.json();
   if (!res.ok || json.error) return null;
@@ -310,27 +325,42 @@ async function fetchMetaMetrics(accountId: string, token: string, dateFrom: stri
   const d = json.data?.[0];
   if (!d) return null;
 
-  const conversions = (d.actions ?? [])
-    .filter((a: any) => ["purchase", "offsite_conversion.fb_pixel_purchase", "omni_purchase"].includes(a.action_type))
+  const results = (d.actions ?? [])
+    .filter((a: any) => resultActionTypes.includes(a.action_type))
     .reduce((s: number, a: any) => s + Number(a.value), 0);
 
-  // Busca criativos
-  const creativeUrl = `https://graph.facebook.com/v19.0/${acc}/insights?fields=ad_name,spend,actions&time_range={"since":"${dateFrom}","until":"${dateTo}"}&level=ad&sort=["spend_descending"]&limit=10&access_token=${token}`;
+  // Criativos no nível de anúncio com effective_object_story_id para montar link do post
+  const creativeFields = encodeURIComponent("ad_name,ad_id,spend,actions,effective_object_story_id");
+  const creativeUrl = `https://graph.facebook.com/v19.0/${acc}/insights?fields=${creativeFields}&time_range=${timeRange}&level=ad&sort=${encodeURIComponent('["spend_descending"]')}&limit=10&access_token=${token}`;
   const creativeRes = await fetch(creativeUrl);
   const creativeJson = await creativeRes.json();
-  const creatives = (creativeJson.data ?? []).map((ad: any) => ({
-    name: ad.ad_name,
-    spend: Number(ad.spend ?? 0),
-    conversions: (ad.actions ?? [])
-      .filter((a: any) => ["purchase", "offsite_conversion.fb_pixel_purchase", "omni_purchase"].includes(a.action_type))
-      .reduce((s: number, a: any) => s + Number(a.value), 0),
-  })).sort((a: any, b: any) => b.conversions - a.conversions);
+
+  const creatives = (creativeJson.data ?? []).map((ad: any) => {
+    const adResults = (ad.actions ?? [])
+      .filter((a: any) => resultActionTypes.includes(a.action_type))
+      .reduce((s: number, a: any) => s + Number(a.value), 0);
+
+    // effective_object_story_id format: "pageId_postId"
+    let post_url: string | null = null;
+    const storyId: string = ad.effective_object_story_id ?? "";
+    if (storyId.includes("_")) {
+      const [pageId, postId] = storyId.split("_");
+      post_url = `https://www.facebook.com/${pageId}/posts/${postId}`;
+    }
+
+    return {
+      name: ad.ad_name,
+      spend: Number(ad.spend ?? 0),
+      results: adResults,
+      post_url,
+    };
+  }).sort((a: any, b: any) => b.results - a.results);
 
   return {
     spend: Number(d.spend ?? 0),
     clicks: Number(d.clicks ?? 0),
     impressions: Number(d.impressions ?? 0),
-    conversions,
+    results,
     creatives,
   };
 }
