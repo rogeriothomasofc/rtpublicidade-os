@@ -53,7 +53,7 @@ const AUTOMATION_META: Record<string, {
   canRun: boolean;
   fnName: string;
 }> = {
-  'instagram-alert':  { icon: IgIcon,       color: 'text-pink-500',    scheduleLabel: 'Todo dia às 9h',  canRun: true, fnName: 'instagram-alert-cron' },
+  'instagram-alert':  { icon: IgIcon,       color: 'text-pink-500',    scheduleLabel: 'A cada 3 dias às 9h',  canRun: true, fnName: 'instagram-alert-cron' },
   'vendas-alert':     { icon: ShoppingCart,  color: 'text-emerald-500', scheduleLabel: 'Todo dia às 9h',  canRun: true, fnName: 'vendas-alerta-cron' },
   'financeiro-alert': { icon: DollarSign,    color: 'text-amber-500',   scheduleLabel: 'Todo dia às 9h',  canRun: true, fnName: 'financeiro-alerta-cron' },
 };
