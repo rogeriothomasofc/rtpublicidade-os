@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Wallet, Building2, MoreHorizontal, Pencil, Trash2, Zap, RefreshCw } from 'lucide-react';
+import { Plus, Wallet, Building2, MoreHorizontal, Pencil, Trash2, Zap, RefreshCw, AlertCircle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { BankFormDialog } from './BankFormDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -26,10 +26,10 @@ export function FinanceBanksTab() {
   const asaasIntegration = integrations?.find(i => i.provider === 'asaas');
   const asaasConnected = asaasIntegration?.status === 'connected';
   const asaasEnvironment = (asaasIntegration?.config as Record<string, string> | null)?.environment;
-  const { data: asaasBalance, isLoading: loadingAsaas, refetch: refetchBalance } = useAsaasBalance(asaasConnected, asaasEnvironment);
+  const { data: asaasBalance, isLoading: loadingAsaas, isError: asaasError, refetch: refetchBalance } = useAsaasBalance(asaasConnected, asaasEnvironment);
 
   const activeBanks = banks?.filter(b => b.status === 'Ativo') || [];
-  const totalBalance = activeBanks.reduce((sum, b) => sum + Number(b.balance), 0) + (asaasBalance ?? 0);
+  const totalBalance = activeBanks.reduce((sum, b) => sum + Number(b.balance), 0) + (!asaasError ? (asaasBalance ?? 0) : 0);
 
   const handleSubmit = async (data: Omit<Bank, 'id' | 'created_at' | 'updated_at'>) => {
     if (editing) {
@@ -122,8 +122,17 @@ export function FinanceBanksTab() {
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">Conta Digital</TableCell>
-                  <TableCell className="font-medium text-primary">
-                    {loadingAsaas ? '...' : formatCurrency(asaasBalance ?? 0)}
+                  <TableCell className="font-medium">
+                    {loadingAsaas ? (
+                      <span className="text-muted-foreground">...</span>
+                    ) : asaasError ? (
+                      <span className="flex items-center gap-1 text-destructive text-xs">
+                        <AlertCircle className="h-3 w-3" />
+                        Erro ao buscar saldo
+                      </span>
+                    ) : (
+                      <span className="text-primary">{formatCurrency(asaasBalance ?? 0)}</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-success border-success/30">Ativo</Badge>
