@@ -276,7 +276,7 @@ serve(async (req) => {
     // Returns Asaas account balance.
     if (action === "get_balance") {
       const data = await asaasFetch(asaasUrl(environment, "/finance/getCurrentBalance"), apiKey);
-      return new Response(JSON.stringify({ balance: data.balance ?? 0 }), {
+      return new Response(JSON.stringify({ balance: data.totalBalance ?? data.balance ?? 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
