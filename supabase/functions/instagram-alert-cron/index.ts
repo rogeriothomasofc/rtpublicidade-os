@@ -65,7 +65,9 @@ serve(async (req) => {
       return new Response(JSON.stringify({ message: "Nenhum cliente ativo com Instagram." }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    for (const client of clients) {
+    for (let i = 0; i < clients.length; i++) {
+      const client = clients[i];
+      if (i > 0) await new Promise(r => setTimeout(r, 2000)); // evita rate limit do Instagram
       try {
         // 2. Verifica último post
         const igRes = await fetch(`${SUPABASE_URL}/functions/v1/check-instagram-last-post`, {
