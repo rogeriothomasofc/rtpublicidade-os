@@ -29,6 +29,7 @@ export function FinanceBanksTab() {
   const { data: asaasBalance, isLoading: loadingAsaas, isError: asaasError, refetch: refetchBalance } = useAsaasBalance(asaasConnected, asaasEnvironment);
 
   const activeBanks = banks?.filter(b => b.status === 'Ativo') || [];
+  const activeCount = activeBanks.length + (asaasConnected ? 1 : 0);
   const totalBalance = activeBanks.reduce((sum, b) => sum + Number(b.balance), 0) + (!asaasError ? (asaasBalance ?? 0) : 0);
 
   const handleSubmit = async (data: Omit<Bank, 'id' | 'created_at' | 'updated_at'>) => {
@@ -84,7 +85,7 @@ export function FinanceBanksTab() {
             <p className="text-sm text-muted-foreground">Contas Ativas</p>
             <div className="flex items-center gap-2 mt-1">
               <Building2 className="h-5 w-5 text-muted-foreground" />
-              <span className="text-xl font-bold">{activeBanks.length}</span>
+              <span className="text-xl font-bold">{activeCount}</span>
             </div>
           </CardContent>
         </Card>

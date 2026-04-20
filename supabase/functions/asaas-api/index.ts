@@ -288,7 +288,7 @@ serve(async (req) => {
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Erro desconhecido";
     return new Response(JSON.stringify({ error: message }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
