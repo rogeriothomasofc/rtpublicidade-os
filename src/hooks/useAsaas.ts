@@ -103,7 +103,11 @@ export function useAsaasBulkCreateCharges() {
     mutationFn: () => callAsaasApi('bulk_create_charges', {}),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['finance'] });
-      toast.success(`${data.created} cobrança(s) criada(s) no Asaas! ${data.errors > 0 ? `(${data.errors} erro(s))` : ''}`);
+      if (data.errors > 0 && data.errorMessages?.length) {
+        toast.warning(`${data.created} criada(s), ${data.errors} erro(s): ${data.errorMessages[0]}`);
+      } else {
+        toast.success(`${data.created} cobrança(s) criada(s) no Asaas!${data.errors > 0 ? ` (${data.errors} erro(s))` : ''}`);
+      }
     },
     onError: (e: Error) => toast.error('Erro: ' + e.message),
   });

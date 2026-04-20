@@ -252,20 +252,28 @@ serve(async (req) => {
 
       let created = 0;
       let errors = 0;
+      const errorMessages: string[] = [];
       for (const record of pending) {
         try {
-          await fetch(req.url, {
+          const res = await fetch(req.url, {
             method: "POST",
             headers: { "Authorization": authHeader!, "Content-Type": "application/json" },
             body: JSON.stringify({ action: "create_charge", payload: { finance_id: record.id, billing_type: "PIX" } }),
           });
-          created++;
-        } catch {
+          const resData = await res.json();
+          if (resData?.error) {
+            errors++;
+            errorMessages.push(`${record.id}: ${resData.error}`);
+          } else {
+            created++;
+          }
+        } catch (e: unknown) {
           errors++;
+          errorMessages.push(`${record.id}: ${e instanceof Error ? e.message : "erro desconhecido"}`);
         }
       }
 
-      return new Response(JSON.stringify({ created, errors }), {
+      return new Response(JSON.stringify({ created, errors, errorMessages }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
