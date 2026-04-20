@@ -202,27 +202,19 @@ export function AsaasSyncButton() {
 
   if (!asaasConnected) return null;
 
-  const handleImportAll = async () => {
+  const isBusy = importCustomers.isPending || importCharges.isPending || bulk.isPending || sync.isPending;
+
+  const handleSync = async () => {
     await importCustomers.mutateAsync();
     await importCharges.mutateAsync();
+    await bulk.mutateAsync();
+    await sync.mutateAsync();
   };
 
-  const isImporting = importCustomers.isPending || importCharges.isPending;
-
   return (
-    <div className="flex gap-2">
-      <Button variant="outline" size="sm" onClick={handleImportAll} disabled={isImporting} className="gap-1.5">
-        {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-        Importar do Asaas
-      </Button>
-      <Button variant="outline" size="sm" onClick={() => bulk.mutate()} disabled={bulk.isPending} className="gap-1.5">
-        {bulk.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-        Criar cobranças antigas
-      </Button>
-      <Button variant="outline" size="sm" onClick={() => sync.mutate()} disabled={sync.isPending} className="gap-1.5">
-        {sync.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-        Sincronizar Asaas
-      </Button>
-    </div>
+    <Button variant="outline" size="sm" onClick={handleSync} disabled={isBusy} className="gap-1.5">
+      {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+      Sincronizar Asaas
+    </Button>
   );
 }
