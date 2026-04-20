@@ -9,7 +9,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Loader2, Zap, ExternalLink, Copy, QrCode, Trash2, RefreshCw } from 'lucide-react';
-import { useAsaasCreateCharge, useAsaasCancelCharge, useAsaasGetPixQr, useAsaasSyncCharges, useAsaasBulkCreateCharges } from '@/hooks/useAsaas';
+import { useAsaasCreateCharge, useAsaasCancelCharge, useAsaasGetPixQr, useAsaasSyncCharges, useAsaasBulkCreateCharges, useAsaasImportCharges } from '@/hooks/useAsaas';
 import { toast } from 'sonner';
 import { useIntegrations } from '@/hooks/useIntegrations';
 
@@ -197,11 +197,16 @@ export function AsaasSyncButton() {
   const asaasConnected = integrations?.find(i => i.provider === 'asaas')?.status === 'connected';
   const sync = useAsaasSyncCharges();
   const bulk = useAsaasBulkCreateCharges();
+  const importCharges = useAsaasImportCharges();
 
   if (!asaasConnected) return null;
 
   return (
     <div className="flex gap-2">
+      <Button variant="outline" size="sm" onClick={() => importCharges.mutate()} disabled={importCharges.isPending} className="gap-1.5">
+        {importCharges.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+        Importar do Asaas
+      </Button>
       <Button variant="outline" size="sm" onClick={() => bulk.mutate()} disabled={bulk.isPending} className="gap-1.5">
         {bulk.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
         Criar cobranças antigas

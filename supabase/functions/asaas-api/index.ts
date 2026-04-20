@@ -335,6 +335,115 @@ serve(async (req) => {
       });
     }
 
+    // ── ACTION: import_charges ───────────────────────────────────────────────
+    // Fetches all charges from Asaas and links/creates them in finance table.
+    if (action === "import_charges") {
+      // Fetch all payments from Asaas (paginated)
+      let offset = 0;
+      const limit = 100;
+      const allCharges: Record<string, unknown>[] = [];
+
+      while (true) {
+        const page = await asaasFetch(
+          asaasUrl(environment, `/payments?limit=${limit}&offset=${offset}&status=PENDING,OVERDUE,RECEIVED,CONFIRMED`),
+          apiKey
+        );
+        if (!page.data?.length) break;
+        allCharges.push(...page.data);
+        if (!page.hasMore) break;
+        offset += limit;
+      }
+
+      if (!allCharges.length) {
+        return new Response(JSON.stringify({ linked: 0, created: 0, skipped: 0 }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Get all clients with asaas_customer_id
+      const { data: clients } = await supabase
+        .from("clients")
+        .select("id, asaas_customer_id")
+        .not("asaas_customer_id", "is", null);
+
+      const customerMap = new Map((clients || []).map((c: Record<string, string>) => [c.asaas_customer_id, c.id]));
+
+      // Get all finance records already with asaas_charge_id (to skip)
+      const { data: alreadyLinked } = await supabase
+        .from("finance")
+        .select("asaas_charge_id")
+        .not("asaas_charge_id", "is", null);
+
+      const linkedIds = new Set((alreadyLinked || []).map((f: Record<string, string>) => f.asaas_charge_id));
+
+      let linked = 0;
+      let created = 0;
+      let skipped = 0;
+
+      for (const charge of allCharges) {
+        const chargeId = charge.id as string;
+
+        // Skip if already imported
+        if (linkedIds.has(chargeId)) { skipped++; continue; }
+
+        const customerId = charge.customer as string;
+        const clientId = customerMap.get(customerId);
+        const amount = Number(charge.value);
+        const dueDate = charge.dueDate as string;
+        const asaasStatus = charge.status as string;
+        const newStatus = mapAsaasStatus(asaasStatus) || "Pendente";
+
+        const updateData: Record<string, unknown> = {
+          asaas_charge_id: chargeId,
+          asaas_payment_url: (charge.invoiceUrl || charge.bankSlipUrl || null) as string | null,
+          asaas_billing_type: charge.billingType as string,
+        };
+        if (newStatus === "Pago") {
+          updateData.status = "Pago";
+          updateData.paid_date = (charge.paymentDate || dueDate) as string;
+        }
+
+        if (clientId) {
+          // Try to find matching finance record: same client + same amount + same due_date
+          const { data: match } = await supabase
+            .from("finance")
+            .select("id, asaas_charge_id")
+            .eq("type", "Receita")
+            .eq("client_id", clientId)
+            .eq("amount", amount)
+            .eq("due_date", dueDate)
+            .is("asaas_charge_id", null)
+            .limit(1)
+            .single();
+
+          if (match) {
+            await supabase.from("finance").update(updateData).eq("id", match.id);
+            linked++;
+            continue;
+          }
+
+          // No match — create new finance record
+          await supabase.from("finance").insert({
+            type: "Receita",
+            client_id: clientId,
+            amount,
+            due_date: dueDate,
+            status: newStatus,
+            description: (charge.description || "Cobrança importada do Asaas") as string,
+            recurrence: "Nenhuma",
+            ...updateData,
+          });
+          created++;
+        } else {
+          skipped++;
+        }
+      }
+
+      return new Response(JSON.stringify({ linked, created, skipped }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "get_balance") {
       const data = await asaasFetch(asaasUrl(environment, "/finance/getCurrentBalance"), apiKey);
       return new Response(JSON.stringify({ balance: data.totalBalance ?? data.balance ?? 0 }), {

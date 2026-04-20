@@ -73,6 +73,18 @@ export function useAsaasGetPixQr() {
   });
 }
 
+export function useAsaasImportCharges() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => callAsaasApi('import_charges', {}),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['finance'] });
+      toast.success(`Importação Asaas: ${data.linked} vinculada(s), ${data.created} criada(s), ${data.skipped} ignorada(s)`);
+    },
+    onError: (e: Error) => toast.error('Erro ao importar: ' + e.message),
+  });
+}
+
 export function useAsaasBulkCreateCharges() {
   const queryClient = useQueryClient();
   return useMutation({
