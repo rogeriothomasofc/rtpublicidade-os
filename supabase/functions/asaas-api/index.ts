@@ -274,6 +274,30 @@ serve(async (req) => {
 
     // ── ACTION: get_balance ──────────────────────────────────────────────────
     // Returns Asaas account balance.
+    // ── ACTION: receive_in_cash ──────────────────────────────────────────────
+    // Marks a charge as received in cash (dinheiro/TED/outra conta).
+    // payload: { finance_id }
+    if (action === "receive_in_cash") {
+      const { finance_id } = payload;
+      const { data: finance } = await supabase
+        .from("finance")
+        .select("asaas_charge_id")
+        .eq("id", finance_id)
+        .single();
+
+      if (!finance?.asaas_charge_id) throw new Error("Nenhuma cobrança Asaas vinculada");
+
+      await asaasFetch(
+        asaasUrl(environment, `/payments/${finance.asaas_charge_id}/receiveInCash`),
+        apiKey,
+        { method: "POST", body: JSON.stringify({ paymentDate: new Date().toISOString().split("T")[0], value: undefined }) }
+      );
+
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "get_balance") {
       const data = await asaasFetch(asaasUrl(environment, "/finance/getCurrentBalance"), apiKey);
       return new Response(JSON.stringify({ balance: data.totalBalance ?? data.balance ?? 0 }), {

@@ -72,3 +72,14 @@ export function useAsaasGetPixQr() {
     onError: (e: Error) => toast.error('Erro ao buscar PIX: ' + e.message),
   });
 }
+
+export function useAsaasReceiveInCash() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (finance_id: string) => callAsaasApi('receive_in_cash', { finance_id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance'] });
+    },
+    onError: (e: Error) => toast.warning('Pago no sistema, mas erro ao atualizar Asaas: ' + e.message),
+  });
+}

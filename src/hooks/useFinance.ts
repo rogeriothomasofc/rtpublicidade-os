@@ -3,6 +3,24 @@ import { supabase } from '@/integrations/supabase/client';
 import { Finance } from '@/types/database';
 import { toast } from 'sonner';
 
+async function callAsaasApi(action: string, payload: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke('asaas-api', {
+    body: { action, payload },
+  });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+async function isAsaasConnected(): Promise<boolean> {
+  const { data } = await supabase
+    .from('integrations')
+    .select('status')
+    .eq('provider', 'asaas')
+    .single();
+  return data?.status === 'connected';
+}
+
 export function useFinance() {
   return useQuery({
     queryKey: ['finance'],
@@ -49,9 +67,23 @@ export function useCreateFinance() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: async (created) => {
       queryClient.invalidateQueries({ queryKey: ['finance'] });
       toast.success('Registro financeiro criado!');
+      // Auto-criar cobrança Asaas se for Receita com cliente e status Pendente
+      if (created.type === 'Receita' && created.client_id && created.status !== 'Pago') {
+        try {
+          const connected = await isAsaasConnected();
+          if (connected) {
+            await callAsaasApi('create_charge', { finance_id: created.id, billing_type: 'PIX' });
+            queryClient.invalidateQueries({ queryKey: ['finance'] });
+            toast.success('Cobrança PIX criada no Asaas!');
+          }
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : 'Erro desconhecido';
+          toast.warning('Receita criada, mas erro no Asaas: ' + msg);
+        }
+      }
     },
     onError: (error) => {
       toast.error('Erro: ' + error.message);

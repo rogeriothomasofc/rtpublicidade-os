@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useDebounce } from '@/hooks/useDebounce';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useFinance, useCreateFinance, useUpdateFinance, useDeleteFinance } from '@/hooks/useFinance';
+import { useAsaasReceiveInCash } from '@/hooks/useAsaas';
 import { useClients } from '@/hooks/useClients';
 import { useBanks } from '@/hooks/useBanks';
 import { Finance, FinanceStatus, FinanceRecurrence, FinanceType } from '@/types/database';
@@ -74,6 +75,7 @@ export default function FinancePage() {
   const createFinance = useCreateFinance();
   const updateFinance = useUpdateFinance();
   const deleteFinance = useDeleteFinance();
+  const receiveInCash = useAsaasReceiveInCash();
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
@@ -176,8 +178,11 @@ export default function FinancePage() {
     setIsDialogOpen(true);
   };
 
-  const markAsPaid = (id: string) => {
-    updateFinance.mutate({ id, status: 'Pago', paid_date: new Date().toISOString().split('T')[0] });
+  const markAsPaid = async (item: Finance) => {
+    await updateFinance.mutateAsync({ id: item.id, status: 'Pago', paid_date: new Date().toISOString().split('T')[0] });
+    if (item.asaas_charge_id) {
+      receiveInCash.mutate(item.id);
+    }
   };
 
   const handleDelete = () => {
@@ -417,7 +422,7 @@ export default function FinancePage() {
                                 <Pencil className="h-4 w-4 mr-2" />Editar
                               </DropdownMenuItem>
                               {item.status !== 'Pago' && (
-                                <DropdownMenuItem onClick={() => markAsPaid(item.id)}>
+                                <DropdownMenuItem onClick={() => markAsPaid(item)}>
                                   <CheckCircle className="h-4 w-4 mr-2" />Marcar como Pago
                                 </DropdownMenuItem>
                               )}
