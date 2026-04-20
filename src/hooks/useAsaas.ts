@@ -73,6 +73,18 @@ export function useAsaasGetPixQr() {
   });
 }
 
+export function useAsaasBulkCreateCharges() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => callAsaasApi('bulk_create_charges', {}),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['finance'] });
+      toast.success(`${data.created} cobrança(s) criada(s) no Asaas! ${data.errors > 0 ? `(${data.errors} erro(s))` : ''}`);
+    },
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
 export function useAsaasReceiveInCash() {
   const queryClient = useQueryClient();
   return useMutation({

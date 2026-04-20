@@ -233,6 +233,43 @@ serve(async (req) => {
 
     // ── ACTION: sync_charges ─────────────────────────────────────────────────
     // Syncs all Asaas charges to the finance table (status updates).
+    // ── ACTION: bulk_create_charges ──────────────────────────────────────────
+    // Creates Asaas charges for all pending Receitas without a charge yet.
+    if (action === "bulk_create_charges") {
+      const { data: pending } = await supabase
+        .from("finance")
+        .select("id, client_id")
+        .eq("type", "Receita")
+        .in("status", ["Pendente", "Atrasado"])
+        .is("asaas_charge_id", null)
+        .not("client_id", "is", null);
+
+      if (!pending?.length) {
+        return new Response(JSON.stringify({ created: 0, errors: 0 }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      let created = 0;
+      let errors = 0;
+      for (const record of pending) {
+        try {
+          await fetch(req.url, {
+            method: "POST",
+            headers: { "Authorization": authHeader!, "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "create_charge", payload: { finance_id: record.id, billing_type: "PIX" } }),
+          });
+          created++;
+        } catch {
+          errors++;
+        }
+      }
+
+      return new Response(JSON.stringify({ created, errors }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "sync_charges") {
       const { data: financeRecords } = await supabase
         .from("finance")
