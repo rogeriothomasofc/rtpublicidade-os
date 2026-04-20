@@ -34,7 +34,6 @@ serve(async (req) => {
   const EVOLUTION_KEY = Deno.env.get("EVOLUTION_API_KEY") ?? "";
   const EVOLUTION_INSTANCE = Deno.env.get("EVOLUTION_INSTANCE") ?? "";
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SUPABASE_ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 
   const results: unknown[] = [];
 
@@ -71,7 +70,7 @@ serve(async (req) => {
         // 2. Verifica último post
         const igRes = await fetch(`${SUPABASE_URL}/functions/v1/check-instagram-last-post`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_ANON}` },
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SERVICE_KEY}` },
           body: JSON.stringify({ username: client.instagram_username }),
         });
         const igData = await igRes.json();
