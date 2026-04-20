@@ -337,6 +337,62 @@ serve(async (req) => {
 
     // ── ACTION: import_charges ───────────────────────────────────────────────
     // Fetches all charges from Asaas and links/creates them in finance table.
+    // ── ACTION: import_customers ─────────────────────────────────────────────
+    // Fetches all Asaas customers and links them to system clients by email or name.
+    if (action === "import_customers") {
+      let offset = 0;
+      const limit = 100;
+      const allCustomers: Record<string, unknown>[] = [];
+
+      while (true) {
+        const page = await asaasFetch(asaasUrl(environment, `/customers?limit=${limit}&offset=${offset}`), apiKey);
+        if (!page.data?.length) break;
+        allCustomers.push(...page.data);
+        if (!page.hasMore) break;
+        offset += limit;
+      }
+
+      if (!allCustomers.length) {
+        return new Response(JSON.stringify({ linked: 0, skipped: 0 }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const { data: clients } = await supabase
+        .from("clients")
+        .select("id, name, company, email, cpf, cnpj, asaas_customer_id");
+
+      let linked = 0; let skipped = 0;
+
+      for (const customer of allCustomers) {
+        const asaasId = customer.id as string;
+        const asaasEmail = (customer.email as string || "").toLowerCase().trim();
+        const asaasName = (customer.name as string || "").toLowerCase().trim();
+        const asaasCpfCnpj = ((customer.cpfCnpj as string) || "").replace(/\D/g, "");
+
+        // Find matching client by email, CPF/CNPJ, or name
+        const match = (clients || []).find((c: Record<string, string | null>) => {
+          if (c.asaas_customer_id) return false; // already linked
+          if (asaasEmail && c.email && c.email.toLowerCase().trim() === asaasEmail) return true;
+          const cpf = (c.cpf || "").replace(/\D/g, "");
+          const cnpj = (c.cnpj || "").replace(/\D/g, "");
+          if (asaasCpfCnpj && (cpf === asaasCpfCnpj || cnpj === asaasCpfCnpj)) return true;
+          const clientName = (c.company || c.name || "").toLowerCase().trim();
+          if (asaasName && clientName === asaasName) return true;
+          return false;
+        });
+
+        if (match) {
+          await supabase.from("clients").update({ asaas_customer_id: asaasId }).eq("id", (match as Record<string, string>).id);
+          // Mark as linked so we don't double-link
+          (match as Record<string, string>).asaas_customer_id = asaasId;
+          linked++;
+        } else {
+          skipped++;
+        }
+      }
+
+      return new Response(JSON.stringify({ linked, skipped }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     if (action === "import_charges") {
       // Fetch all payments from Asaas (paginated)
       let offset = 0;

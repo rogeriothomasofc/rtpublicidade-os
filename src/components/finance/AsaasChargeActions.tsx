@@ -9,7 +9,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Loader2, Zap, ExternalLink, Copy, QrCode, Trash2, RefreshCw } from 'lucide-react';
-import { useAsaasCreateCharge, useAsaasCancelCharge, useAsaasGetPixQr, useAsaasSyncCharges, useAsaasBulkCreateCharges, useAsaasImportCharges } from '@/hooks/useAsaas';
+import { useAsaasCreateCharge, useAsaasCancelCharge, useAsaasGetPixQr, useAsaasSyncCharges, useAsaasBulkCreateCharges, useAsaasImportCharges, useAsaasImportCustomers } from '@/hooks/useAsaas';
 import { toast } from 'sonner';
 import { useIntegrations } from '@/hooks/useIntegrations';
 
@@ -198,13 +198,21 @@ export function AsaasSyncButton() {
   const sync = useAsaasSyncCharges();
   const bulk = useAsaasBulkCreateCharges();
   const importCharges = useAsaasImportCharges();
+  const importCustomers = useAsaasImportCustomers();
 
   if (!asaasConnected) return null;
 
+  const handleImportAll = async () => {
+    await importCustomers.mutateAsync();
+    await importCharges.mutateAsync();
+  };
+
+  const isImporting = importCustomers.isPending || importCharges.isPending;
+
   return (
     <div className="flex gap-2">
-      <Button variant="outline" size="sm" onClick={() => importCharges.mutate()} disabled={importCharges.isPending} className="gap-1.5">
-        {importCharges.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+      <Button variant="outline" size="sm" onClick={handleImportAll} disabled={isImporting} className="gap-1.5">
+        {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
         Importar do Asaas
       </Button>
       <Button variant="outline" size="sm" onClick={() => bulk.mutate()} disabled={bulk.isPending} className="gap-1.5">

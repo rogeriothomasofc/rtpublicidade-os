@@ -73,6 +73,18 @@ export function useAsaasGetPixQr() {
   });
 }
 
+export function useAsaasImportCustomers() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => callAsaasApi('import_customers', {}),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast.success(`Clientes Asaas: ${data.linked} vinculado(s), ${data.skipped} sem correspondência`);
+    },
+    onError: (e: Error) => toast.error('Erro ao importar clientes: ' + e.message),
+  });
+}
+
 export function useAsaasImportCharges() {
   const queryClient = useQueryClient();
   return useMutation({
