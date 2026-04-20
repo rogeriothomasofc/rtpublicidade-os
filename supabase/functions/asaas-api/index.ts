@@ -394,20 +394,22 @@ serve(async (req) => {
     }
 
     if (action === "import_charges") {
-      // Fetch all payments from Asaas (paginated)
-      let offset = 0;
+      // Fetch only active (PENDING + OVERDUE) payments from Asaas (paginated)
       const limit = 100;
       const allCharges: Record<string, unknown>[] = [];
 
-      while (true) {
-        const page = await asaasFetch(
-          asaasUrl(environment, `/payments?limit=${limit}&offset=${offset}&status=PENDING,OVERDUE,RECEIVED,CONFIRMED`),
-          apiKey
-        );
-        if (!page.data?.length) break;
-        allCharges.push(...page.data);
-        if (!page.hasMore) break;
-        offset += limit;
+      for (const status of ["PENDING", "OVERDUE"]) {
+        let offset = 0;
+        while (true) {
+          const page = await asaasFetch(
+            asaasUrl(environment, `/payments?limit=${limit}&offset=${offset}&status=${status}`),
+            apiKey
+          );
+          if (!page.data?.length) break;
+          allCharges.push(...page.data);
+          if (!page.hasMore) break;
+          offset += limit;
+        }
       }
 
       if (!allCharges.length) {
