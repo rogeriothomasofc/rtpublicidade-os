@@ -339,20 +339,34 @@ async function fetchMetaMetrics(accountId: string, token: string, dateFrom: stri
     .filter((a: any) => resultActionTypes.includes(a.action_type))
     .reduce((s: number, a: any) => s + Number(a.value), 0);
 
-  // Criativos no nível de anúncio com effective_object_story_id para montar link do post
-  const creativeFields = encodeURIComponent("ad_name,ad_id,spend,actions,effective_object_story_id");
+  // Criativos no nível de anúncio
+  const creativeFields = encodeURIComponent("ad_name,ad_id,spend,actions");
   const creativeUrl = `https://graph.facebook.com/v19.0/${acc}/insights?fields=${creativeFields}&time_range=${timeRange}&level=ad&sort=${encodeURIComponent('["spend_descending"]')}&limit=10&access_token=${token}`;
   const creativeRes = await fetch(creativeUrl);
   const creativeJson = await creativeRes.json();
+
+  // Busca effective_object_story_id por ad_id separadamente (campo de objeto, não de insights)
+  const adIds: string[] = (creativeJson.data ?? []).map((ad: any) => ad.ad_id).filter(Boolean);
+  const storyIdMap: Record<string, string> = {};
+  if (adIds.length > 0) {
+    try {
+      const adsUrl = `https://graph.facebook.com/v19.0/?ids=${adIds.join(",")}&fields=effective_object_story_id&access_token=${token}`;
+      const adsRes = await fetch(adsUrl);
+      const adsJson = await adsRes.json();
+      for (const [id, obj] of Object.entries(adsJson)) {
+        const storyId = (obj as any).effective_object_story_id ?? "";
+        if (storyId) storyIdMap[id] = storyId;
+      }
+    } catch { /* ignora erro aqui — link é opcional */ }
+  }
 
   const creatives = (creativeJson.data ?? []).map((ad: any) => {
     const adResults = (ad.actions ?? [])
       .filter((a: any) => resultActionTypes.includes(a.action_type))
       .reduce((s: number, a: any) => s + Number(a.value), 0);
 
-    // effective_object_story_id format: "pageId_postId"
     let post_url: string | null = null;
-    const storyId: string = ad.effective_object_story_id ?? "";
+    const storyId = storyIdMap[ad.ad_id] ?? "";
     if (storyId.includes("_")) {
       const [pageId, postId] = storyId.split("_");
       post_url = `https://www.facebook.com/${pageId}/posts/${postId}`;
