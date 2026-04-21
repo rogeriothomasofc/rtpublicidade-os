@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { BarChart2, Loader2, Save, Clock, ChevronDown, Plus, Trash2, ChevronUp } from 'lucide-react';
+import { BarChart2, Loader2, Save, Clock, ChevronDown, Plus, Trash2, ChevronUp, Play } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -244,6 +244,22 @@ function ReportConfigForm({
     onError: (err: Error) => toast({ title: 'Erro ao remover', description: err.message, variant: 'destructive' }),
   });
 
+  const runNow = useMutation({
+    mutationFn: async () => {
+      if (!form.id) throw new Error('Salve o relatório antes de executar.');
+      // Força next_send_at para agora para o cron pegar este config
+      await (supabase as any).from('client_report_configs')
+        .update({ next_send_at: new Date().toISOString() })
+        .eq('id', form.id);
+      const { error } = await supabase.functions.invoke('relatorio-cron', {
+        headers: { 'x-cron-secret': '4a8f2ba802c6e9dc955fb095f4f1a3debb22a7a19164ffe2' },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast({ title: 'Relatório enviado!' }); onSaved(); },
+    onError: (err: Error) => toast({ title: 'Erro ao executar', description: err.message, variant: 'destructive' }),
+  });
+
   const hasAnyMetric = form.include_campaigns || form.include_sales;
   const periodOption = PERIOD_OPTIONS.find(p => p.value === form.period) ?? PERIOD_OPTIONS[0];
   const freqLabel = form.frequency === 'daily' ? 'Diário' : form.frequency === 'weekly' ? `Semanal (${DAYS_OF_WEEK[form.day_of_week ?? 1]})` : `Mensal (dia ${form.day_of_month ?? 1})`;
@@ -443,6 +459,13 @@ function ReportConfigForm({
               <Button size="sm" className="flex-1" onClick={() => save.mutate()} disabled={save.isPending || !hasAnyMetric}>
                 {save.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                 Salvar
+              </Button>
+            )}
+            {form.id && !dirty && (
+              <Button size="sm" variant="outline" className="flex-1 gap-1.5" onClick={() => runNow.mutate()}
+                disabled={runNow.isPending || !form.enabled || !hasAnyMetric}>
+                {runNow.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                {runNow.isPending ? 'Enviando…' : 'Executar agora'}
               </Button>
             )}
             {form.id && (
