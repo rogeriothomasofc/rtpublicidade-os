@@ -103,7 +103,7 @@ serve(async (req) => {
         const resultActionTypes: string[] = resultTypes[resultLabel] ?? resultTypes["Conversas iniciadas"];
 
         if (cfg.include_campaigns && client.meta_ads_account && metaToken) {
-          const metaData = await fetchMetaMetrics(client.meta_ads_account, metaToken, dateFrom, dateTo, resultActionTypes);
+          const metaData = await fetchMetaMetrics(client.meta_ads_account, metaToken, dateFrom, dateTo, resultActionTypes, cfg.period ?? "7d");
           if (metaData) {
             const spend = formatBRL(metaData.spend);
             const clicks = metaData.clicks.toLocaleString("pt-BR");
@@ -322,12 +322,18 @@ async function advanceNextSend(supabase: any, cfg: any) {
     .eq("id", cfg.id);
 }
 
-async function fetchMetaMetrics(accountId: string, token: string, dateFrom: string, dateTo: string, resultActionTypes: string[]) {
+async function fetchMetaMetrics(accountId: string, token: string, dateFrom: string, dateTo: string, resultActionTypes: string[], period: string) {
   const acc = accountId.startsWith("act_") ? accountId : `act_${accountId}`;
-  const timeRange = encodeURIComponent(JSON.stringify({ since: dateFrom, until: dateTo }));
+
+  // Usa date_preset igual ao dashboard para dados consistentes
+  const dateParam = period === "7d"
+    ? "date_preset=last_7d"
+    : period === "30d"
+    ? "date_preset=last_30d"
+    : `time_range=${encodeURIComponent(JSON.stringify({ since: dateFrom, until: dateTo }))}`;
 
   // Totais da conta
-  const url = `https://graph.facebook.com/v19.0/${acc}/insights?fields=spend,clicks,impressions,actions&time_range=${timeRange}&access_token=${token}`;
+  const url = `https://graph.facebook.com/v19.0/${acc}/insights?fields=spend,clicks,impressions,actions&${dateParam}&access_token=${token}`;
   const res = await fetch(url);
   const json = await res.json();
   if (!res.ok || json.error) return null;
@@ -341,7 +347,7 @@ async function fetchMetaMetrics(accountId: string, token: string, dateFrom: stri
 
   // Criativos no nível de anúncio
   const creativeFields = encodeURIComponent("ad_name,ad_id,spend,actions");
-  const creativeUrl = `https://graph.facebook.com/v19.0/${acc}/insights?fields=${creativeFields}&time_range=${timeRange}&level=ad&sort=${encodeURIComponent('["spend_descending"]')}&limit=10&access_token=${token}`;
+  const creativeUrl = `https://graph.facebook.com/v19.0/${acc}/insights?fields=${creativeFields}&${dateParam}&level=ad&sort=${encodeURIComponent('["spend_descending"]')}&limit=10&access_token=${token}`;
   const creativeRes = await fetch(creativeUrl);
   const creativeJson = await creativeRes.json();
 
