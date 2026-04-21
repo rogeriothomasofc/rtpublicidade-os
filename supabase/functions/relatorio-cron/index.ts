@@ -341,9 +341,11 @@ async function fetchMetaMetrics(accountId: string, token: string, dateFrom: stri
   const d = json.data?.[0];
   if (!d) return null;
 
-  const results = (d.actions ?? [])
-    .filter((a: any) => resultActionTypes.includes(a.action_type))
-    .reduce((s: number, a: any) => s + Number(a.value), 0);
+  let results = 0;
+  for (const type of resultActionTypes) {
+    const found = (d.actions ?? []).find((a: any) => a.action_type === type);
+    if (found) { results = Number(found.value); break; }
+  }
 
   // Criativos no nível de anúncio
   const creativeFields = encodeURIComponent("ad_name,ad_id,spend,actions");
@@ -367,9 +369,11 @@ async function fetchMetaMetrics(accountId: string, token: string, dateFrom: stri
   }
 
   const creatives = (creativeJson.data ?? []).map((ad: any) => {
-    const adResults = (ad.actions ?? [])
-      .filter((a: any) => resultActionTypes.includes(a.action_type))
-      .reduce((s: number, a: any) => s + Number(a.value), 0);
+    let adResults = 0;
+    for (const type of resultActionTypes) {
+      const found = (ad.actions ?? []).find((a: any) => a.action_type === type);
+      if (found) { adResults = Number(found.value); break; }
+    }
 
     let post_url: string | null = null;
     const storyId = storyIdMap[ad.ad_id] ?? "";
