@@ -5,16 +5,20 @@ import { PipelineBoard } from '@/components/pipeline/PipelineBoard';
 import { UnifiedLeads } from '@/components/pipeline/UnifiedLeads';
 import { CadenceReminders } from '@/components/pipeline/CadenceReminders';
 import { ProspectionDashboard } from '@/components/pipeline/ProspectionDashboard';
+import { PipelineWhatsAppCard } from '@/components/pipeline/PipelineWhatsAppCard';
 import { useSalesPipeline } from '@/hooks/useSalesPipeline';
+import { useIntegrations } from '@/hooks/useIntegrations';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { TrendingUp, Users, LayoutDashboard } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { TrendingUp, Users, LayoutDashboard, MessageCircle } from 'lucide-react';
 
 export default function PipelinePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(
     searchParams.get('tab') || localStorage.getItem('tab:pipeline') || 'dashboard'
   );
+  const [waOpen, setWaOpen] = useState(false);
 
   const handleTabChange = (v: string) => {
     setActiveTab(v);
@@ -22,6 +26,9 @@ export default function PipelinePage() {
     localStorage.setItem('tab:pipeline', v);
   };
   const { data: leads, isLoading } = useSalesPipeline();
+  const { data: integrations } = useIntegrations();
+  const pipelineWa = integrations?.find((i) => i.provider === 'evolution_api_pipeline');
+  const isWaConnected = pipelineWa?.status === 'connected';
 
   if (isLoading) {
     return (
@@ -45,17 +52,29 @@ export default function PipelinePage() {
       <div className="space-y-4 animate-fade-in">
         <CadenceReminders />
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="h-9">
-            <TabsTrigger value="dashboard" className="gap-1.5 text-sm">
-              <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="pipeline" className="gap-1.5 text-sm">
-              <TrendingUp className="w-3.5 h-3.5" /> Pipeline
-            </TabsTrigger>
-            <TabsTrigger value="leads" className="gap-1.5 text-sm">
-              <Users className="w-3.5 h-3.5" /> Leads
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between gap-2">
+            <TabsList className="h-9">
+              <TabsTrigger value="dashboard" className="gap-1.5 text-sm">
+                <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
+              </TabsTrigger>
+              <TabsTrigger value="pipeline" className="gap-1.5 text-sm">
+                <TrendingUp className="w-3.5 h-3.5" /> Pipeline
+              </TabsTrigger>
+              <TabsTrigger value="leads" className="gap-1.5 text-sm">
+                <Users className="w-3.5 h-3.5" /> Leads
+              </TabsTrigger>
+            </TabsList>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 shrink-0"
+              onClick={() => setWaOpen(true)}
+            >
+              <MessageCircle className={`w-3.5 h-3.5 ${isWaConnected ? 'text-green-500' : 'text-muted-foreground'}`} />
+              <span className="hidden sm:inline">WhatsApp</span>
+              {isWaConnected && <span className="w-1.5 h-1.5 rounded-full bg-green-500" />}
+            </Button>
+          </div>
           <TabsContent value="dashboard" className="mt-4">
             <ProspectionDashboard />
           </TabsContent>
@@ -67,6 +86,7 @@ export default function PipelinePage() {
           </TabsContent>
         </Tabs>
       </div>
+      <PipelineWhatsAppCard open={waOpen} onOpenChange={setWaOpen} />
     </MainLayout>
   );
 }

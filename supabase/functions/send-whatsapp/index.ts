@@ -37,18 +37,47 @@ serve(async (req) => {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-    const { phone, messages } = await req.json() as {
+    const { phone, messages, source } = await req.json() as {
       phone: string;
       messages: Array<{ message: string; delay?: number }>;
+      source?: string;
     };
 
     if (!phone || !messages?.length) return new Response(JSON.stringify({ error: "phone and messages required" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-    const EVOLUTION_URL = Deno.env.get("EVOLUTION_API_URL")!;
-    const EVOLUTION_KEY = Deno.env.get("EVOLUTION_API_KEY")!;
-    const EVOLUTION_INSTANCE = Deno.env.get("EVOLUTION_INSTANCE")!;
+    let EVOLUTION_URL: string;
+    let EVOLUTION_KEY: string;
+    let EVOLUTION_INSTANCE: string;
+
+    if (source === "pipeline") {
+      // Busca config do WhatsApp do pipeline no banco
+      const supabaseService = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      const { data: pipelineIntegration } = await supabaseService
+        .from("integrations")
+        .select("config, status")
+        .eq("provider", "evolution_api_pipeline")
+        .maybeSingle();
+
+      if (!pipelineIntegration || pipelineIntegration.status !== "connected") {
+        return new Response(JSON.stringify({ error: "WhatsApp do pipeline não configurado. Configure em Pipeline > Configurações." }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const cfg = pipelineIntegration.config as Record<string, string>;
+      EVOLUTION_URL = (cfg.url ?? "").replace(/\/$/, "");
+      EVOLUTION_KEY = cfg.api_key ?? "";
+      EVOLUTION_INSTANCE = cfg.instance_name ?? "";
+    } else {
+      EVOLUTION_URL = Deno.env.get("EVOLUTION_API_URL")!;
+      EVOLUTION_KEY = Deno.env.get("EVOLUTION_API_KEY")!;
+      EVOLUTION_INSTANCE = Deno.env.get("EVOLUTION_INSTANCE")!;
+    }
 
     // Normalizar número
     const digits = phone.replace(/\D/g, "");

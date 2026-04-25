@@ -50,7 +50,7 @@ export async function analyzeGmbLead(
 }
 
 export async function sendWhatsAppMessages(phone: string, messages: Array<{ message: string; delay?: number }>): Promise<void> {
-  const res = await supabase.functions.invoke('send-whatsapp', { body: { phone, messages } });
+  const res = await supabase.functions.invoke('send-whatsapp', { body: { phone, messages, source: 'pipeline' } });
   if (res.error) throw res.error;
   if (res.data?.error) throw new Error(res.data.error);
 }
