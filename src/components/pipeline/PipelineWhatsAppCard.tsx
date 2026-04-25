@@ -56,19 +56,19 @@ export function PipelineWhatsAppCard({ open, onOpenChange }: Props) {
       setStatus(state as any);
       setQr(data?.qrcode ?? null);
       if (state === 'open') {
-        await upsert.mutateAsync({
+        stopPolling();
+        // Salva no banco em background — não bloqueia o fechamento
+        upsert.mutate({
           provider: PROVIDER,
           name: 'WhatsApp Pipeline',
           status: 'connected',
           config: { instance_name: PIPELINE_INSTANCE, connected_at: new Date().toISOString() } as any,
         });
-        stopPolling();
         toast({ title: 'WhatsApp do pipeline conectado!' });
         onOpenChange(false);
       }
       return state;
     } catch (err: unknown) {
-      setStatus('error');
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
       toast({ title: 'Erro ao verificar WhatsApp', description: message, variant: 'destructive' });
       return 'error';
