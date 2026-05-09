@@ -6,15 +6,36 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function fetchWebsiteSnippet(url: string): Promise<string | null> {
+// Extrai username do Instagram de um bloco de HTML
+function extractInstagramUsername(html: string): string | null {
+  // Pega todos os hrefs com instagram.com/
+  const matches = [...html.matchAll(/instagram\.com\/([a-zA-Z0-9._]{2,30})\/?["'\s>]/g)];
+  for (const m of matches) {
+    const username = m[1];
+    // Ignora paths do Instagram que não são usernames
+    if (/^(p|reel|stories|explore|accounts|tv|share|sharer|direct|hashtag)$/i.test(username)) continue;
+    return username;
+  }
+  return null;
+}
+
+interface WebsiteResult {
+  snippet: string | null;
+  instagram_username: string | null;
+}
+
+async function fetchWebsiteData(url: string): Promise<WebsiteResult> {
   try {
     const normalized = url.startsWith('http') ? url : `https://${url}`;
     const res = await fetch(normalized, {
       headers: { "User-Agent": "Mozilla/5.0", "Accept": "text/html" },
       signal: AbortSignal.timeout(8000),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { snippet: null, instagram_username: null };
     const html = (await res.text()).slice(0, 40000);
+
+    const instagram_username = extractInstagramUsername(html);
+
     const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
     const metaDesc = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i);
     const metaDesc2 = html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*name=["']description["']/i);
@@ -28,9 +49,10 @@ async function fetchWebsiteSnippet(url: string): Promise<string | null> {
     const hasTestimonials = /depoimento|avalia[çc][ãa]o|testimon/i.test(html);
     const hasBlog = /blog|artigo|post/i.test(html);
 
-    return `URL: ${url}
+    const snippet = `URL: ${url}
 Title: ${titleMatch?.[1] ?? 'AUSENTE'}
 Meta description: ${metaDesc?.[1] ?? metaDesc2?.[1] ?? 'AUSENTE'}
+Instagram encontrado: ${instagram_username ? `@${instagram_username}` : 'não detectado'}
 Lorem ipsum detectado: ${hasLoremIpsum ? 'SIM ⚠️' : 'não'}
 Telefone/contato: ${hasPhone ? 'sim' : 'não detectado'}
 WhatsApp: ${hasWhatsApp ? 'sim' : 'não'}
@@ -43,7 +65,9 @@ Blog/conteúdo: ${hasBlog ? 'sim' : 'não'}
 
 --- HTML (8KB) ---
 ${html.slice(0, 8000)}`;
-  } catch { return null; }
+
+    return { snippet, instagram_username };
+  } catch { return { snippet: null, instagram_username: null }; }
 }
 
 serve(async (req) => {
@@ -90,8 +114,11 @@ serve(async (req) => {
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 
-    // Buscar site se disponível
-    const websiteSnippet = lead.website ? await fetchWebsiteSnippet(lead.website) : null;
+    // Buscar site + extrair Instagram automaticamente
+    const websiteData = lead.website ? await fetchWebsiteData(lead.website) : { snippet: null, instagram_username: null };
+    const websiteSnippet = websiteData.snippet;
+    // Instagram: usa o passado no payload ou o extraído automaticamente do site
+    const detectedInstagram = instagram?.username ?? websiteData.instagram_username ?? null;
 
     // Contexto do lead
     const leadContext = `
@@ -102,7 +129,7 @@ Google Meu Negócio:
   - Avaliação: ${lead.rating ? `${lead.rating}/5` : 'não encontrado'}
   - Número de avaliações: ${lead.reviews?.toLocaleString('pt-BR') ?? 'não encontrado'}
 Site: ${lead.website ?? 'não possui'}
-📱 Instagram: ${instagram?.username ? `@${instagram.username}${instagram.followers_count ? ` | ${instagram.followers_count.toLocaleString('pt-BR')} seguidores` : ''}${instagram.niche ? ` | Nicho: ${instagram.niche}` : ''}${instagram.bio ? ` | Bio: ${instagram.bio}` : ''}` : 'não identificado'}
+📱 Instagram: ${detectedInstagram ? `@${detectedInstagram}${instagram?.followers_count ? ` | ${instagram.followers_count.toLocaleString('pt-BR')} seguidores` : ''}${instagram?.niche ? ` | Nicho: ${instagram.niche}` : ''}${instagram?.bio ? ` | Bio: ${instagram.bio}` : ''}` : 'não identificado'}
 
 ${websiteSnippet ? `Dados coletados do site:\n${websiteSnippet}` : 'Site não disponível para análise.'}
 `.trim();
@@ -194,7 +221,7 @@ PROIBIDO:
 Responda SOMENTE com JSON válido, sem markdown.`,
         messages: [{
           role: "user",
-          content: `Dados da empresa para prospecção:\n\n${leadContext}\n\nDiagnóstico identificado: ${diagResult.diagnosis}\n\nProblemas críticos: ${diagResult.website_issues?.critical?.join(', ') || 'nenhum identificado'}\n\nCrie uma sequência de exatamente 3 mensagens WhatsApp (40-70 tokens cada) para prospecção consultiva. Retorne SOMENTE este JSON:\n[\n  {\n    "part": 1,\n    "message": "Mensagem 1 — Conexão + Autoridade: cumprimento personalizado, menção específica ao negócio, reconhecimento sutil de oportunidade"\n  },\n  {\n    "part": 2,\n    "message": "Mensagem 2 — Problema + Contexto: desafio real de aquisição de forma empática, conectar com perdas potenciais, introduzir tráfego pago estratégico"\n  },\n  {\n    "part": 3,\n    "message": "Mensagem 3 — Benefício + Engajamento: benefício central, pergunta aberta consultiva, tom de parceria estratégica"\n  }\n]`,
+          content: `Dados da empresa para prospecção:\n\n${leadContext}\n\nDiagnóstico identificado: ${diagResult.diagnosis}\n\nProblemas críticos: ${diagResult.website_issues?.critical?.join(', ') || 'nenhum identificado'}\n\nOBJETIVO ÚNICO: conseguir uma reunião de diagnóstico gratuita de 15 minutos. Nunca venda serviços diretamente.\n\nCrie uma sequência de exatamente 3 mensagens WhatsApp (40-60 palavras cada) focadas exclusivamente em agendar uma reunião. Retorne SOMENTE este JSON:\n[\n  {\n    "part": 1,\n    "message": "Dia 1 — Apresentação + gancho: cumprimento pelo nome, mencione algo específico do negócio deles (rating, segmento, cidade), diga que fez uma análise rápida e pergunte se vale uma conversa de 15 min. Tom: curioso e consultivo, não vendedor."\n  },\n  {\n    "part": 2,\n    "message": "Dia 5 — Follow-up leve: mencione que não quer incomodar, reforce o valor da análise que já fez gratuitamente, CTA claro: propor dia e horário específico para a conversa rápida."\n  },\n  {\n    "part": 3,\n    "message": "Dia 10 — Último toque: mensagem curta, deixa a porta aberta, menciona que a análise fica disponível quando quiserem. Sem pressão, tom de parceria futura."\n  }\n]`,
         }],
       }),
     });
@@ -210,6 +237,10 @@ Responda SOMENTE com JSON válido, sem markdown.`,
       diagnosis: diagResult.diagnosis,
       website_issues: diagResult.website_issues,
       messages,
+      instagram_username: detectedInstagram,
+      instagram_found_via: detectedInstagram
+        ? (instagram?.username ? 'manual' : 'website')
+        : null,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (error) {

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useSalesPipeline } from '@/hooks/useSalesPipeline';
 import { useGmbLeads } from '@/hooks/useGmbLeads';
 import { useInstagramProspects } from '@/hooks/useInstagramProspects';
@@ -5,7 +6,146 @@ import { usePipelineStages } from '@/hooks/usePipelineStages';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, TrendingUp, Percent, MapPin, MessageCircle, Filter, Camera } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
+import { Users, TrendingUp, Percent, MapPin, MessageCircle, Filter, Camera, Bot, Play, CheckCircle2, XCircle, Clock, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+// ──────────────────────────────────────────────
+// SDR Automático — painel de controle
+// ──────────────────────────────────────────────
+interface ProspeccaoConfig {
+  ativa: boolean;
+  leads_por_dia: number;
+  icp_score_minimo: number;
+  meeting_link: string | null;
+}
+
+interface ProspeccaoLog {
+  executado_em: string;
+  leads_processados: number;
+  leads_abordados: number;
+  leads_fora_icp: number;
+  erros: number;
+}
+
+function SdrPanel() {
+  const [config, setConfig] = useState<ProspeccaoConfig | null>(null);
+  const [lastLog, setLastLog] = useState<ProspeccaoLog | null>(null);
+  const [toggling, setToggling] = useState(false);
+  const [running, setRunning] = useState(false);
+
+  useEffect(() => {
+    supabase.from('prospeccao_config' as any).select('*').limit(1).single()
+      .then(({ data }) => data && setConfig(data as unknown as ProspeccaoConfig));
+
+    supabase.from('prospeccao_log' as any).select('*')
+      .order('executado_em', { ascending: false }).limit(1).single()
+      .then(({ data }) => data && setLastLog(data as unknown as ProspeccaoLog));
+  }, []);
+
+  const handleToggle = async (value: boolean) => {
+    setToggling(true);
+    const { error } = await supabase.from('prospeccao_config' as any)
+      .update({ ativa: value }).eq('ativa', !value);
+    if (error) {
+      toast.error('Erro ao atualizar configuração');
+    } else {
+      setConfig(c => c ? { ...c, ativa: value } : c);
+      toast.success(value ? 'SDR automático ativado' : 'SDR automático pausado');
+    }
+    setToggling(false);
+  };
+
+  const handleRunNow = async () => {
+    setRunning(true);
+    try {
+      const res = await supabase.functions.invoke('prospeccao-automatica-cron');
+      if (res.error) throw res.error;
+      const d = res.data as any;
+      toast.success(`SDR concluído: ${d.leads_abordados ?? 0} leads abordados`);
+      // Recarrega último log
+      supabase.from('prospeccao_log' as any).select('*')
+        .order('executado_em', { ascending: false }).limit(1).single()
+        .then(({ data }) => data && setLastLog(data as unknown as ProspeccaoLog));
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Erro ao executar prospecção');
+    }
+    setRunning(false);
+  };
+
+  const ativa = config?.ativa ?? false;
+
+  return (
+    <Card className={`border-2 transition-colors ${ativa ? 'border-green-500/40 bg-green-500/5' : 'border-border'}`}>
+      <CardContent className="pt-5 pb-4">
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-lg ${ativa ? 'bg-green-100 dark:bg-green-900/40' : 'bg-slate-100 dark:bg-slate-800'}`}>
+            <Bot className={`w-5 h-5 ${ativa ? 'text-green-600' : 'text-slate-400'}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold">SDR Automático</p>
+              <Badge variant={ativa ? 'default' : 'secondary'} className={`text-xs ${ativa ? 'bg-green-500 hover:bg-green-500' : ''}`}>
+                {ativa ? '● Ativo' : '○ Pausado'}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {config
+                ? `${config.leads_por_dia} leads/dia · ICP mín. ${config.icp_score_minimo}`
+                : 'Carregando configuração...'}
+              {lastLog && (
+                <span className="ml-2 text-muted-foreground/70">
+                  · Último: {new Date(lastLog.executado_em).toLocaleDateString('pt-BR')} —{' '}
+                  <span className="text-green-500">{lastLog.leads_abordados} enviados</span>
+                  {lastLog.leads_fora_icp > 0 && <span className="text-slate-400"> · {lastLog.leads_fora_icp} fora do ICP</span>}
+                  {lastLog.erros > 0 && <span className="text-red-400"> · {lastLog.erros} erros</span>}
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-xs gap-1"
+              onClick={handleRunNow}
+              disabled={running || toggling}
+            >
+              {running ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+              {running ? 'Rodando...' : 'Rodar agora'}
+            </Button>
+            <div className="flex items-center gap-2">
+              {toggling && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+              <Switch
+                checked={ativa}
+                onCheckedChange={handleToggle}
+                disabled={toggling || running}
+              />
+            </div>
+          </div>
+        </div>
+        {ativa && (
+          <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-3 gap-3 text-center">
+            <div>
+              <p className="text-xs text-muted-foreground">Hoje abordados</p>
+              <p className="text-lg font-bold text-green-500">{lastLog?.leads_abordados ?? '–'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Fora do ICP</p>
+              <p className="text-lg font-bold text-slate-400">{lastLog?.leads_fora_icp ?? '–'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Erros</p>
+              <p className="text-lg font-bold text-red-400">{lastLog?.erros ?? '–'}</p>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 // ──────────────────────────────────────────────
 // Helpers
@@ -248,6 +388,9 @@ export function ProspectionDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* SDR Automático */}
+      <SdrPanel />
+
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard

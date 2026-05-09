@@ -30,6 +30,11 @@ export interface GmbLead {
   website_issues: { critical: string[]; warnings: string[]; positives: string[]; score: number } | null;
   pipeline_lead_id: string | null;
   followup_at: string | null;
+  instagram_username: string | null;
+  instagram_found_via: string | null;
+  icp_score: number | null;
+  icp_qualificado: boolean | null;
+  auto_prospectado_em: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -38,6 +43,8 @@ export interface GmbAnalyzeResult {
   diagnosis: string;
   website_issues: { critical: string[]; warnings: string[]; positives: string[]; score: number } | null;
   messages: Array<{ part: number; message: string }>;
+  instagram_username: string | null;
+  instagram_found_via: string | null;
 }
 
 export async function analyzeGmbLead(
@@ -69,7 +76,7 @@ export function useGmbLeads() {
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data as GmbLead[];
+      return data as unknown as GmbLead[];
     },
   });
 }
@@ -85,7 +92,7 @@ export function useUpdateGmbLead() {
         .select()
         .single();
       if (error) throw error;
-      return data as GmbLead;
+      return data as unknown as GmbLead;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
     onError: () => toast.error('Erro ao atualizar lead'),

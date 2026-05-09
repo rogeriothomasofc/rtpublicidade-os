@@ -111,37 +111,48 @@ export function useCrossedLeads() {
   const usedGmb = new Set<string>();
   const usedIg = new Set<string>();
 
-  // Match por website
+  function pushMatch(ig: typeof igLeads[0], gmb: typeof gmbLeads[0]) {
+    usedGmb.add(gmb.id);
+    usedIg.add(ig.id);
+    const scores = calcHeatScore(ig, gmb);
+    const cadence = cadences.find(
+      c => c.instagram_prospect_id === ig.id || c.gmb_lead_id === gmb.id
+    );
+    crossed.push({
+      id: `${ig.id}_${gmb.id}`,
+      instagram_prospect: ig,
+      gmb_lead: gmb,
+      website: normalizeWebsite(ig.website || gmb.website),
+      lead_name: ig.full_name || gmb.nome_empresa,
+      phone: ig.whatsapp || gmb.telefone || gmb.whatsapp_jid,
+      email: ig.email,
+      cadence,
+      ...scores,
+    });
+  }
+
+  // Match 1: por website
   for (const ig of igLeads) {
     const igSite = normalizeWebsite(ig.website);
     if (!igSite) continue;
-
     const matchedGmb = gmbLeads.find(
       g => !usedGmb.has(g.id) && normalizeWebsite(g.website) === igSite
     );
-
-    if (matchedGmb) {
-      usedGmb.add(matchedGmb.id);
-      usedIg.add(ig.id);
-      const scores = calcHeatScore(ig, matchedGmb);
-      const cadence = cadences.find(
-        c => c.instagram_prospect_id === ig.id || c.gmb_lead_id === matchedGmb.id
-      );
-      crossed.push({
-        id: `${ig.id}_${matchedGmb.id}`,
-        instagram_prospect: ig,
-        gmb_lead: matchedGmb,
-        website: igSite,
-        lead_name: ig.full_name || matchedGmb.nome_empresa,
-        phone: ig.whatsapp || matchedGmb.telefone || matchedGmb.whatsapp_jid,
-        email: ig.email,
-        cadence,
-        ...scores,
-      });
-    }
+    if (matchedGmb) pushMatch(ig, matchedGmb);
   }
 
-  // Second pass: match por nome (para leads sem website em comum)
+  // Match 2: por instagram_username detectado automaticamente no site do GMB
+  for (const ig of igLeads) {
+    if (usedIg.has(ig.id)) continue;
+    const igUsername = ig.username?.toLowerCase();
+    if (!igUsername) continue;
+    const matchedGmb = gmbLeads.find(
+      g => !usedGmb.has(g.id) && g.instagram_username?.toLowerCase() === igUsername
+    );
+    if (matchedGmb) pushMatch(ig, matchedGmb);
+  }
+
+  // Match 3: por nome (para leads sem website ou username em comum)
   for (const ig of igLeads) {
     if (usedIg.has(ig.id)) continue;
     const igName = normalizeName(ig.full_name || ig.username);
@@ -238,7 +249,7 @@ export function useLeadCadences() {
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data as LeadCadence[];
+      return data as unknown as LeadCadence[];
     },
   });
 }
@@ -253,7 +264,7 @@ export function useCreateCadence() {
         .select()
         .single();
       if (error) throw error;
-      return data as LeadCadence;
+      return data as unknown as LeadCadence;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: CADENCE_KEY });
@@ -274,7 +285,7 @@ export function useUpdateCadence() {
         .select()
         .single();
       if (error) throw error;
-      return data as LeadCadence;
+      return data as unknown as LeadCadence;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: CADENCE_KEY }),
     onError: () => toast.error('Erro ao atualizar cadência'),
@@ -363,7 +374,7 @@ export async function markFirstContactInCadence(
     .single();
 
   if (!data) return;
-  const cadence = data as LeadCadence;
+  const cadence = data as unknown as LeadCadence;
 
   const steps = [...(cadence.cadence_steps || [])];
   const firstPendingIdx = steps.findIndex(s => s.status === 'pending');
