@@ -57,14 +57,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function randomInterval(minMin: number, maxMin: number): number {
-  const min = minMin * 60 * 1000;
-  const max = maxMin * 60 * 1000;
-  // Adiciona variação de ±20% para parecer mais humano
-  const base = Math.random() * (max - min) + min;
-  const jitter = base * 0.2 * (Math.random() - 0.5);
-  return Math.round(base + jitter);
-}
 
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, '');
@@ -249,18 +241,16 @@ serve(async (req) => {
 
     leadsProcessados = leads.length;
 
-    // 3. Processar cada lead com intervalo
+    // 3. Processar cada lead com intervalo curto entre envios
+    // Os intervalos de minutos são para o cron diário — dentro da execução
+    // usamos 3-5s para não sobrecarregar a Evolution API e parecer humano.
     for (let i = 0; i < leads.length; i++) {
       const lead = leads[i] as GmbLead;
 
-      // Intervalo entre leads (exceto o primeiro)
+      // Pequena pausa entre envios (exceto o primeiro)
       if (i > 0) {
-        const intervalo = randomInterval(
-          config.intervalo_min_minutos,
-          config.intervalo_max_minutos
-        );
-        console.log(`Aguardando ${Math.round(intervalo / 60000)} min antes do próximo lead...`);
-        await sleep(intervalo);
+        const pausaMs = 3000 + Math.random() * 2000; // 3-5 segundos
+        await sleep(pausaMs);
       }
 
       try {

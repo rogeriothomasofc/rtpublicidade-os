@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Users, TrendingUp, Percent, MapPin, MessageCircle, Filter, Camera, Bot, Play, CheckCircle2, XCircle, Clock, Loader2 } from 'lucide-react';
+import { Users, TrendingUp, Percent, MapPin, MessageCircle, Filter, Camera, Bot, Play, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -58,21 +58,20 @@ function SdrPanel() {
     setToggling(false);
   };
 
-  const handleRunNow = async () => {
+  const handleRunNow = () => {
     setRunning(true);
-    try {
-      const res = await supabase.functions.invoke('prospeccao-automatica-cron');
-      if (res.error) throw res.error;
-      const d = res.data as any;
-      toast.success(`SDR concluído: ${d.leads_abordados ?? 0} leads abordados`);
-      // Recarrega último log
+    toast.info('SDR iniciado — processando leads em background...');
+
+    // Fire-and-forget: não espera resposta (função roda por minutos)
+    supabase.functions.invoke('prospeccao-automatica-cron').catch(() => null);
+
+    // Aguarda 5s e recarrega o log para mostrar resultado parcial
+    setTimeout(() => {
+      setRunning(false);
       supabase.from('prospeccao_log' as any).select('*')
         .order('executado_em', { ascending: false }).limit(1).single()
         .then(({ data }) => data && setLastLog(data as unknown as ProspeccaoLog));
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Erro ao executar prospecção');
-    }
-    setRunning(false);
+    }, 5000);
   };
 
   const ativa = config?.ativa ?? false;
