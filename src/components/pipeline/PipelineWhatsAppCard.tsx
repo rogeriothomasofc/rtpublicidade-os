@@ -94,7 +94,12 @@ export function PipelineWhatsAppCard({ open, onOpenChange }: Props) {
     onOpenChange(false);
   };
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
+    try {
+      await supabase.functions.invoke('evolution-disconnect');
+    } catch {
+      // ignora erro da API — desconecta o banco de qualquer forma
+    }
     if (pipelineWa) disconnect.mutate(pipelineWa.id);
   };
 
@@ -122,7 +127,7 @@ export function PipelineWhatsAppCard({ open, onOpenChange }: Props) {
               </div>
               <p className="font-semibold text-green-600">WhatsApp Conectado!</p>
               <p className="text-sm text-muted-foreground text-center">
-                Instância <span className="font-mono">pipeline</span> ativa e pronta para envios.
+                WhatsApp ativo e pronto para envios via SDR.
               </p>
             </div>
           ) : status === 'open' ? (
