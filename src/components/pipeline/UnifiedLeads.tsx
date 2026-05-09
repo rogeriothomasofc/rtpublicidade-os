@@ -12,9 +12,7 @@ import { AddProspectForm } from '@/components/pipeline/InstagramProspecting';
 import { LeadDetailModal } from './LeadDetailModal';
 import { LeadCard } from './LeadCard';
 
-type SourceFilter = 'Todos' | 'Instagram' | 'Google Maps' | 'Unificado';
-
-// ─── Auto-analisar leads GMB novos em background ──────────────────────────────
+//─── Auto-analisar leads GMB novos em background ──────────────────────────────
 function useAutoAnalyzeGmbLeads(leads: CrossedLead[] | undefined) {
   const updateGmb = useUpdateGmbLead();
   const analyzingRef = useRef(false);
@@ -55,8 +53,7 @@ function useAutoAnalyzeGmbLeads(leads: CrossedLead[] | undefined) {
 
 // ─── Página unificada de Leads ─────────────────────────────────────────────────
 export function UnifiedLeads() {
-  const { data: leads, isLoading, matchedCount, igOnlyCount, gmbOnlyCount } = useCrossedLeads();
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('Todos');
+  const { data: leads, isLoading, matchedCount } = useCrossedLeads();
   const [search, setSearch] = useState('');
   const [selectedLead, setSelectedLead] = useState<CrossedLead | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -68,9 +65,6 @@ export function UnifiedLeads() {
     if (l.instagram_prospect?.pipeline_lead_id || l.gmb_lead?.pipeline_lead_id) return false;
     if (l.instagram_prospect && l.instagram_prospect.status !== 'Identificado') return false;
     if (l.gmb_lead && l.gmb_lead.status !== 'Novo') return false;
-    if (sourceFilter === 'Instagram' && !l.instagram_prospect) return false;
-    if (sourceFilter === 'Google Maps' && !l.gmb_lead) return false;
-    if (sourceFilter === 'Unificado' && !(l.instagram_prospect && l.gmb_lead)) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -84,12 +78,6 @@ export function UnifiedLeads() {
 
   const total = leads?.length ?? 0;
 
-  const sourceOptions = [
-    { key: 'Todos', label: 'Todos', count: total },
-    { key: 'Instagram', label: 'Instagram', count: igOnlyCount + matchedCount, color: 'bg-pink-500' },
-    { key: 'Google Maps', label: 'Google Maps', count: gmbOnlyCount + matchedCount, color: 'bg-blue-500' },
-    { key: 'Unificado', label: 'Unificados', count: matchedCount, color: 'bg-orange-500' },
-  ] as const;
 
   return (
     <div className="space-y-4">
@@ -106,18 +94,6 @@ export function UnifiedLeads() {
         <Button size="sm" className="gap-1.5" onClick={() => setShowAddDialog(true)}>
           <Plus className="w-4 h-4" /> Novo Diagnóstico Instagram
         </Button>
-      </div>
-
-      {/* Filtro por fonte */}
-      <div className="flex gap-2 flex-wrap">
-        {sourceOptions.map(s => (
-          <button key={s.key} onClick={() => setSourceFilter(s.key as SourceFilter)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${sourceFilter === s.key ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border text-muted-foreground hover:text-foreground'}`}>
-            {'color' in s && <span className={`w-2 h-2 rounded-full ${s.color}`} />}
-            {s.label}
-            {s.count > 0 && <span className="bg-black/10 dark:bg-white/20 rounded-full px-1">{s.count}</span>}
-          </button>
-        ))}
       </div>
 
       {/* Busca */}
