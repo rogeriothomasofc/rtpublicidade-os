@@ -59,7 +59,8 @@ function sleep(ms: number): Promise<void> {
 
 
 function normalizePhone(phone: string): string {
-  return phone.replace(/\D/g, '');
+  const digits = phone.replace(/\D/g, '');
+  return digits.startsWith('55') ? digits : `55${digits}`;
 }
 
 // ─── Análise do lead via IA ───────────────────────────────────────────────────
@@ -128,7 +129,10 @@ Retorne exatamente este JSON:
     signal: AbortSignal.timeout(30000),
   });
 
-  if (!res.ok) throw new Error(`Anthropic error: ${res.status}`);
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error(`Anthropic error: ${res.status}: ${errBody.slice(0, 400)}`);
+  }
   const data = await res.json();
   const raw = data.content?.[0]?.text ?? "{}";
 
@@ -288,22 +292,25 @@ serve(async (req) => {
 
         leadsQualificados++;
 
-        // Salvar diagnóstico e mensagens
         const msg1 = analysis.messages.find(m => m.part === 1 && m.channel === 'whatsapp');
+
+        // Salvar diagnóstico e mensagens (ainda como 'Novo' até o envio confirmar)
         await supabase.from('gmb_leads').update({
           icp_score: analysis.icp_score,
           icp_qualificado: true,
           ai_diagnosis: analysis.diagnosis,
           ai_messages: analysis.messages,
           website_issues: analysis.website_issues,
-          status: 'Contatado',
           mensagem_enviada: msg1?.message ?? null,
-          auto_prospectado_em: new Date().toISOString(),
         }).eq('id', lead.id);
 
-        // Enviar mensagem 1 via WhatsApp
+        // Enviar mensagem 1 via WhatsApp e só então atualizar status
         if (msg1?.message) {
           await sendWhatsApp(EVOLUTION_URL, EVOLUTION_KEY, EVOLUTION_INSTANCE, phone, msg1.message);
+          await supabase.from('gmb_leads').update({
+            status: 'Contatado',
+            auto_prospectado_em: new Date().toISOString(),
+          }).eq('id', lead.id);
           leadsAbordados++;
           log.push({
             lead_id: lead.id,
