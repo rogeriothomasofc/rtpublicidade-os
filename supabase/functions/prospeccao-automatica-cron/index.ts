@@ -307,10 +307,29 @@ serve(async (req) => {
         // Enviar mensagem 1 via WhatsApp e só então atualizar status
         if (msg1?.message) {
           await sendWhatsApp(EVOLUTION_URL, EVOLUTION_KEY, EVOLUTION_INSTANCE, phone, msg1.message);
+
+          // Criar card no pipeline de vendas
+          const { data: pl } = await supabase
+            .from('sales_pipeline')
+            .insert({
+              lead_name: lead.nome_empresa,
+              company: lead.nome_empresa,
+              phone: phone,
+              stage: 'ATENDIMENTO_INICIA',
+              deal_value: 0,
+              probability: 10,
+              source: 'gmb',
+              notes: lead.endereco || null,
+            })
+            .select('id')
+            .single();
+
           await supabase.from('gmb_leads').update({
             status: 'Contatado',
             auto_prospectado_em: new Date().toISOString(),
+            pipeline_lead_id: pl?.id ?? null,
           }).eq('id', lead.id);
+
           leadsAbordados++;
           log.push({
             lead_id: lead.id,
@@ -319,7 +338,7 @@ serve(async (req) => {
             icp_score: analysis.icp_score,
             canal: 'whatsapp',
           });
-          console.log(`✓ WhatsApp enviado para ${lead.nome_empresa} (${phone})`);
+          console.log(`✓ WhatsApp enviado para ${lead.nome_empresa} (${phone}) → pipeline ${pl?.id}`);
         }
 
       } catch (err) {
