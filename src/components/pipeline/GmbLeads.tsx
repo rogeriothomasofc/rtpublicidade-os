@@ -9,7 +9,7 @@ import {
   MapPin, Phone, Globe, Star, Trash2, MessageCircle,
   Search, Loader2, Users, Copy, Building2, Briefcase,
   ExternalLink, ChevronRight, Sparkles, AlertTriangle,
-  XCircle, CheckCircle, Kanban,
+  XCircle, CheckCircle, Kanban, Bot,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -166,6 +166,16 @@ function LeadModal({ lead: initialLead, onClose }: { lead: GmbLead; onClose: () 
           <Badge className={`${GMB_STATUS_COLORS[lead.status]} text-white text-xs`}>
             {lead.status}
           </Badge>
+          {lead.auto_prospectado_em && (
+            <span className="flex items-center gap-1 text-xs bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 rounded-full px-2.5 py-1 font-medium">
+              <Bot className="w-3 h-3" /> SDR · {new Date(lead.auto_prospectado_em).toLocaleDateString('pt-BR')}
+            </span>
+          )}
+          {lead.icp_score !== null && lead.icp_score !== undefined && (
+            <span className={`text-xs rounded-full px-2.5 py-1 font-medium flex items-center gap-1 ${lead.icp_score >= 70 ? 'bg-green-500/15 text-green-600' : lead.icp_score >= 50 ? 'bg-yellow-500/15 text-yellow-600' : 'bg-red-500/15 text-red-600'}`}>
+              ICP {lead.icp_score}
+            </span>
+          )}
           {lead.pipeline_lead_id && (
             <span className="flex items-center gap-1 text-xs bg-violet-500/15 text-violet-600 dark:text-violet-400 rounded-full px-2.5 py-1 font-medium">
               <Kanban className="w-3 h-3" /> No Pipeline
@@ -412,6 +422,16 @@ function GmbLeadCard({ lead, onClick }: { lead: GmbLead; onClick: () => void }) 
             </span>
           )}
           {phone && <span className="flex items-center gap-1 text-green-600"><Phone className="w-3 h-3" />WhatsApp</span>}
+          {lead.auto_prospectado_em && (
+            <span className="flex items-center gap-1 text-emerald-600 font-medium">
+              <Bot className="w-3 h-3" />SDR
+            </span>
+          )}
+          {lead.icp_score !== null && lead.icp_score !== undefined && (
+            <span className={`font-medium ${lead.icp_qualificado ? 'text-green-600' : 'text-red-500'}`}>
+              ICP {lead.icp_score}
+            </span>
+          )}
           {lead.pipeline_lead_id && <span className="flex items-center gap-1 text-violet-600"><Kanban className="w-3 h-3" />Pipeline</span>}
         </div>
       </CardHeader>
