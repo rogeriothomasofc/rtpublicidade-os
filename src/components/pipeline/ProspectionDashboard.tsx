@@ -92,7 +92,7 @@ function SdrPanel() {
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               {config
-                ? `${config.leads_por_dia} leads/dia · ICP mín. ${config.icp_score_minimo}`
+                ? `${config.leads_por_dia} leads/lote · 4×/dia · ICP mín. ${config.icp_score_minimo}`
                 : 'Carregando configuração...'}
               {lastLog && (
                 <span className="ml-2 text-muted-foreground/70">
