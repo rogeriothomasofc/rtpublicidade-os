@@ -2,10 +2,27 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+export interface ContractClauses {
+  objeto?: string;
+  pagamento?: string;
+  obrigacoes_contratante?: string;
+  obrigacoes_contratada?: string;
+  valor_anuncios?: string;
+  estrategia?: string;
+  nao_exclusividade?: string;
+  confidencialidade?: string;
+  duracao?: string;
+  reajuste?: string;
+  rescisao?: string;
+  disposicoes?: string;
+  foro?: string;
+}
+
 export interface AgencySettings {
   id: string;
   name: string;
   logo_url: string | null;
+  contract_logo_url: string | null;
   cnpj: string | null;
   monthly_revenue_goal: number;
   monthly_profit_goal: number;
@@ -17,6 +34,7 @@ export interface AgencySettings {
   zip_code: string | null;
   phone: string | null;
   email: string | null;
+  contract_clauses: ContractClauses | null;
   created_at: string;
   updated_at: string;
 }

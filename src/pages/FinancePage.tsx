@@ -3,9 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { useDebounce } from '@/hooks/useDebounce';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useFinance, useCreateFinance, useUpdateFinance, useDeleteFinance } from '@/hooks/useFinance';
-import { useAsaasReceiveInCash } from '@/hooks/useAsaas';
 import { useClients } from '@/hooks/useClients';
-import { useBanks } from '@/hooks/useBanks';
+
 import { Finance, FinanceStatus, FinanceRecurrence, FinanceType } from '@/types/database';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Plus, Search, CheckCircle, TrendingDown, TrendingUp, Pencil, Trash2, RefreshCw, MoreHorizontal, Wallet, CalendarDays, LayoutList, Building2, Tags, Receipt } from 'lucide-react';
+import { Search, CheckCircle, TrendingDown, TrendingUp, Pencil, Trash2, RefreshCw, MoreHorizontal, Wallet, CalendarDays, LayoutList, Building2, Tags, Receipt } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
@@ -32,8 +31,7 @@ const FINANCE_PERIOD_PILLS: { label: string; value: PeriodPreset }[] = [
 import { FinanceFormDialog } from '@/components/finance/FinanceFormDialog';
 import { FinanceBanksTab } from '@/components/finance/FinanceBanksTab';
 import { FinanceCategoriesTab } from '@/components/finance/FinanceCategoriesTab';
-import { AsaasChargeActions, AsaasSyncButton } from '@/components/finance/AsaasChargeActions';
-import { useDashboardFilters, PeriodPreset, DateRange } from '@/hooks/useDashboardFilters';
+import { useDashboardFilters, PeriodPreset } from '@/hooks/useDashboardFilters';
 import { cn } from '@/lib/utils';
 import { isWithinInterval, format, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -71,11 +69,9 @@ export default function FinancePage() {
   };
   const { data: finance, isLoading } = useFinance();
   const { data: clients } = useClients();
-  const { data: banks } = useBanks();
   const createFinance = useCreateFinance();
   const updateFinance = useUpdateFinance();
   const deleteFinance = useDeleteFinance();
-  const receiveInCash = useAsaasReceiveInCash();
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
@@ -87,7 +83,7 @@ export default function FinancePage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [presetType, setPresetType] = useState<FinanceType | null>(null);
 
-  const { preset, dateRange, setPreset, setDateRange } = useDashboardFilters();
+  const { preset, dateRange, setPreset } = useDashboardFilters();
 
   // Metrics
   const now = new Date();
@@ -180,19 +176,10 @@ export default function FinancePage() {
 
   const markAsPaid = async (item: Finance) => {
     await updateFinance.mutateAsync({ id: item.id, status: 'Pago', paid_date: new Date().toISOString().split('T')[0] });
-    if (item.asaas_charge_id) {
-      receiveInCash.mutate(item.id);
-    }
   };
 
   const handleDelete = () => {
     if (deleteId) { deleteFinance.mutate(deleteId); setDeleteId(null); }
-  };
-
-  const getMonthPeriod = (dueDateStr: string) => {
-    const [y, m] = dueDateStr.split('-').map(Number);
-    const d = new Date(y, m - 1, 1);
-    return format(d, "MMMM 'de' yyyy", { locale: ptBR });
   };
 
   return (
@@ -225,7 +212,6 @@ export default function FinancePage() {
             <TrendingDown className="w-4 h-4" />
             Saída
           </Button>
-          <AsaasSyncButton />
         </div>
 
         <FinanceFormDialog
@@ -407,10 +393,7 @@ export default function FinancePage() {
                         </TableCell>
                         <TableCell className="text-sm">{formatDate(item.due_date)}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge className={statusColors[item.status]}>{item.status}</Badge>
-                            <AsaasChargeActions finance={item} />
-                          </div>
+                          <Badge className={statusColors[item.status]}>{item.status}</Badge>
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>

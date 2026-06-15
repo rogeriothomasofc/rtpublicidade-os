@@ -113,13 +113,6 @@ export function IntegrationsTab() {
 
   const [logsDialog, setLogsDialog] = useState<string | null>(null);
 
-  // Asaas
-  const [asaasDialog, setAsaasDialog] = useState(false);
-  const [showAsaasKey, setShowAsaasKey] = useState(false);
-  const [asaasForm, setAsaasForm] = useState({ apiKey: '', environment: 'sandbox' as 'sandbox' | 'production' });
-  const [savingAsaas, setSavingAsaas] = useState(false);
-  const [testingAsaas, setTestingAsaas] = useState(false);
-
   // Meta Ads
   const [metaDialog, setMetaDialog] = useState(false);
   const [metaForm, setMetaForm] = useState({ accessToken: '' });
@@ -134,7 +127,6 @@ export function IntegrationsTab() {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const webhookIntegration = integrations?.find((i) => i.provider === 'webhook');
-  const asaasIntegration = integrations?.find((i) => i.provider === 'asaas');
   const metaIntegration = integrations?.find((i) => i.provider === 'meta_ads');
   const waIntegration = integrations?.find((i) => i.provider === 'evolution_api');
 
@@ -280,79 +272,6 @@ export function IntegrationsTab() {
     }
   };
 
-  // Asaas handlers
-  const handleOpenAsaasDialog = () => {
-    const config = asaasIntegration?.config as Record<string, unknown> | null;
-    setAsaasForm({
-      apiKey: (config?.api_key as string) || '',
-      environment: ((config?.environment as string) || 'sandbox') as 'sandbox' | 'production',
-    });
-    setShowAsaasKey(false); // sempre começar mascarado
-    setAsaasDialog(true);
-  };
-
-  const handleTestAsaas = async () => {
-    // Use saved key from DB if form field is empty or looks like autofill (doesn't start with $aact)
-    const savedKey = ((asaasIntegration?.config as Record<string, unknown> | null)?.api_key as string) || '';
-    const keyToTest = (asaasForm.apiKey.trim().startsWith('$aact') ? asaasForm.apiKey.trim() : savedKey);
-    if (!keyToTest) {
-      toast({ title: 'Informe a API Key', variant: 'destructive' });
-      return;
-    }
-    setTestingAsaas(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('asaas-test', {
-        body: { api_key: keyToTest, environment: asaasForm.environment },
-      });
-      if (error || data?.error) {
-        toast({ title: 'Falha na conexão', description: data?.error || error?.message, variant: 'destructive' });
-      } else {
-        toast({ title: 'Conexão bem-sucedida!', description: `Saldo: R$ ${Number(data?.balance ?? 0).toFixed(2)}` });
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro desconhecido';
-      toast({ title: 'Erro de conexão', description: message, variant: 'destructive' });
-    } finally {
-      setTestingAsaas(false);
-    }
-  };
-
-  const handleSaveAsaas = () => {
-    if (!asaasForm.apiKey.trim()) {
-      toast({ title: 'Informe a API Key', variant: 'destructive' });
-      return;
-    }
-    setSavingAsaas(true);
-    upsert.mutate(
-      {
-        provider: 'asaas',
-        name: 'Asaas',
-        status: 'connected',
-        config: {
-          api_key: asaasForm.apiKey.trim(),
-          environment: asaasForm.environment,
-          billing_type: 'PIX',
-          days_before_due: 3,
-          connected_at: new Date().toISOString(),
-        } as any,
-      },
-      {
-        onSuccess: () => {
-          setAsaasDialog(false);
-          setSavingAsaas(false);
-          toast({ title: 'Asaas configurado!', description: 'API Key salva com sucesso.' });
-        },
-        onError: () => setSavingAsaas(false),
-      }
-    );
-  };
-
-  const handleDisconnectAsaas = () => {
-    if (asaasIntegration) {
-      disconnect.mutate(asaasIntegration.id);
-    }
-  };
-
   // Meta Ads handlers
   const handleOpenMetaDialog = () => {
     const config = metaIntegration?.config as Record<string, unknown> | null;
@@ -425,7 +344,6 @@ export function IntegrationsTab() {
   }
 
   const isWebhookConnected = webhookIntegration?.status === 'connected';
-  const isAsaasConnected = asaasIntegration?.status === 'connected';
   const isMetaConnected = metaIntegration?.status === 'connected';
 
   return (
@@ -443,46 +361,6 @@ export function IntegrationsTab() {
           <div className="grid gap-4 md:grid-cols-2 w-full">
             {/* Email SMTP */}
             <SmtpSettingsCard />
-
-            {/* Asaas */}
-            <Card className="w-full overflow-hidden">
-              <CardContent className="p-4 sm:p-5">
-                <div className="flex items-start gap-3 sm:gap-4">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
-                    <KeyRound className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold">Asaas</span>
-                        <Badge variant={isAsaasConnected ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
-                          {isAsaasConnected ? 'Conectado' : 'Disponível'}
-                        </Badge>
-                      </div>
-                      {isAsaasConnected && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handleOpenAsaasDialog}>
-                          <Settings className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Cobranças automáticas via Pix para seus clientes
-                    </p>
-                    {isAsaasConnected && (
-                      <p className="text-xs text-muted-foreground">
-                        Ambiente: {((asaasIntegration?.config as any)?.environment === 'production') ? 'Produção' : 'Sandbox'}
-                      </p>
-                    )}
-                    {!isAsaasConnected && (
-                      <Button size="sm" className="gap-1.5" onClick={handleOpenAsaasDialog}>
-                        Conectar
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Meta Ads */}
             <Card className="w-full overflow-hidden">
@@ -730,124 +608,6 @@ export function IntegrationsTab() {
               Testar
             </Button>
             <Button onClick={handleSaveWebhook} disabled={upsert.isPending}>
-              Salvar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Asaas Dialog */}
-      <Dialog open={asaasDialog} onOpenChange={setAsaasDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Configurar Asaas</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Ambiente</Label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="asaas-env"
-                    checked={asaasForm.environment === 'sandbox'}
-                    onChange={() => setAsaasForm((f) => ({ ...f, environment: 'sandbox' }))}
-                    className="accent-primary"
-                  />
-                  <span className="text-sm">Sandbox</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="asaas-env"
-                    checked={asaasForm.environment === 'production'}
-                    onChange={() => setAsaasForm((f) => ({ ...f, environment: 'production' }))}
-                    className="accent-primary"
-                  />
-                  <span className="text-sm">Produção</span>
-                </label>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>API Key</Label>
-              <div className="flex gap-2">
-                <Input
-                  type={showAsaasKey ? 'text' : 'password'}
-                  value={asaasForm.apiKey}
-                  onChange={(e) => setAsaasForm((f) => ({ ...f, apiKey: e.target.value }))}
-                  placeholder="$aact_..."
-                  className="flex-1"
-                  autoComplete="new-password"
-                  name="asaas-api-key-field"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setShowAsaasKey(v => !v)}
-                  tabIndex={-1}
-                >
-                  {showAsaasKey ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                  )}
-                </Button>
-              </div>
-              {(() => {
-                const saved = ((asaasIntegration?.config as Record<string, unknown> | null)?.api_key as string) || '';
-                if (saved && saved.length > 10) {
-                  return (
-                    <p className="text-xs text-success/80">
-                      ✓ Key salva: {saved.slice(0, 12)}...{saved.slice(-4)}
-                    </p>
-                  );
-                }
-                return null;
-              })()}
-              <p className="text-xs text-muted-foreground">
-                Encontre sua API Key em{' '}
-                <a href="https://www.asaas.com/customerApiKeys/index" target="_blank" rel="noopener noreferrer" className="underline text-primary">
-                  Asaas &gt; Integrações &gt; API
-                </a>
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label>URL do Webhook (configure no Asaas)</Label>
-              <div className="flex gap-2">
-                <Input
-                  readOnly
-                  value={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/asaas-webhook`}
-                  className="text-xs font-mono bg-muted"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/asaas-webhook`);
-                  }}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Configure este URL em Asaas &gt; Configurações &gt; Webhooks para receber atualizações automáticas de pagamento.
-              </p>
-            </div>
-          </div>
-          <DialogFooter className="gap-2 flex-wrap">
-            {isAsaasConnected && (
-              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive mr-auto h-9 w-9" title="Desconectar" onClick={() => { handleDisconnectAsaas(); setAsaasDialog(false); }}>
-                <Unplug className="w-4 h-4" />
-              </Button>
-            )}
-            <Button variant="outline" onClick={handleTestAsaas} disabled={testingAsaas}>
-              {testingAsaas ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Wifi className="w-4 h-4 mr-1" />}
-              Testar conexão
-            </Button>
-            <Button onClick={handleSaveAsaas} disabled={savingAsaas || upsert.isPending}>
-              {savingAsaas ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
               Salvar
             </Button>
           </DialogFooter>

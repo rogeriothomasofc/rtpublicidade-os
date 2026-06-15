@@ -17,7 +17,7 @@ const ClientPortalPage = lazy(() => import("./pages/ClientPortalPage"));
 const Dashboard = lazy(() => import("./pages/Index"));
 const ClientsPage = lazy(() => import("./pages/ClientsPage"));
 const ClientDetailPage = lazy(() => import("./pages/ClientDetailPage"));
-const ProjectsPage = lazy(() => import("./pages/ProjectsPage"));
+
 const TasksPage = lazy(() => import("./pages/TasksPage"));
 const FinancePage = lazy(() => import("./pages/FinancePage"));
 const PipelinePage = lazy(() => import("./pages/PipelinePage"));
@@ -27,11 +27,11 @@ const ContractsPage = lazy(() => import("./pages/ContractsPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const PlanningPage = lazy(() => import("./pages/PlanningPage"));
 const PlanningDetailPage = lazy(() => import("./pages/PlanningDetailPage"));
-const ContentPage = lazy(() => import("./pages/ContentPage"));
+
 const ClientSelfUpdatePage = lazy(() => import("./pages/ClientSelfUpdatePage"));
 const CampaignsPage = lazy(() => import("./pages/CampaignsPage"));
 const CampaignDetailPage = lazy(() => import("./pages/CampaignDetailPage"));
-const AutomationsPage = lazy(() => import("./pages/AutomationsPage"));
+
 
 const queryClient = new QueryClient();
 
@@ -95,7 +95,7 @@ const App = () => (
               <Route path="/" element={<ProtectedRoute><P><Dashboard /></P></ProtectedRoute>} />
               <Route path="/clients" element={<ProtectedRoute><G slug="clients"><P><ClientsPage /></P></G></ProtectedRoute>} />
               <Route path="/clients/:id" element={<ProtectedRoute><G slug="clients"><P><ClientDetailPage /></P></G></ProtectedRoute>} />
-              <Route path="/projects" element={<ProtectedRoute><G slug="projects"><P><ProjectsPage /></P></G></ProtectedRoute>} />
+
               <Route path="/tasks" element={<ProtectedRoute><G slug="tasks"><P><TasksPage /></P></G></ProtectedRoute>} />
               <Route path="/finance" element={<ProtectedRoute><G slug="finance"><P><FinancePage /></P></G></ProtectedRoute>} />
               <Route path="/pipeline" element={<ProtectedRoute><G slug="pipeline"><P><PipelinePage /></P></G></ProtectedRoute>} />
@@ -104,10 +104,10 @@ const App = () => (
               <Route path="/contracts" element={<ProtectedRoute><G slug="contracts"><P><ContractsPage /></P></G></ProtectedRoute>} />
               <Route path="/planning" element={<ProtectedRoute><G slug="planning"><P><PlanningPage /></P></G></ProtectedRoute>} />
               <Route path="/planning/:id" element={<ProtectedRoute><G slug="planning"><P><PlanningDetailPage /></P></G></ProtectedRoute>} />
-              <Route path="/content" element={<ProtectedRoute><G slug="content"><P><ContentPage /></P></G></ProtectedRoute>} />
+
               <Route path="/campaigns" element={<ProtectedRoute><G slug="campaigns"><P><CampaignsPage /></P></G></ProtectedRoute>} />
               <Route path="/campaigns/:id" element={<ProtectedRoute><G slug="campaigns"><P><CampaignDetailPage /></P></G></ProtectedRoute>} />
-              <Route path="/automations" element={<ProtectedRoute><G slug="automations"><P><AutomationsPage /></P></G></ProtectedRoute>} />
+
               <Route path="/settings" element={<ProtectedRoute><G slug="settings"><P><SettingsPage /></P></G></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

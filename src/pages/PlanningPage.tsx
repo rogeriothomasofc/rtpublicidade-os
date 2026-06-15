@@ -6,25 +6,31 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, Search, MoreHorizontal, Eye, Copy, Trash2, CheckSquare, Pencil } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Plus, Search, MoreHorizontal, Eye, Copy, Trash2, CheckSquare, Pencil, LayoutList, TrendingUp, DollarSign, Activity } from 'lucide-react';
 import { usePlanningCampaigns, useDeletePlanningCampaign, useDuplicatePlanningCampaign, useUpdatePlanningCampaign, type PlanningCampaign, type PlanningStatus } from '@/hooks/usePlanning';
 import { NewPlanningDialog } from '@/components/planning/NewPlanningDialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { MetricCard } from '@/components/dashboard/MetricCard';
+import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const STATUS_OPTIONS: PlanningStatus[] = ['Rascunho', 'Em Aprovação', 'Pronto para Subir', 'Publicado', 'Em Teste', 'Escalando', 'Pausado'];
+const PLATFORMS = ['Meta', 'Google', 'TikTok', 'LinkedIn', 'Other'];
 
 const statusColors: Record<PlanningStatus, string> = {
-  'Rascunho': 'bg-muted text-muted-foreground',
-  'Em Aprovação': 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
-  'Pronto para Subir': 'bg-blue-500/15 text-blue-700 dark:text-blue-400',
-  'Publicado': 'bg-green-500/15 text-green-700 dark:text-green-400',
-  'Em Teste': 'bg-purple-500/15 text-purple-700 dark:text-purple-400',
-  'Escalando': 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
-  'Pausado': 'bg-red-500/15 text-red-700 dark:text-red-400',
+  'Rascunho':          'bg-muted text-muted-foreground',
+  'Em Aprovação':      'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  'Pronto para Subir': 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+  'Publicado':         'bg-green-500/15 text-green-700 dark:text-green-400',
+  'Em Teste':          'bg-purple-500/15 text-purple-700 dark:text-purple-400',
+  'Escalando':         'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
+  'Pausado':           'bg-red-500/15 text-red-600 dark:text-red-400',
 };
 
 export default function PlanningPage() {
@@ -33,31 +39,36 @@ export default function PlanningPage() {
   const deleteMutation = useDeletePlanningCampaign();
   const duplicateMutation = useDuplicatePlanningCampaign();
   const updateMutation = useUpdatePlanningCampaign();
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [editCampaign, setEditCampaign] = useState<PlanningCampaign | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const filtered = campaigns.filter(c => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.client?.name?.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === 'all' || c.status === statusFilter;
-    return matchSearch && matchStatus;
+    const matchPlatform = platformFilter === 'all' || c.platform === platformFilter;
+    return matchSearch && matchStatus && matchPlatform;
   });
 
-  const handleCreate = () => {
-    setShowNewDialog(true);
-  };
+  // Metrics
+  const activeCount = campaigns.filter(c => c.status === 'Publicado' || c.status === 'Escalando' || c.status === 'Em Teste').length;
+  const totalBudget = campaigns.reduce((s, c) => s + (c.total_budget || 0), 0);
+  const readyToLaunch = campaigns.filter(c => c.status === 'Pronto para Subir').length;
 
-  const handleConvertToTask = async (campaign: typeof campaigns[0], e: React.MouseEvent) => {
+  const handleConvertToTask = async (campaign: PlanningCampaign, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      const dueDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+      const dueDate = tomorrow.toISOString().split('T')[0];
       const { error } = await supabase.from('tasks').insert({
         title: `Subir campanha: ${campaign.name}`,
-        description: `Planejamento de campanha "${campaign.name}" na plataforma ${campaign.platform}.${campaign.objective ? ` Objetivo: ${campaign.objective}.` : ''}`,
+        description: `Planejamento "${campaign.name}" na plataforma ${campaign.platform}.${campaign.objective ? ` Objetivo: ${campaign.objective}.` : ''}`,
         client_id: campaign.client_id,
         type: 'Campanha' as const,
         priority: 'Média' as const,
@@ -65,114 +76,173 @@ export default function PlanningPage() {
         due_date: dueDate,
       });
       if (error) throw error;
-      toast.success('Tarefa criada com sucesso!');
+      toast.success('Tarefa criada!');
     } catch {
       toast.error('Erro ao criar tarefa');
     }
   };
 
+  const fmtDate = (d: string | null) => {
+    if (!d) return '—';
+    try { return format(new Date(d + 'T12:00:00'), 'dd/MM/yy', { locale: ptBR }); } catch { return d; }
+  };
+
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div className="flex justify-end">
-          <Button onClick={handleCreate} className="w-full sm:w-auto">
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Planejamento
-          </Button>
+      <div className="space-y-6 animate-fade-in">
+
+        {/* Metrics */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <MetricCard title="Total" value={campaigns.length} icon={LayoutList} variant="default" />
+          <MetricCard title="Ao Vivo" value={activeCount} icon={Activity} variant="primary"
+            description="Publicado + Escalando + Em Teste" />
+          <MetricCard title="Budget Total" value={formatCurrency(totalBudget)} icon={DollarSign} variant="success" />
+          <MetricCard title="Prontos p/ Subir" value={readyToLaunch} icon={TrendingUp} variant="default"
+            description={readyToLaunch > 0 ? 'Aguardando publicação' : 'Nenhum no momento'} />
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="relative flex-1 sm:max-w-sm">
+        {/* Filters + Button */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Buscar por nome ou cliente..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+            <Input placeholder="Buscar por nome ou cliente..." value={search}
+              onChange={e => setSearch(e.target.value)} className="pl-9" />
           </div>
+          <Select value={platformFilter} onValueChange={setPlatformFilter}>
+            <SelectTrigger className="w-full sm:w-[140px]"><SelectValue placeholder="Plataforma" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              {PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os status</SelectItem>
               {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button className="gap-2 shrink-0" onClick={() => { setEditCampaign(null); setShowNewDialog(true); }}>
+            <Plus className="w-4 h-4" />Novo Planejamento
+          </Button>
         </div>
 
-        <div className="border rounded-lg overflow-x-auto">
-          <Table className="min-w-[640px]">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Plataforma</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Budget</TableHead>
-                <TableHead>Atualizado</TableHead>
-                <TableHead className="w-12" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum planejamento encontrado</TableCell></TableRow>
-              ) : (
-                filtered.map(c => (
-                  <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/planning/${c.id}`)}>
-                    <TableCell className="font-medium">{c.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{c.client?.name || '-'}</TableCell>
-                    <TableCell>{c.platform}</TableCell>
-                    <TableCell onClick={e => e.stopPropagation()}>
-                      <Select value={c.status} onValueChange={(val) => updateMutation.mutate({ id: c.id, status: val as PlanningStatus })}>
-                        <SelectTrigger className="h-7 w-auto border-none shadow-none px-0 hover:bg-muted/50">
-                          <Badge className={statusColors[c.status]} variant="secondary">{c.status}</Badge>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {STATUS_OPTIONS.map(s => (
-                            <SelectItem key={s} value={s}>
-                              <Badge className={statusColors[s]} variant="secondary">{s}</Badge>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>R$ {(c.total_budget || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {format(new Date(c.updated_at), "dd/MM/yy", { locale: ptBR })}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={e => { e.stopPropagation(); navigate(`/planning/${c.id}`); }}>
-                            <Eye className="w-4 h-4 mr-2" /> Ver detalhes
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={e => { e.stopPropagation(); setEditCampaign(c); setShowNewDialog(true); }}>
-                            <Pencil className="w-4 h-4 mr-2" /> Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={e => { e.stopPropagation(); duplicateMutation.mutate(c.id); }}>
-                            <Copy className="w-4 h-4 mr-2" /> Duplicar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={e => handleConvertToTask(c, e)}>
-                            <CheckSquare className="w-4 h-4 mr-2" /> Criar tarefa
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={e => { e.stopPropagation(); deleteMutation.mutate(c.id); }}>
-                            <Trash2 className="w-4 h-4 mr-2" /> Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+        {/* Table */}
+        <Card className="border-border/50">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table className="min-w-[720px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Plataforma</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Período</TableHead>
+                    <TableHead>Budget</TableHead>
+                    <TableHead>Atualizado</TableHead>
+                    <TableHead className="w-12" />
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                  ) : filtered.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="p-0">
+                        <EmptyState
+                          icon={LayoutList}
+                          title={search || statusFilter !== 'all' || platformFilter !== 'all' ? 'Nenhum planejamento encontrado' : 'Nenhum planejamento criado'}
+                          description={search || statusFilter !== 'all' || platformFilter !== 'all'
+                            ? 'Tente ajustar os filtros.' : 'Crie o primeiro planejamento de campanha.'}
+                          actionLabel="+ Novo Planejamento"
+                          onAction={() => setShowNewDialog(true)}
+                          filtered={!!(search || statusFilter !== 'all' || platformFilter !== 'all')}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ) : filtered.map(c => (
+                    <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => navigate(`/planning/${c.id}`)}>
+                      <TableCell className="font-medium">{c.name}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{c.client?.name || '—'}</TableCell>
+                      <TableCell className="text-sm">{c.platform}</TableCell>
+                      <TableCell onClick={e => e.stopPropagation()}>
+                        <Select value={c.status} onValueChange={val => updateMutation.mutate({ id: c.id, status: val as PlanningStatus })}>
+                          <SelectTrigger className="h-7 w-auto border-none shadow-none px-0 hover:bg-muted/50 focus:ring-0">
+                            <Badge className={statusColors[c.status]} variant="secondary">{c.status}</Badge>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {STATUS_OPTIONS.map(s => (
+                              <SelectItem key={s} value={s}>
+                                <Badge className={statusColors[s]} variant="secondary">{s}</Badge>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {c.start_date ? `${fmtDate(c.start_date)} → ${fmtDate(c.end_date)}` : '—'}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {c.total_budget > 0 ? formatCurrency(c.total_budget) : '—'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {format(new Date(c.updated_at), 'dd/MM/yy', { locale: ptBR })}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={e => { e.stopPropagation(); navigate(`/planning/${c.id}`); }}>
+                              <Eye className="w-4 h-4 mr-2" />Ver detalhes
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={e => { e.stopPropagation(); setEditCampaign(c); setShowNewDialog(true); }}>
+                              <Pencil className="w-4 h-4 mr-2" />Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={e => { e.stopPropagation(); duplicateMutation.mutate(c.id); }}>
+                              <Copy className="w-4 h-4 mr-2" />Duplicar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={e => handleConvertToTask(c, e)}>
+                              <CheckSquare className="w-4 h-4 mr-2" />Criar tarefa
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive" onClick={e => { e.stopPropagation(); setDeleteId(c.id); }}>
+                              <Trash2 className="w-4 h-4 mr-2" />Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
 
         <NewPlanningDialog open={showNewDialog} onOpenChange={(v) => { setShowNewDialog(v); if (!v) setEditCampaign(null); }} editCampaign={editCampaign} />
+
+        <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir planejamento?</AlertDialogTitle>
+              <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => { if (deleteId) { deleteMutation.mutate(deleteId); setDeleteId(null); } }}>
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
       </div>
     </MainLayout>
   );

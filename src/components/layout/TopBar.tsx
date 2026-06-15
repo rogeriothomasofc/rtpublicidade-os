@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+
 import { useLocation } from 'react-router-dom';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -7,13 +7,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Menu, Settings, Search, Sparkles, Sun, Moon, ChevronDown } from 'lucide-react';
+import { LogOut, Menu, Settings, Sun, Moon, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useTheme } from 'next-themes';
-import { GlobalSearch } from '@/components/search/GlobalSearch';
-import { AIChat } from '@/components/ai/AIChat';
 
 const sidebarEvent = new EventTarget();
 export const toggleMobileSidebar = () => sidebarEvent.dispatchEvent(new Event('toggle'));
@@ -30,7 +27,7 @@ const routeTitles = [
   { path: '/team',       title: 'Equipe' },
   { path: '/pipeline',   title: 'Pipeline' },
   { path: '/proposals',  title: 'Propostas' },
-  { path: '/projects',   title: 'Projetos' },
+
   { path: '/tasks',      title: 'Tarefas' },
   { path: '/planning',   title: 'Planejamentos' },
   { path: '/settings',   title: 'Configurações' },
@@ -50,21 +47,7 @@ export function TopBar() {
   const location = useLocation();
   const isMobile = useIsMobile();
   const { resolvedTheme, setTheme } = useTheme();
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [aiOpen, setAiOpen] = useState(false);
-
   const pageTitle = getPageTitle(location.pathname);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setSearchOpen(prev => !prev);
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, []);
 
   const { data: profile } = useQuery({
     queryKey: ['profile-topbar', user?.id],
@@ -109,36 +92,6 @@ export function TopBar() {
 
         {/* Right */}
         <div className="flex items-center gap-2 md:gap-2.5">
-
-          {/* Busca */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => setSearchOpen(true)}
-              >
-                <Search className="h-7 w-7" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Buscar <kbd className="ml-1 text-[10px] font-mono">⌘K</kbd></TooltipContent>
-          </Tooltip>
-
-          {/* Assistente IA */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={aiOpen ? 'default' : 'ghost'}
-                size="icon"
-                className={`h-7 w-7 transition-all ${aiOpen ? 'bg-primary text-primary-foreground' : ''}`}
-                onClick={() => setAiOpen(prev => !prev)}
-              >
-                <Sparkles className="h-7 w-7" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Assistente IA</TooltipContent>
-          </Tooltip>
 
           {/* Toggle de tema — ícone único */}
           <Button
@@ -189,8 +142,6 @@ export function TopBar() {
         </div>
       </div>
 
-      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
-      <AIChat open={aiOpen} onClose={() => setAiOpen(false)} />
     </>
   );
 }

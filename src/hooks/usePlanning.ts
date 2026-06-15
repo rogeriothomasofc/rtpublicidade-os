@@ -321,3 +321,99 @@ export const usePlanningForecasts = (pid: string) => useSubTable<PlanningForecas
 export const useCreateForecast = () => useCreateSub('planning_forecasts', 'planning-forecasts');
 export const useUpdateForecast = () => useUpdateSub('planning_forecasts', 'planning-forecasts');
 export const useDeleteForecast = () => useDeleteSub('planning_forecasts', 'planning-forecasts');
+
+// ── Ad Sets ──────────────────────────────────────────────────────────────────
+
+export interface PlanningAdSet {
+  id: string;
+  planning_id: string;
+  name: string;
+  audience_type: string;
+  audience_description: string | null;
+  estimated_size: string | null;
+  budget_type: string;
+  budget: number;
+  placements: string[];
+  status: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlanningAd {
+  id: string;
+  planning_id: string;
+  ad_set_id: string;
+  name: string;
+  format: string;
+  headline: string | null;
+  copy_text: string | null;
+  cta: string | null;
+  file_url: string | null;
+  status: string;
+  version: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const usePlanningAdSets = (pid: string) => useSubTable<PlanningAdSet>('planning_ad_sets', pid, 'planning-ad-sets');
+export const useCreateAdSet = () => useCreateSub('planning_ad_sets', 'planning-ad-sets');
+export const useUpdateAdSet = () => useUpdateSub('planning_ad_sets', 'planning-ad-sets');
+export const useDeleteAdSet = () => useDeleteSub('planning_ad_sets', 'planning-ad-sets');
+
+// Ads — linked to ad_set, but also indexed by planning_id
+export function usePlanningAds(planningId: string) {
+  return useQuery({
+    queryKey: ['planning-ads', planningId],
+    queryFn: async () => {
+      const { data, error } = await sb
+        .from('planning_ads')
+        .select('*')
+        .eq('planning_id', planningId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return data as PlanningAd[];
+    },
+    enabled: !!planningId,
+  });
+}
+
+export function useCreateAd() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: any) => {
+      const { data: result, error } = await sb.from('planning_ads').insert(data).select().single();
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: (_, vars: any) => { qc.invalidateQueries({ queryKey: ['planning-ads', vars.planning_id] }); },
+    onError: () => toast.error('Erro ao salvar'),
+  });
+}
+
+export function useUpdateAd() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, planning_id, ...data }: any) => {
+      const { error } = await sb.from('planning_ads').update(data).eq('id', id);
+      if (error) throw error;
+      return planning_id;
+    },
+    onSuccess: (planningId: string) => { qc.invalidateQueries({ queryKey: ['planning-ads', planningId] }); },
+    onError: () => toast.error('Erro ao atualizar'),
+  });
+}
+
+export function useDeleteAd() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, planning_id }: { id: string; planning_id: string }) => {
+      const { error } = await sb.from('planning_ads').delete().eq('id', id);
+      if (error) throw error;
+      return planning_id;
+    },
+    onSuccess: (planningId: string) => { qc.invalidateQueries({ queryKey: ['planning-ads', planningId] }); },
+    onError: () => toast.error('Erro ao excluir'),
+  });
+}

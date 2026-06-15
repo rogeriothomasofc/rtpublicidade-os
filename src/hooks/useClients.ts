@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Client, ClientStatus } from '@/types/database';
+import { Client } from '@/types/database';
 import { toast } from 'sonner';
 
 export function useClients() {
@@ -34,20 +34,9 @@ export function useCreateClient() {
       if (error) throw error;
       return data;
     },
-    onSuccess: async (created) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       toast.success('Cliente criado com sucesso!');
-      // Criar cliente no Asaas em background (sem bloquear)
-      try {
-        const { data: integration } = await supabase
-          .from('integrations').select('status').eq('provider', 'asaas').single();
-        if (integration?.status === 'connected') {
-          await supabase.functions.invoke('asaas-api', {
-            body: { action: 'ensure_customer', payload: { client_id: created.id } },
-          });
-          queryClient.invalidateQueries({ queryKey: ['clients'] });
-        }
-      } catch { /* silencioso — não impede o fluxo */ }
     },
     onError: (error) => {
       toast.error('Erro ao criar cliente: ' + error.message);
@@ -70,19 +59,9 @@ export function useUpdateClient() {
       if (error) throw error;
       return data;
     },
-    onSuccess: async (updated) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       toast.success('Cliente atualizado!');
-      // Sincronizar dados atualizados no Asaas em background
-      try {
-        const { data: integration } = await supabase
-          .from('integrations').select('status').eq('provider', 'asaas').single();
-        if (integration?.status === 'connected') {
-          await supabase.functions.invoke('asaas-api', {
-            body: { action: 'ensure_customer', payload: { client_id: updated.id } },
-          });
-        }
-      } catch { /* silencioso */ }
     },
     onError: (error) => {
       toast.error('Erro ao atualizar cliente: ' + error.message);

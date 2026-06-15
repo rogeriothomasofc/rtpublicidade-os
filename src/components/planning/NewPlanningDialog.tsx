@@ -10,6 +10,20 @@ import { useCreatePlanningCampaign, useUpdatePlanningCampaign, type PlanningCamp
 import { useNavigate } from 'react-router-dom';
 
 const PLATFORMS = ['Meta', 'Google', 'TikTok', 'LinkedIn', 'Other'];
+
+const META_OBJECTIVES = [
+  'Reconhecimento de marca',
+  'Alcance',
+  'Tráfego',
+  'Engajamento',
+  'Instalações de app',
+  'Visualizações de vídeo',
+  'Geração de cadastros (Leads)',
+  'Mensagens',
+  'Conversões',
+  'Vendas do catálogo',
+  'Tráfego para o estabelecimento',
+];
 const STATUS_OPTIONS: PlanningStatus[] = ['Rascunho', 'Em Aprovação', 'Pronto para Subir', 'Publicado', 'Em Teste', 'Escalando', 'Pausado'];
 
 interface Props {
@@ -128,7 +142,16 @@ export function NewPlanningDialog({ open, onOpenChange, editCampaign }: Props) {
 
           <div>
             <Label>Objetivo</Label>
-            <Textarea value={form.objective} onChange={e => setForm({ ...form, objective: e.target.value })} placeholder="Ex: Gerar leads qualificados para o segmento X" rows={2} />
+            {form.platform === 'Meta' ? (
+              <Select value={form.objective} onValueChange={v => setForm({ ...form, objective: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecionar objetivo..." /></SelectTrigger>
+                <SelectContent>
+                  {META_OBJECTIVES.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Textarea value={form.objective} onChange={e => setForm({ ...form, objective: e.target.value })} placeholder="Ex: Gerar leads qualificados para o segmento X" rows={2} />
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">

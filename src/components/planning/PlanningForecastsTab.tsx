@@ -48,9 +48,35 @@ export function PlanningForecastsTab({ planningId }: { planningId: string }) {
   const fmt = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
   const fmtCur = (n: number) => `R$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
+  const SCENARIO_PRESETS = [
+    { label: 'Conservador', color: 'border-red-500/30 bg-red-500/5 text-red-600' },
+    { label: 'Realista', color: 'border-amber-500/30 bg-amber-500/5 text-amber-600' },
+    { label: 'Otimista', color: 'border-green-500/30 bg-green-500/5 text-green-600' },
+  ];
+
+  const scenarioColor = (label: string) => {
+    const l = label.toLowerCase();
+    if (l.includes('conserv') || l.includes('pessim')) return 'bg-red-500/10 text-red-600';
+    if (l.includes('realist') || l.includes('médio') || l.includes('medio')) return 'bg-amber-500/10 text-amber-600';
+    if (l.includes('otimist') || l.includes('melhor')) return 'bg-green-500/10 text-green-600';
+    return 'bg-muted text-muted-foreground';
+  };
+
   const formDialog = (
     <div className="space-y-4">
-      <div><Label>Cenário</Label><Input value={form.label} onChange={e => setForm({ ...form, label: e.target.value })} placeholder="Ex: Cenário Otimista" /></div>
+      <div className="space-y-1.5">
+        <Label>Cenário</Label>
+        <div className="flex gap-2 mb-2">
+          {SCENARIO_PRESETS.map(p => (
+            <button key={p.label} type="button"
+              onClick={() => setForm({ ...form, label: p.label })}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${form.label === p.label ? 'ring-2 ring-primary ' : ''}${p.color}`}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <Input value={form.label} onChange={e => setForm({ ...form, label: e.target.value })} placeholder="Ou digite um nome personalizado..." />
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div><Label>Investimento (R$)</Label><Input type="number" value={form.spend} onChange={e => setForm({ ...form, spend: Number(e.target.value) })} /></div>
         <div><Label>Impressões</Label><Input type="number" value={form.impressions} onChange={e => setForm({ ...form, impressions: Number(e.target.value) })} /></div>
@@ -117,7 +143,11 @@ export function PlanningForecastsTab({ planningId }: { planningId: string }) {
             <TableBody>
               {forecasts.map(f => (
                 <TableRow key={f.id}>
-                  <TableCell className="font-medium">{f.label}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${scenarioColor(f.label)}`}>
+                      {f.label}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-right">{fmtCur(f.spend)}</TableCell>
                   <TableCell className="text-right">{fmt(f.impressions)}</TableCell>
                   <TableCell className="text-right">{fmt(f.clicks)}</TableCell>

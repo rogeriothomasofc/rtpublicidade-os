@@ -28,7 +28,9 @@ export function AgencyTab() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
+  const [uploadingContract, setUploadingContract] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const contractLogoRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = true;
   const loadingRole = false;
@@ -108,6 +110,40 @@ export function AgencyTab() {
     setForm((f) => ({ ...f, logo_url: '' }));
   };
 
+  const handleContractLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !settings) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Por favor, selecione uma imagem', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      toast({ title: 'Imagem deve ter no máximo 3MB', variant: 'destructive' });
+      return;
+    }
+    setUploadingContract(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `agency/contract-logo-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('avatars').upload(path, file);
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+      update.mutate({ id: settings.id, contract_logo_url: publicUrl } as any);
+      toast({ title: 'Logo do contrato atualizada!' });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+      toast({ title: 'Erro ao enviar', description: msg, variant: 'destructive' });
+    } finally {
+      setUploadingContract(false);
+      if (contractLogoRef.current) contractLogoRef.current.value = '';
+    }
+  };
+
+  const handleRemoveContractLogo = () => {
+    if (!settings) return;
+    update.mutate({ id: settings.id, contract_logo_url: null } as any);
+  };
+
   const handleCNPJChange = (value: string) => {
     setForm((f) => ({ ...f, cnpj: formatCNPJ(value) }));
   };
@@ -155,46 +191,64 @@ export function AgencyTab() {
         <CardDescription>Identidade e informações cadastrais</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        {/* Logo upload */}
-        <div className="flex items-center gap-4">
-          <Avatar className="w-16 h-16 ring-2 ring-border">
-            <AvatarImage src={form.logo_url} />
-            <AvatarFallback className="text-lg bg-primary/10 text-primary">{initials}</AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col gap-1.5">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleLogoUpload}
-              className="hidden"
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-            >
-              {uploading ? (
-                <><Loader2 className="w-4 h-4 animate-spin mr-1.5" />Enviando...</>
-              ) : (
-                <><Upload className="w-4 h-4 mr-1.5" />{form.logo_url ? 'Alterar' : 'Enviar'} logo</>
-              )}
-            </Button>
-            {form.logo_url && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleRemoveLogo}
-                className="text-destructive hover:text-destructive h-7 px-2"
-              >
-                <X className="w-3.5 h-3.5 mr-1" />
-                Remover
-              </Button>
-            )}
+        {/* Logos */}
+        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+        <input ref={contractLogoRef} type="file" accept="image/*" onChange={handleContractLogoUpload} className="hidden" />
+
+        <div className="grid grid-cols-2 gap-4">
+          {/* Logo do Sistema */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Logo do Sistema</Label>
+            <div className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-muted/20">
+              <Avatar className="w-12 h-12 ring-2 ring-border shrink-0">
+                <AvatarImage src={form.logo_url} />
+                <AvatarFallback className="text-sm bg-primary/10 text-primary">{initials}</AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col gap-1">
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                  onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                  {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                  {form.logo_url ? 'Alterar' : 'Enviar'}
+                </Button>
+                {form.logo_url && (
+                  <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive gap-1 px-2"
+                    onClick={handleRemoveLogo}>
+                    <X className="w-3 h-3" />Remover
+                  </Button>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">Sidebar e perfil</p>
+          </div>
+
+          {/* Logo do Contrato */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Logo do Contrato</Label>
+            <div className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-muted/20">
+              <div className="w-12 h-12 rounded-full ring-2 ring-border shrink-0 flex items-center justify-center bg-muted overflow-hidden">
+                {settings?.contract_logo_url
+                  ? <img src={settings.contract_logo_url} alt="Logo contrato" className="w-full h-full object-contain p-1" />
+                  : <span className="text-xs text-muted-foreground font-medium">PDF</span>
+                }
+              </div>
+              <div className="flex flex-col gap-1">
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                  onClick={() => contractLogoRef.current?.click()} disabled={uploadingContract}>
+                  {uploadingContract ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                  {settings?.contract_logo_url ? 'Alterar' : 'Enviar'}
+                </Button>
+                {settings?.contract_logo_url && (
+                  <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive gap-1 px-2"
+                    onClick={handleRemoveContractLogo}>
+                    <X className="w-3 h-3" />Remover
+                  </Button>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">Cabeçalho do PDF</p>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground -mt-2">JPG, PNG ou GIF. Máximo 3MB.</p>
+        <p className="text-xs text-muted-foreground -mt-1">JPG, PNG ou GIF. Máximo 3MB.</p>
 
         <Separator />
 

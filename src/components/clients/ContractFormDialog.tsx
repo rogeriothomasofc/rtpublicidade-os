@@ -23,6 +23,7 @@ export function ContractFormDialog({ open, onOpenChange, clientId }: ContractFor
 
   const [formData, setFormData] = useState({
     value: 0,
+    media_budget: 0,
     start_date: new Date().toISOString().split('T')[0],
     duration_months: 12,
     description: '',
@@ -33,6 +34,7 @@ export function ContractFormDialog({ open, onOpenChange, clientId }: ContractFor
     if (open) {
       setFormData({
         value: 0,
+        media_budget: 0,
         start_date: new Date().toISOString().split('T')[0],
         duration_months: 12,
         description: '',
@@ -56,14 +58,25 @@ export function ContractFormDialog({ open, onOpenChange, clientId }: ContractFor
           <DialogTitle>Novo Contrato</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div>
-            <Label>Valor *</Label>
-            <Input
-              type="number"
-              value={formData.value || ''}
-              onChange={(e) => setFormData({ ...formData, value: Number(e.target.value) })}
-              placeholder="0.00"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Fee Mensal *</Label>
+              <Input
+                type="number"
+                value={formData.value || ''}
+                onChange={(e) => setFormData({ ...formData, value: Number(e.target.value) })}
+                placeholder="0,00"
+              />
+            </div>
+            <div>
+              <Label>Verba de Mídia</Label>
+              <Input
+                type="number"
+                value={formData.media_budget || ''}
+                onChange={(e) => setFormData({ ...formData, media_budget: Number(e.target.value) })}
+                placeholder="0,00"
+              />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -101,9 +114,9 @@ export function ContractFormDialog({ open, onOpenChange, clientId }: ContractFor
               placeholder="Descrição opcional"
             />
           </div>
-          <Button 
-            onClick={handleSubmit} 
-            className="w-full" 
+          <Button
+            onClick={handleSubmit}
+            className="w-full"
             disabled={createContract.isPending || formData.value <= 0}
           >
             {createContract.isPending ? 'Criando...' : 'Criar Contrato'}

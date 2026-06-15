@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plug, User, Building2, Target, Megaphone } from 'lucide-react';
+import { Plug, User, Building2, Target, Megaphone, FileText } from 'lucide-react';
 import { IntegrationsTab } from '@/components/settings/IntegrationsTab';
 import { ProfileTab } from '@/components/settings/ProfileTab';
 import { AgencyTab } from '@/components/settings/AgencyTab';
 import { MonthlyGoalsTab } from '@/components/settings/MonthlyGoalsTab';
 import { AnnouncementsTab } from '@/components/settings/AnnouncementsTab';
+import { ContractTab } from '@/components/settings/ContractTab';
 
 export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -46,6 +47,10 @@ export default function SettingsPage() {
                 <Megaphone className="w-4 h-4" />
                 Avisos
               </TabsTrigger>
+              <TabsTrigger value="contract" className="gap-1.5 shrink-0">
+                <FileText className="w-4 h-4" />
+                Contrato
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -63,6 +68,9 @@ export default function SettingsPage() {
           </TabsContent>
           <TabsContent value="announcements">
             <AnnouncementsTab />
+          </TabsContent>
+          <TabsContent value="contract">
+            <ContractTab />
           </TabsContent>
         </Tabs>
       </div>

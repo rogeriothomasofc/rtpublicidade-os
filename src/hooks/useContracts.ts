@@ -8,11 +8,13 @@ export interface Contract {
   id: string;
   client_id: string;
   value: number;
+  media_budget?: number | null;
   start_date: string;
   end_date?: string | null;
   status: ContractStatus;
   description?: string | null;
   duration_months?: number | null;
+  pdf_url?: string | null;
   created_at: string;
   updated_at: string;
 }
